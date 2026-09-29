@@ -1,13 +1,27 @@
 /* A single Supabase session for staff and the athlete portal. */
 'use strict';
 
-const APOLLO_AUTH = { user: null, access: null };
+const APOLLO_AUTH = { user: null, access: null, googleRequired: false };
+
+function apolloGoogleSession(session) {
+  try {
+    const payload = session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(atob(payload));
+    return Array.isArray(claims.amr) && claims.amr.some(item => item.method === 'oauth');
+  } catch (_) { return false; }
+}
 
 async function apolloLoadAccess() {
   const client = financeDbClient();
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  if (sessionError) throw sessionError;
+  APOLLO_AUTH.user = null;
+  APOLLO_AUTH.access = null;
+  APOLLO_AUTH.googleRequired = !!sessionData.session && !apolloGoogleSession(sessionData.session);
+  if (!sessionData.session || APOLLO_AUTH.googleRequired) return null;
   const { data: userData, error: userError } = await client.auth.getUser();
   if (userError) throw userError;
-  if (!userData.user) { APOLLO_AUTH.user = null; APOLLO_AUTH.access = null; return null; }
+  if (!userData.user) return null;
   const { data: access, error: accessError } = await client.rpc('v2_my_access');
   if (accessError) throw accessError;
   APOLLO_AUTH.user = userData.user;

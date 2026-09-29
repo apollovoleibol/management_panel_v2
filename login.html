@@ -7,6 +7,7 @@
 <link rel="icon" href="assets/favicon-32.png">
 <link rel="stylesheet" href="styles.css?v=19">
 <link rel="stylesheet" href="atleta.css?v=19">
+<style>#logoutBtn[hidden]{display:none}</style>
 </head>
 <body>
 <div class="login">
@@ -26,25 +27,16 @@
     <div class="login-card" id="card">
       <div class="eyebrow">Acesso Apollo</div>
       <h2>Entrar</h2>
-      <p class="muted small">Use o e-mail cadastrado pela secretaria ou administração.</p>
+      <p class="muted small">Entre com a conta Google vinculada ao seu cadastro ativo na Apollo.</p>
       <button class="btn gbtn" id="googleBtn" type="button">Continuar com Google</button>
-      <div class="or">ou</div>
-      <form id="pwForm">
-        <div class="field"><label for="em">E-mail</label><input class="input" id="em" type="email" autocomplete="username" required></div>
-        <div class="field"><label for="pw">Senha</label><input class="input" id="pw" type="password" autocomplete="current-password" required></div>
-        <button class="btn primary gbtn" type="submit">Entrar</button>
-      </form>
-      <div class="small" style="display:flex;justify-content:space-between;margin-top:12px">
-        <button class="btn ghost sm" type="button" id="firstBtn">Primeiro acesso</button>
-        <button class="btn ghost sm" type="button" id="forgotBtn">Esqueci a senha</button>
-      </div>
+      <button class="btn ghost sm" type="button" id="logoutBtn" hidden>Trocar de conta</button>
       <p id="loginMessage" class="muted small" role="status" aria-live="polite"></p>
     </div>
   </section>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="js/finance-db.js?v=19"></script>
-<script src="js/auth.js?v=19"></script>
-<script src="js/login.js?v=19"></script>
+<script src="js/finance-db.js?v=20"></script>
+<script src="js/auth.js?v=20"></script>
+<script src="js/login.js?v=20"></script>
 </body>
 </html>
