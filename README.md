@@ -1,6 +1,6 @@
 # Painel de Gestão v2 — implantação em andamento
 
-Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login e parte das operações já foram conectados ao Supabase, mas a implantação ainda não está pronta para uso em produção. As migrações 012, 013 e 015 já foram aplicadas; os controles restantes de acesso e privacidade ainda precisam de validação no projeto compartilhado com a v1. Consulte [o estado da implantação](docs/IMPLEMENTACAO_REAL.md) antes de publicar.
+Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login e parte das operações já foram conectados ao Supabase, mas a implantação ainda não está pronta para uso em produção. As migrações 012, 013, 014 e 015 já foram aplicadas; os controles restantes de acesso e privacidade ainda precisam de validação no projeto compartilhado com a v1. Consulte [o estado da implantação](docs/IMPLEMENTACAO_REAL.md) antes de publicar.
 
 **Como abrir:** use `login.html` com uma conta Supabase autorizada. Para abrir direto numa página após o login, use a âncora: `index.html#bookings`, `#athletes`, `#teams`, `#packages`, `#feeder`, `#payments`, `#finance` ou `#settings`.
 
