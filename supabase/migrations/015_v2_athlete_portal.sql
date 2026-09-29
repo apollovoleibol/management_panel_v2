@@ -8,6 +8,7 @@ begin;
 create table if not exists private.v2_legacy_customers (
   user_id uuid primary key references auth.users(id) on delete cascade
 );
+alter table private.v2_legacy_customers enable row level security;
 insert into private.v2_legacy_customers(user_id)
 select p.id from public.profiles p where p.role = 'customer'
 on conflict (user_id) do nothing;
@@ -21,6 +22,14 @@ $$;
 revoke all on private.v2_legacy_customers from public, anon, authenticated;
 revoke all on function private.v2_is_legacy_customer() from public, anon;
 grant execute on function private.v2_is_legacy_customer() to authenticated;
+create or replace function public.v2_can_use_legacy_panel()
+returns boolean language sql stable security definer set search_path = '' as $$
+  select public.is_admin() or private.v2_is_legacy_customer()
+    or exists (select 1 from public.profiles p where p.id = (select auth.uid())
+      and p.role = 'coach' and p.is_active is true);
+$$;
+revoke all on function public.v2_can_use_legacy_panel() from public, anon;
+grant execute on function public.v2_can_use_legacy_panel() to authenticated;
 drop policy if exists athletes_customer_select on public.athletes;
 drop policy if exists athletes_customer_insert on public.athletes;
 drop policy if exists athletes_customer_update on public.athletes;
@@ -33,6 +42,14 @@ create policy athletes_customer_update on public.athletes for update to authenti
   using (private.v2_is_legacy_customer()) with check (private.v2_is_legacy_customer());
 create policy athletes_customer_delete on public.athletes for delete to authenticated
   using (private.v2_is_legacy_customer());
+
+-- The existing reception account also used the v1 tryout list. Restore its
+-- previous read scope without giving future guardian accounts the same access.
+drop policy if exists v2_tryouts_select on public.tryouts;
+create policy v2_tryouts_select on public.tryouts for select to authenticated using (
+  public.is_admin() or private.v2_is_legacy_customer()
+  or (private.v2_can('bookings','view') and private.v2_tryout_team_scope(team_id,target_team))
+);
 
 create or replace function private.v2_portal_link(p_athlete uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
@@ -117,7 +134,7 @@ create unique index if not exists v2_tecnofit_one_athlete_per_client
 create index if not exists v2_tecnofit_client_idx on public.v2_tecnofit_athlete_links(client_id);
 alter table public.v2_tecnofit_athlete_links enable row level security;
 create policy v2_tecnofit_links_read on public.v2_tecnofit_athlete_links for select to authenticated using (
-  private.v2_can('finance','view') or private.v2_portal_link(athlete_id)
+  public.finance_has_access() or private.v2_portal_link(athlete_id)
 );
 create or replace function public.v2_my_invoices()
 returns jsonb language sql stable security definer set search_path = '' as $$

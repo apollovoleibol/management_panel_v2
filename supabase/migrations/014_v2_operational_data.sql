@@ -1,4 +1,4 @@
--- Apply after 013_v2_access_foundation.sql. Additive policies for the existing
+-- Apply after 015_v2_athlete_portal.sql. Additive policies for the existing
 -- Manager App tables plus new data that the old panel never stored.
 begin;
 alter table public.training_locations add column if not exists venue text;
@@ -35,14 +35,17 @@ drop policy if exists v2_tryouts_select on public.tryouts;
 drop policy if exists "authenticated users can update tryouts" on public.tryouts;
 create policy v2_tryouts_select on public.tryouts for select to authenticated using (
   public.is_admin()
+  or private.v2_is_legacy_customer()
   or (private.v2_can('bookings','view') and private.v2_tryout_team_scope(team_id,target_team))
 );
 create policy v2_staff_tryouts_insert on public.tryouts for insert to authenticated
   with check (private.v2_can('bookings','edit') and private.v2_team_scope(team_id));
 create policy v2_staff_tryouts_update on public.tryouts for update to authenticated
-  using ((private.v2_can('bookings','edit') and private.v2_tryout_team_scope(team_id,target_team)) or
+  using (private.v2_is_legacy_customer() or
+    (private.v2_can('bookings','edit') and private.v2_tryout_team_scope(team_id,target_team)) or
     (private.v2_role() = 'coach' and private.v2_tryout_team_scope(team_id,target_team)))
-  with check ((private.v2_can('bookings','edit') and private.v2_tryout_team_scope(team_id,target_team)) or
+  with check (private.v2_is_legacy_customer() or
+    (private.v2_can('bookings','edit') and private.v2_tryout_team_scope(team_id,target_team)) or
     (private.v2_role() = 'coach' and private.v2_tryout_team_scope(team_id,target_team)));
 create policy v2_staff_tryouts_delete on public.tryouts for delete to authenticated
   using (private.v2_can('bookings','edit') and private.v2_tryout_team_scope(team_id,target_team));
