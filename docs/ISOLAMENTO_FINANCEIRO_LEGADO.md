@@ -1,6 +1,6 @@
 # Isolamento dos campos financeiros legados
 
-Estado: proposta técnica; nenhuma etapa de movimentação de dados foi executada.
+Estado: a migração preparatória [018](../supabase/migrations/018_private_legacy_payment_fields.sql) está escrita, mas **não foi aplicada**. Nenhuma movimentação de dados ocorreu.
 
 ## Evidência no projeto compartilhado
 
@@ -23,3 +23,7 @@ Estado: proposta técnica; nenhuma etapa de movimentação de dados foi executad
 - Se uma operação da v1 ou do Manager App depender de um campo ainda não adaptado, não limpar esse campo.
 - Não publicar a área do atleta enquanto uma conta `customer` nova puder herdar as políticas amplas da v1; a migração 015 restringe essas políticas, mas ainda precisa de teste com conta real.
 - O código da v1 também aceita hoje qualquer perfil ativo `customer` no login. Foi preparada uma alteração numa branch isolada do repositório `management_panel` para consultar `v2_can_use_legacy_panel()`. Ela depende da migração 015 e não deve ser publicada antes dessa função existir.
+
+## Preparação 018
+
+A migração 018 cria `v2_athlete_payment_settings` e `v2_team_payment_plans` com acesso de leitura e edição condicionado à permissão da página Pacotes; técnicos e responsáveis não recebem leitura. Gatilhos mantêm a cópia privada sincronizada com escritas nos campos legados enquanto a v1 e o Manager App ainda os utilizam. A migração mantém os valores antigos visíveis e, por isso, **não conclui o isolamento**. Depois de aplicá-la, comparar todas as linhas dos dois lados, adaptar os clientes e só então preparar o corte que elimina os valores das colunas públicas.
