@@ -8,7 +8,7 @@ Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login 
 
 ## Login único e Área do atleta
 
-- `login.html`: a mesma tela para todos, com Google ou e-mail e senha. Depois da autenticação:
+- `login.html`: a mesma tela para todos, com login Google. A sessão deve ter sido criada por OAuth e a autorização vem da função `v2_my_access()` no Supabase. Depois da autenticação:
   - perfil de equipe → Painel de Gestão;
   - atleta ativo, ou responsável por atleta ativo → Área do atleta;
   - quem tem os dois acessos escolhe para onde ir;
