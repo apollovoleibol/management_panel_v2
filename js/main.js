@@ -172,7 +172,7 @@ document.addEventListener('click', async e => {
     }
     case 'pay-mark': {
       const c = coachOf(id), s = coachSummary(id, S.pay.month);
-      if (!(await confirmBox({ title: 'Registrar pagamento?', text: `${esc(c.name)} · ${monthLabel(S.pay.month)}<br><b>${money(s.total)}</b> via PIX (${esc(c.pix)}). Uma saída “Folha técnica” será lançada no Financeiro.`, ok: 'Registrar pagamento' }))) return;
+      if (!(await confirmBox({ title: 'Confirmar pagamento realizado?', text: `Confirme que a transferência ao técnico já foi feita fora deste painel.<br>${esc(c.name)} · ${monthLabel(S.pay.month)}<br><b>${money(s.total)}</b>${c.pix ? ` · PIX ${esc(c.pix)}` : ''}. Uma saída “Folha técnica” será lançada no Financeiro.`, ok: 'Marcar como pago' }))) return;
       const { error } = await financeDbClient().rpc('v2_record_coach_payout', { p_coach: id, p_month: `${S.pay.month}-01` });
       if (error) return toast(error.message, true);
       closeDialog(); await liveReload(); return toast('Pagamento registrado e lançado no Financeiro.');

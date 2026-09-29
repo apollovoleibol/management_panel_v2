@@ -85,10 +85,9 @@ create policy v2_finance_manual_read on public.v2_finance_manual for select to a
   using (private.v2_can('finance','view'));
 create policy v2_finance_manual_insert on public.v2_finance_manual for insert to authenticated
   with check (private.v2_can('finance','edit') and created_by = (select auth.uid()));
-create policy v2_finance_manual_delete on public.v2_finance_manual for delete to authenticated
-  using (private.v2_can('finance','edit'));
 revoke all on public.v2_finance_manual from anon, authenticated;
-grant select, insert, delete on public.v2_finance_manual to authenticated;
+-- Corrections use a new reversing entry; financial history is append-only.
+grant select, insert on public.v2_finance_manual to authenticated;
 
 create table if not exists public.v2_coach_rates (
   coach_id uuid primary key references public.profiles(id),
@@ -121,18 +120,54 @@ create table if not exists public.v2_coach_payouts (
 alter table public.v2_coach_rates enable row level security;
 alter table public.v2_coach_items enable row level security;
 alter table public.v2_coach_payouts enable row level security;
+
+-- Snapshot the amount when an item is approved. Later rate changes must never
+-- rewrite the value of an approved month or its financial ledger entry.
+create or replace function public.v2_guard_coach_item()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare v_hourly integer; v_daily integer;
+begin
+  if tg_op = 'UPDATE' then
+    if old.status = 'approved' then
+      raise exception 'Approved items are immutable';
+    end if;
+  end if;
+  select r.hourly_cents, r.daily_cents into v_hourly, v_daily
+    from public.v2_coach_rates r where r.coach_id = new.coach_id for update;
+  if exists (select 1 from public.v2_coach_payouts p where p.coach_id = new.coach_id
+    and p.month = date_trunc('month', new.item_date)::date) then
+    raise exception 'This coach month is already paid';
+  end if;
+  if new.status = 'approved' then
+    if v_hourly is null then raise exception 'Set the coach rate before approval'; end if;
+    new.amount_cents := case new.kind
+      when 'competition' then v_daily
+      when 'training' then round(new.hours * v_hourly)::integer
+      else coalesce(new.amount_cents, round(new.hours * v_hourly)::integer)
+    end;
+  end if;
+  return new;
+end;
+$$;
+create trigger v2_guard_coach_item before insert or update on public.v2_coach_items
+  for each row execute function public.v2_guard_coach_item();
 create policy v2_coach_rates_read on public.v2_coach_rates for select to authenticated
   using (private.v2_can('payments','view'));
-create policy v2_coach_rates_write on public.v2_coach_rates for all to authenticated
+create policy v2_coach_rates_insert on public.v2_coach_rates for insert to authenticated
+  with check (private.v2_can('payments','edit'));
+create policy v2_coach_rates_update on public.v2_coach_rates for update to authenticated
   using (private.v2_can('payments','edit')) with check (private.v2_can('payments','edit'));
 create policy v2_coach_items_read on public.v2_coach_items for select to authenticated
   using (private.v2_can('payments','view'));
-create policy v2_coach_items_write on public.v2_coach_items for all to authenticated
-  using (private.v2_can('payments','edit')) with check (private.v2_can('payments','edit'));
+create policy v2_coach_items_insert on public.v2_coach_items for insert to authenticated
+  with check (private.v2_can('payments','edit') and created_by = (select auth.uid()));
+create policy v2_coach_items_update on public.v2_coach_items for update to authenticated
+  using (private.v2_can('payments','edit'))
+  with check (private.v2_can('payments','edit'));
 create policy v2_coach_payouts_read on public.v2_coach_payouts for select to authenticated
   using (private.v2_can('payments','view'));
 revoke all on public.v2_coach_rates, public.v2_coach_items, public.v2_coach_payouts from anon, authenticated;
-grant select, insert, update, delete on public.v2_coach_rates, public.v2_coach_items to authenticated;
+grant select, insert, update on public.v2_coach_rates, public.v2_coach_items to authenticated;
 -- A payout is created only by v2_record_coach_payout, which records the ledger
 -- entry in the same transaction. Direct browser writes would allow forged paid
 -- status without a matching financial movement.
@@ -156,13 +191,10 @@ begin
              where p.coach_id = p_coach and p.month = p_month) then
     raise exception 'This month has already been paid';
   end if;
-  select count(*), count(*) filter (where i.status <> 'approved'),
-         coalesce(sum(case when i.kind = 'competition' then r.daily_cents
-           when i.kind = 'extra' and i.amount_cents is not null then i.amount_cents
-           else round(i.hours * r.hourly_cents)::integer end), 0)
+  select count(*), count(*) filter (where i.status <> 'approved' or i.amount_cents is null),
+         coalesce(sum(i.amount_cents), 0)
     into v_count, v_pending, v_total
     from public.v2_coach_items i
-    join public.v2_coach_rates r on r.coach_id = i.coach_id
     where i.coach_id = p_coach and i.item_date >= p_month
       and i.item_date < (p_month + interval '1 month')::date;
   if v_count = 0 or v_pending > 0 or v_total <= 0 then

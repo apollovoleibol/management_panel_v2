@@ -297,7 +297,7 @@ let PAYOUTS = {}; // chave `${coachId}|${yyyy-mm}` → {paidAt}
   }
   COACH_ITEMS.push({ id: uid('p'), coach: 'c4', date: ymd(addDays(TODAY, -4)), type: 'extra', teamId: 't6', hours: 2, desc: 'Avaliação de novas atletas (peneira)', status: 'pendente', origin: 'Manual', amount: 11000 });
 })();
-const itemValue = it => { const c = coachOf(it.coach); if (it.type === 'competicao') return c.daily; if (it.type === 'extra') return it.amount ?? Math.round(c.rate * it.hours); return Math.round(c.rate * it.hours); };
+const itemValue = it => { if (it.status === 'aprovado' && it.amount != null) return it.amount; const c = coachOf(it.coach); if (it.type === 'competicao') return c.daily; if (it.type === 'extra') return it.amount ?? Math.round(c.rate * it.hours); return Math.round(c.rate * it.hours); };
 
 /* Usuários e permissões */
 const PAGES = [
