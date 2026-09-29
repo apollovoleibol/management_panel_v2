@@ -1,6 +1,6 @@
 # Isolamento dos campos financeiros legados
 
-Estado: a migração preparatória [018](../supabase/migrations/018_private_legacy_payment_fields.sql) está escrita, mas **não foi aplicada**. Nenhuma movimentação de dados ocorreu.
+Estado: a migração preparatória [018](../supabase/migrations/018_private_legacy_payment_fields.sql) foi aplicada após autorização do usuário. Ela copiou os 201 atletas e as 16 equipes para tabelas privadas e confirmou zero divergências. Os campos legados permanecem preenchidos e acessíveis pelas políticas antigas; o isolamento ainda não foi concluído.
 
 ## Evidência no projeto compartilhado
 
@@ -26,4 +26,4 @@ Estado: a migração preparatória [018](../supabase/migrations/018_private_lega
 
 ## Preparação 018
 
-A migração 018 cria `v2_athlete_payment_settings` e `v2_team_payment_plans` com acesso de leitura e edição condicionado à permissão da página Pacotes; técnicos e responsáveis não recebem leitura. Gatilhos mantêm a cópia privada sincronizada com escritas nos campos legados enquanto a v1 e o Manager App ainda os utilizam. A migração mantém os valores antigos visíveis e, por isso, **não conclui o isolamento**. Depois de aplicá-la, comparar todas as linhas dos dois lados, adaptar os clientes e só então preparar o corte que elimina os valores das colunas públicas.
+A migração 018 criou `v2_athlete_payment_settings` e `v2_team_payment_plans` com acesso de leitura e edição condicionado à permissão da página Pacotes; técnicos e responsáveis não recebem leitura dessas novas tabelas. Dois gatilhos mantêm a cópia privada sincronizada com escritas nos campos legados enquanto a v1 e o Manager App ainda os utilizam. A verificação após a aplicação encontrou 201 atletas e 16 equipes copiados, zero divergências, RLS ativa e nenhuma leitura anônima. A migração mantém os valores antigos visíveis e, por isso, **não conclui o isolamento**. Adaptar os clientes e só então preparar o corte que elimina os valores das colunas públicas.
