@@ -2,6 +2,7 @@
 'use strict';
 
 const LIVE = { ready: false, loading: false, error: '', teamCoachIds: new Map() };
+let PORTAL_ACCESS = [];
 async function liveReload() {
   await liveLoadPanel();
   if (seesFinance()) await financeManualRefresh();
@@ -61,7 +62,7 @@ async function liveLoadPanel() {
       ? 'id,team_id,full_name,birth_date,phone,parent_phone,parent_email,is_active,joined_at,left_at,created_at,position,jersey_number'
       : 'id,team_id,full_name,birth_date,email,cpf,rg,phone,parent_name,parent_phone,parent_email,address,is_active,joined_at,left_at,created_at,position,jersey_number';
     const teamColumns = finance ? '*' : 'id,name,category,gender,training_days,training_time,gym_location,is_active,training_schedule,location_id,description,age_min,age_max,available_for_booking';
-    const [locations, teams, links, athletes, tryouts, coaches, unavailable, logs, attendance, competitions] = await Promise.all([
+    const [locations, teams, links, athletes, tryouts, coaches, unavailable, logs, attendance, competitions, staff, portalLinks] = await Promise.all([
       liveAll('training_locations', 'id,name,venue,address,phone,notes,is_active'),
       liveAll('teams', teamColumns),
       liveAll('team_coaches', 'team_id,coach_id,is_head'),
@@ -71,18 +72,36 @@ async function liveLoadPanel() {
       liveAll('team_unavailable_dates', 'team_id,date'),
       liveAll('training_logs', 'id,team_id,coach_id,started_at,ended_at,duration_minutes'),
       liveAll('attendance', 'log_id,athlete_id,status'),
-      liveAll('competitions', 'id,team_id,name,scheduled_at,venue_name,status')
+      liveAll('competitions', 'id,team_id,name,scheduled_at,venue_name,status'),
+      isAdmin ? liveAll('v2_staff', 'user_id,role,permissions,is_active') : Promise.resolve([]),
+      isAdmin ? liveAll('v2_athlete_access', 'user_id,athlete_id,relation') : Promise.resolve([])
     ]);
     const user = APOLLO_AUTH.user;
     LIVE.teamCoachIds = new Map();
     for (const link of links) LIVE.teamCoachIds.set(link.team_id,
       [...(LIVE.teamCoachIds.get(link.team_id) || []), link.coach_id]);
     const ownProfile = coaches.find(p => p.id === user.id);
-    const roleName = ({ admin: 'Administrador', finance: 'Financeiro', coordination: 'Coordenação técnica', attendance: 'Atendimento', coach: 'Técnico' })[role];
-    USERS = [{ id: user.id, name: ownProfile?.full_name || user.user_metadata?.full_name || user.email,
-      email: user.email, role: roleName, coachId: role === 'coach' ? user.id : null,
+    const roleNames = { admin: 'Administrador', finance: 'Financeiro', coordination: 'Coordenação técnica', attendance: 'Atendimento', coach: 'Técnico' };
+    const staffById = new Map(staff.map(s => [s.user_id, s]));
+    USERS = (isAdmin ? coaches : [ownProfile].filter(Boolean)).map(p => {
+      const row = staffById.get(p.id);
+      const systemRole = p.id === user.id ? role : row?.role || (p.role === 'admin' ? 'admin' : p.role === 'coach' ? 'coach' : null);
+      const uiRole = roleNames[systemRole] || 'Atendimento';
+      const defaults = ROLE_PRESETS[uiRole] || ROLE_PRESETS['Atendimento'];
+      const perms = Object.fromEntries(PAGES.map(page => [page.id,
+        p.id === user.id ? (access.pages?.[page.id]?.edit ? 'edit' : access.pages?.[page.id]?.view ? 'view' : 'none')
+          : (row?.permissions?.[page.id] || defaults[page.id] || 'none')]));
+      return { id: p.id, name: p.full_name || p.email, email: p.email,
+        role: uiRole, legacyRole: p.role, unassigned: p.role === 'customer' && !row,
+        coachId: systemRole === 'coach' ? p.id : null,
+        active: p.is_active !== false && row?.is_active !== false && !(p.role === 'customer' && !row),
+        last: p.id === user.id ? 'Agora' : '—', perms };
+    });
+    if (!USERS.some(p => p.id === user.id)) USERS.unshift({ id: user.id,
+      name: ownProfile?.full_name || user.user_metadata?.full_name || user.email,
+      email: user.email, role: roleNames[role], coachId: role === 'coach' ? user.id : null,
       active: true, last: 'Agora', perms: Object.fromEntries(PAGES.map(p => [p.id,
-        access.pages?.[p.id]?.edit ? 'edit' : access.pages?.[p.id]?.view ? 'view' : 'none'])) }];
+        access.pages?.[p.id]?.edit ? 'edit' : access.pages?.[p.id]?.view ? 'view' : 'none'])) });
     S.userId = user.id;
 
     NUCLEI.splice(0, NUCLEI.length, ...locations.map(n => ({
@@ -117,6 +136,11 @@ async function liveLoadPanel() {
       planId: finance ? PLANS.find(p => p.sourceLabel === a.payment_plan && p.teams.includes(a.team_id))?.id : null,
       since: a.joined_at || (a.created_at || '').slice(0, 10) || ymd(TODAY), active: a.is_active !== false
     }));
+    PORTAL_ACCESS = portalLinks.map(link => ({ ...link,
+      userName: coaches.find(p => p.id === link.user_id)?.full_name || 'Conta sem perfil',
+      userEmail: coaches.find(p => p.id === link.user_id)?.email || '',
+      athleteName: athletes.find(a => a.id === link.athlete_id)?.full_name || 'Atleta não encontrado'
+    }));
     const statuses = { PENDING: 'Pendente', CONFIRMED: 'Agendado', CANCELED: 'Cancelado', CANCELLED: 'Cancelado',
       IN_EVALUATION: 'Em avaliação', IN_REGISTRATION: 'Em cadastro', TECNOFIT: 'Tecnofit', MISSED: 'Ausente' };
     BOOKINGS = tryouts.map(b => ({
@@ -136,11 +160,14 @@ async function liveLoadPanel() {
     })));
     LEDGER = []; DELINQ = []; IMPORTS = []; COACH_ITEMS = []; PAYOUTS = {};
     if (finance) {
-      const [rates, items, payouts] = await Promise.all([
+      const [rates, items, payouts, tecnofitLinks] = await Promise.all([
         liveAll('v2_coach_rates', 'coach_id,hourly_cents,daily_cents,pix_key'),
         liveAll('v2_coach_items', 'id,coach_id,team_id,item_date,kind,description,hours,amount_cents,status'),
-        liveAll('v2_coach_payouts', 'coach_id,month,amount_cents,paid_at')
+        liveAll('v2_coach_payouts', 'coach_id,month,amount_cents,paid_at'),
+        liveAll('v2_tecnofit_athlete_links', 'athlete_id,client_id')
       ]);
+      const clientByAthlete = new Map(tecnofitLinks.map(link => [link.athlete_id, link.client_id]));
+      ATHLETES.forEach(athlete => { athlete.tecnofitClientId = clientByAthlete.get(athlete.id) || ''; });
       for (const r of rates) {
         const coach = COACHES.find(c => c.id === r.coach_id);
         if (coach) Object.assign(coach, { rate: r.hourly_cents, daily: r.daily_cents, pix: r.pix_key || '' });

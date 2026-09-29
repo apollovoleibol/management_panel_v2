@@ -319,15 +319,7 @@ const ROLE_PRESETS = {
   'Atendimento': P('view', 'edit', 'view', 'view', 'none', 'view', 'none', 'none', 'none'),
   'Técnico': P('view', 'view', 'view', 'view', 'none', 'none', 'none', 'none', 'none'),
 };
-let USERS = [
-  { id: 'u1', name: 'Ana Ribeiro', email: 'ana.ribeiro@apollo.exemplo', role: 'Administrador', active: true, last: 'Agora', perms: { ...ROLE_PRESETS['Administrador'] } },
-  { id: 'u2', name: 'Bruno Lima', email: 'bruno.lima@apollo.exemplo', role: 'Coordenação técnica', active: true, last: 'Hoje, 09:12', perms: { ...ROLE_PRESETS['Coordenação técnica'] } },
-  { id: 'u3', name: 'Carla Nunes', email: 'carla.nunes@apollo.exemplo', role: 'Financeiro', active: true, last: 'Ontem, 17:40', perms: { ...ROLE_PRESETS['Financeiro'] } },
-  { id: 'u4', name: 'Paula Dias', email: 'paula.dias@apollo.exemplo', role: 'Atendimento', active: true, last: 'Hoje, 08:03', perms: { ...ROLE_PRESETS['Atendimento'] } },
-  { id: 'u5', name: 'Rafael Moura', email: 'rafael.moura@apollo.exemplo', role: 'Técnico', coachId: 'c1', active: true, last: '22/09, 21:15', perms: { ...ROLE_PRESETS['Técnico'] } },
-  { id: 'u7', name: 'Juliana Prado', email: 'juliana.prado@apollo.exemplo', role: 'Técnico', coachId: 'c2', active: true, last: 'Hoje, 07:48', perms: { ...ROLE_PRESETS['Técnico'] } },
-  { id: 'u6', name: 'Diego Santana', email: 'diego.santana@apollo.exemplo', role: 'Técnico', coachId: 'c3', active: false, last: '02/08, 19:30', perms: { ...ROLE_PRESETS['Técnico'] } },
-];
+let USERS = [];
 
 /* Configuração do assistente (Chatbot Feeder) */
 let FEEDER = {

@@ -180,27 +180,22 @@ document.addEventListener('click', async e => {
     case 'pay-export': { const key = S.pay.month; return download(`pagamentos-tecnicos-${key}.csv`, csv([['Técnico', 'Data', 'Tipo', 'Descrição', 'Horas', 'Valor (R$)', 'Status'], ...COACH_ITEMS.filter(i => inMonth(i.date, key)).sort((a, b) => a.coach.localeCompare(b.coach) || a.date.localeCompare(b.date)).map(i => [coachOf(i.coach).name, i.date.split('-').reverse().join('/'), i.type, i.desc, i.hours || '', (itemValue(i) / 100).toFixed(2).replace('.', ','), i.status])])); }
     /* financeiro */
     case 'fin-tab': S.fin.tab = el.dataset.tab; return render();
-    case 'fin-type': S.fin.type = el.dataset.v; return render();
-    case 'fin-new': return finNewForm();
-    case 'fin-new-save': return finNewSave();
     case 'fin-import': return financeImportWizard(el.dataset.report);
     case 'finance-import-commit': return financeImportCommit();
-    case 'fin-db-signin': return financeDbSignIn();
-    case 'fin-db-signout': return financeDbSignOut();
     case 'fin-db-refresh': return financeDbRefresh().catch(e => toast(e.message, true));
     case 'finance-manual-new': return financeManualForm();
     case 'finance-manual-save': return financeManualSave();
-    case 'im-sample': return importReview(sampleCsv(), `tecnofit_recebimentos_${MON[TODAY.getMonth()].toLowerCase()}.csv`);
-    case 'im-commit': return importCommit();
     case 'fin-goto': S.fin.tab = el.dataset.tab; closeDialog(); return render();
-    case 'fin-charge': return chargeMessage(el.dataset.k);
-    case 'fin-settle': return toast('A baixa da mensalidade deve ser feita no Tecnofit. Importe Vendas em Aberto novamente para atualizar o alerta.', true);
     /* configurações */
     case 'st-tab': S.st.tab = el.dataset.tab; return render();
     case 'user-open': return userDrawer(id);
     case 'user-new': return userDrawer(null);
     case 'user-save': return saveUser();
-    case 'user-viewas': return toast('A simulação de acesso foi desativada. Para testar permissões, entre com a conta do usuário.', true);
+    case 'portal-invite': return portalInviteForm();
+    case 'portal-invite-save': return portalInviteSave();
+    case 'portal-link': return portalLinkForm();
+    case 'portal-link-save': return portalLinkSave();
+    case 'portal-unlink': return portalUnlink(el.dataset.user, el.dataset.athlete);
   }
 });
 

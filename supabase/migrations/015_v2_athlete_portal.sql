@@ -1,6 +1,39 @@
 -- Athlete/guardian access on the shared Supabase project.
 begin;
 
+-- The v1 "customer" role currently has full athlete CRUD, including rows of
+-- unrelated families. Freeze that legacy exception to accounts which already
+-- exist before v2 portal invitations. New guardians also use the legacy role
+-- because of its check constraint, but must never inherit those broad grants.
+create table if not exists private.v2_legacy_customers (
+  user_id uuid primary key references auth.users(id) on delete cascade
+);
+insert into private.v2_legacy_customers(user_id)
+select p.id from public.profiles p where p.role = 'customer'
+on conflict (user_id) do nothing;
+create or replace function private.v2_is_legacy_customer()
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from private.v2_legacy_customers legacy
+    join public.profiles p on p.id = legacy.user_id
+    where legacy.user_id = (select auth.uid())
+      and p.role = 'customer' and p.is_active is true);
+$$;
+revoke all on private.v2_legacy_customers from public, anon, authenticated;
+revoke all on function private.v2_is_legacy_customer() from public, anon;
+grant execute on function private.v2_is_legacy_customer() to authenticated;
+drop policy if exists athletes_customer_select on public.athletes;
+drop policy if exists athletes_customer_insert on public.athletes;
+drop policy if exists athletes_customer_update on public.athletes;
+drop policy if exists athletes_customer_delete on public.athletes;
+create policy athletes_customer_select on public.athletes for select to authenticated
+  using (private.v2_is_legacy_customer());
+create policy athletes_customer_insert on public.athletes for insert to authenticated
+  with check (private.v2_is_legacy_customer());
+create policy athletes_customer_update on public.athletes for update to authenticated
+  using (private.v2_is_legacy_customer()) with check (private.v2_is_legacy_customer());
+create policy athletes_customer_delete on public.athletes for delete to authenticated
+  using (private.v2_is_legacy_customer());
+
 create or replace function private.v2_portal_link(p_athlete uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
   select exists (
@@ -86,9 +119,6 @@ alter table public.v2_tecnofit_athlete_links enable row level security;
 create policy v2_tecnofit_links_read on public.v2_tecnofit_athlete_links for select to authenticated using (
   private.v2_can('finance','view') or private.v2_portal_link(athlete_id)
 );
-create policy v2_tecnofit_links_write on public.v2_tecnofit_athlete_links for all to authenticated
-  using (private.v2_can('finance','edit')) with check (private.v2_can('finance','edit'));
-
 create or replace function public.v2_my_invoices()
 returns jsonb language sql stable security definer set search_path = '' as $$
   select coalesce(jsonb_agg(jsonb_build_object(
@@ -104,7 +134,7 @@ $$;
 
 revoke all on public.v2_portal_notices, public.v2_tecnofit_athlete_links from anon, authenticated;
 grant select, insert on public.v2_portal_notices to authenticated;
-grant select, insert, update, delete on public.v2_tecnofit_athlete_links to authenticated;
+grant select on public.v2_tecnofit_athlete_links to authenticated;
 revoke all on function public.v2_my_invoices() from public, anon;
 grant execute on function public.v2_my_invoices() to authenticated;
 revoke all on function private.v2_portal_link(uuid) from public, anon;

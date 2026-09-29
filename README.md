@@ -1,6 +1,6 @@
 # Painel de Gestão v2 — implantação em andamento
 
-Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login e parte das operações já foram conectados ao Supabase, mas a implantação ainda não está pronta para uso em produção. As migrações da v2 e os controles de acesso precisam de validação no projeto compartilhado com a v1. Consulte [o estado da implantação](docs/IMPLEMENTACAO_REAL.md) antes de publicar.
+Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login e parte das operações já foram conectados ao Supabase, mas a implantação ainda não está pronta para uso em produção. As migrações 012 e 013 já foram aplicadas; os controles restantes de acesso e privacidade ainda precisam de validação no projeto compartilhado com a v1. Consulte [o estado da implantação](docs/IMPLEMENTACAO_REAL.md) antes de publicar.
 
 **Como abrir:** use `login.html` com uma conta Supabase autorizada. Para abrir direto numa página após o login, use a âncora: `index.html#bookings`, `#athletes`, `#teams`, `#packages`, `#feeder`, `#payments`, `#finance` ou `#settings`.
 
@@ -14,13 +14,13 @@ Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login 
   - quem tem os dois acessos escolhe para onde ir;
   - cadastro inativo → contato da secretaria.
 - `area-do-atleta.html`: proposta da área do atleta, pensada primeiro para o celular. Requer vínculo de conta e dados reais no banco.
-  - **Início:** próximo treino (com como chegar e aviso de ausência), pendências, próxima competição, presença e comunicados.
-  - **Agenda:** treinos, competições e eventos, com aviso de ausência e exportação para o calendário do celular (.ics). Para os pais, há a opção "toda a família".
-  - **Evolução:** frequência nas últimas 8 semanas. Os competitivos (base e adulto) veem o scout do Manager App; escolinha e iniciantes veem a avaliação de fundamentos. Ambos com recado do técnico.
-  - **Mensalidades:** espelho do Tecnofit, com Pix, cartão e recibos.
-  - **Cadastro:** dados do atleta, saúde e emergência, atestado médico e autorizações. Para menores, também os responsáveis e a lista de quem pode buscar após o treino.
-- **Menores de idade (escolinha e base):** o acesso é do responsável, que vê todos os filhos num só lugar. Autorizar competições e viagens, a lista de retirada, "pode sair sozinho" (a partir de 12 anos) e o uso de imagem dependem do responsável legal. Um segundo responsável pode ter acesso próprio.
-- **Adultos:** o competitivo confirma presença em convocações e acompanha o scout; o iniciante acompanha os fundamentos e completa o cadastro inicial.
+  - **Início:** próximo treino, endereço, aviso de ausência, pendências do último relatório, próxima competição e presença registrada.
+  - **Agenda:** treinos das próximas quatro semanas e competições, com aviso de ausência e resposta de participação. A conta de responsável pode alternar entre atletas vinculados.
+  - **Evolução:** frequência calculada das chamadas registradas. Avaliações técnicas e scout ainda não foram conectados.
+  - **Mensalidades:** espelho dos relatórios importados, quando houver um código Tecnofit vinculado. O pagamento continua nos canais oficiais da Apollo; o portal não processa Pix, cartão nem emite recibos.
+  - **Cadastro:** identificação, equipe e núcleo, com registro de consentimento de uso de imagem. Alterações cadastrais e de saúde ainda passam pela secretaria.
+- **Menores de idade (escolinha e base):** o acesso é do responsável, que vê os atletas vinculados à sua conta. O protótipo operacional registra resposta a competições e consentimento de imagem; autorização de viagens e lista de retirada ainda não existem.
+- **Adultos:** a conta própria pode responder a competições e consultar presença. Scout, fundamentos e cadastro inicial ainda não estão conectados.
 
 ## Estrutura
 
@@ -43,14 +43,14 @@ Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login 
 - **Chatbot Feeder** mostra, campo a campo, o que vai no “QUADRO OFICIAL” enviado ao assistente, de onde vem cada dado e onde editar. Tem também as instruções do assistente, o texto exato enviado e um simulador por idade. Duas propostas ficam sinalizadas no protótipo:
   - hoje as regras estão fixas no Apps Script (`montarPromptMestre`);
   - hoje a faixa etária não é enviada no quadro.
-- **Permissões:** cada página tem dois modos, Visualizar e Editar. Use “Visualizar como”, no topo, para testar. Na implementação, a mesma matriz precisa valer no Supabase (RLS/funções), conforme a spec PG-01 do SDD.
+- **Permissões:** cada página tem dois modos, Visualizar e Editar. A versão autenticada lê os direitos do Supabase; a matriz precisa ser validada também nas políticas RLS e funções antes da publicação, conforme a spec PG-01 do SDD.
 - **Dados financeiros:** somente os perfis Administrador e Financeiro acessam, mesmo em visualização, as páginas Pacotes e mensalidades, Pagamentos e Financeiro. Em Configurações, essas páginas ficam travadas para os demais perfis. Para esses perfis, os valores de mensalidade e o banco de pagamento também ficam ocultos no cadastro de atletas e nas equipes.
 - **Visão geral por perfil:**
   - Administrador e Financeiro veem as métricas financeiras.
   - Coordenação e Atendimento veem indicadores operacionais e a projeção de atletas, sem valores em R$.
   - O Técnico vê só as próprias equipes, com os indicadores do Manager App: presença, horas, treinos, chamadas, testes a avaliar, presença por equipe, atletas com baixa presença e próximas competições. Agendamentos, Atletas e a agenda também ficam restritos às equipes dele (vínculo definido em Configurações).
 - **Prévia anterior:** o parâmetro `?como=` pertencia ao protótipo e não concede acesso na versão autenticada.
-- **Tecnofit por upload individual:** a guia **Importações** tem um cartão por relatório: `Contas a Receber (Incluir colunas ocultas).xlsx`, `Relatório de Vendas em Aberto.xls` (HTML exportado como XLS), `Relatório de Fluxo de Caixa Analítico.xls` (HTML exportado como XLS) e extrato `.csv`. O navegador lê e trata um arquivo por vez. Após conferir o intervalo usado no Tecnofit, uma chamada autenticada grava somente registros normalizados e metadados no Supabase. A função de banco substitui atomicamente os meses reimportados; Vendas em Aberto substitui a fotografia anterior. O histórico mostra a última importação, meses cobertos e lacunas nos últimos 12 meses. **A [migração financeira](supabase/migrations/012_tecnofit_finance_imports.sql) ainda não foi aplicada no Supabase principal.** [Levantamento técnico](docs/INTEGRACAO_TECNOFIT_2026-09-29.md).
+- **Tecnofit por upload individual:** a guia **Importações** tem um cartão por relatório: `Contas a Receber (Incluir colunas ocultas).xlsx`, `Relatório de Vendas em Aberto.xls` (HTML exportado como XLS), `Relatório de Fluxo de Caixa Analítico.xls` (HTML exportado como XLS) e extrato `.csv`. O navegador lê e trata um arquivo por vez. Após conferir o intervalo usado no Tecnofit, uma chamada autenticada grava somente registros normalizados e metadados no Supabase. A função de banco substitui atomicamente os meses reimportados; Vendas em Aberto substitui a fotografia anterior. O histórico mostra a última importação, meses cobertos e lacunas nos últimos 12 meses. A [migração financeira](supabase/migrations/012_tecnofit_finance_imports.sql) já está no Supabase principal, mas o acesso depende das migrações seguintes. [Levantamento técnico](docs/INTEGRACAO_TECNOFIT_2026-09-29.md).
 - **Alertas:** só entram mensalidades com saldo aberto positivo e vencimento anterior ao dia atual; status de cliente “Bloqueado” e “Não recebido” em Contas a Receber não são usados como prova de atraso. Quando há vários vencimentos na mesma linha exportada, ela é exibida agrupada para conferência. O relatório não traz responsáveis legais, portanto nenhum contato automático é disparado.
 - **Pagamentos de técnicos:** as horas de treino são geradas a partir dos horários das equipes, descontando as datas indisponíveis. Competições (diárias) e extras são lançados manualmente. O fluxo segue aprovação → pagamento → saída registrada no Financeiro.
 - Métricas marcadas como `PROPOSTA` (retorno humano, satisfação) dependem de dados que ainda não são coletados.

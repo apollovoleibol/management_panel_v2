@@ -132,23 +132,14 @@ create policy v2_athlete_access_select on public.v2_athlete_access for select to
 create policy v2_athlete_access_admin on public.v2_athlete_access for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
--- A family account may read only the linked active athlete. RLS exposes all
--- columns of that row; the portal must select only fields it needs.
-create policy v2_family_athlete_select on public.athletes for select to authenticated
-  using (is_active is true and exists (
-    select 1 from public.v2_athlete_access a
-    where a.athlete_id = athletes.id and a.user_id = (select auth.uid())
-  ));
-
 -- Remove broad v1 reads before inviting athlete/guardian accounts. Existing
 -- admin and coach users retain access; other v2 staff get page-based access.
 drop policy if exists tryouts_select on public.tryouts;
 drop policy if exists authenticated_view_tryouts on public.tryouts;
 drop policy if exists authenticated_select_tryouts on public.tryouts;
 create policy v2_tryouts_select on public.tryouts for select to authenticated using (
-  (exists (select 1 from public.profiles p where p.id = (select auth.uid())
-    and p.role in ('admin','coach') and p.is_active is true))
-  or private.v2_can('bookings','view')
+  public.is_admin()
+  or (private.v2_can('bookings','view') and private.v2_team_scope(team_id))
 );
 drop policy if exists cache_select on public.integrations_cache;
 drop policy if exists authenticated_view_cache on public.integrations_cache;
@@ -184,8 +175,10 @@ select p.id, true, true, true from public.profiles p
 where p.role = 'admin' and p.is_active is true
 on conflict (user_id) do nothing;
 
+-- Direct writes to access-control tables stay disabled for browser clients.
+-- Administrative changes use reviewed SECURITY DEFINER functions only.
 revoke all on public.v2_staff, public.v2_athlete_access from anon, authenticated;
-grant select, insert, update, delete on public.v2_staff, public.v2_athlete_access to authenticated;
+grant select on public.v2_staff, public.v2_athlete_access to authenticated;
 revoke all on function public.v2_my_access() from public, anon;
 grant execute on function public.v2_my_access() to authenticated;
 revoke all on function private.v2_role() from public, anon;

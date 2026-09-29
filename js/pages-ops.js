@@ -378,6 +378,7 @@ function athleteForm(id) {
     </fieldset>
     <div class="err" id="faErr" role="alert"></div>
   </fieldset></form>
+  ${a && seesFinance() ? `<div class="d-body"><div class="field"><label for="faClientId">Código do cliente no Tecnofit</label><div class="cell-actions"><input class="input" id="faClientId" inputmode="numeric" pattern="[0-9]+" value="${esc(a.tecnofitClientId || '')}" placeholder="Código numérico do relatório"><button type="button" class="btn sm" id="faLinkBtn" ${canEdit('finance') ? '' : 'disabled'}>Vincular</button></div><span class="hint">Vincule pelo código do relatório antes de mostrar mensalidades na Área do atleta. Confira a identidade do atleta no Tecnofit.</span><div class="err" id="faLinkErr" role="alert"></div></div></div>` : ''}
   <div class="d-foot">${id && !ro ? `<button class="btn danger left" data-act="athlete-delete" data-id="${id}">${icon('trash')} Excluir</button>` : ''}<button class="btn" data-act="try-close">${ro ? 'Fechar' : 'Cancelar'}</button>${ro ? '' : `<button class="btn ok" data-act="athlete-save" data-id="${id || ''}">${icon('check')} Salvar</button>`}</div>`, 'drawer');
   const dlg = $('#dlg'); dlg.dataset.dirty = '0';
   const sync = () => {
@@ -396,6 +397,20 @@ function athleteForm(id) {
   $('#faCpf').addEventListener('input', e => { e.target.value = maskCpf(e.target.value); });
   $('#atForm').addEventListener('input', () => { dlg.dataset.dirty = '1'; });
   $('#atForm').addEventListener('change', () => { dlg.dataset.dirty = '1'; });
+  if (a && seesFinance()) $('#faLinkBtn').addEventListener('click', async () => {
+    const clientId = $('#faClientId').value.trim(), errorBox = $('#faLinkErr');
+    if (!/^\d{1,30}$/.test(clientId)) { errorBox.textContent = 'Informe o código numérico do cliente no Tecnofit.'; return; }
+    errorBox.textContent = ''; $('#faLinkBtn').disabled = true;
+    try {
+      const { error } = await financeDbClient().rpc('v2_link_tecnofit_client', {
+        p_athlete: a.id, p_client_id: clientId
+      });
+      if (error) throw error;
+      a.tecnofitClientId = clientId;
+      toast('Código Tecnofit vinculado ao atleta.');
+    } catch (error) { errorBox.textContent = `Não foi possível vincular: ${error.message}`; }
+    finally { $('#faLinkBtn').disabled = !canEdit('finance'); }
+  });
 }
 async function saveAthlete(id) {
   const t = teamOf($('#faTeam').value), minor = isMinorTeam(t), v = i => $('#' + i).value.trim();

@@ -223,16 +223,17 @@ function renderSettings() {
   let body = '';
   if (S.st.tab === 'users') body = `<div class="table-wrap"><table><thead><tr><th>Usuário</th><th>Perfil</th><th>Acesso por página</th><th>Status</th><th>Último acesso</th><th></th></tr></thead><tbody>${USERS.map(u => { const c = permCount(u); return `<tr class="rowlink" data-act="user-open" data-id="${u.id}" tabindex="0">
       <td><div class="person"><span class="avatar">${initials(u.name)}</span><div><strong>${esc(u.name)}${u.id === S.userId ? ' <span class="tag nodot st-info">você está vendo como</span>' : ''}</strong><small>${esc(u.email)}</small></div></div></td>
-      <td><span class="role-pill">${esc(u.role)}</span>${presetDiff(u) ? ' <span class="hint">ajustado</span>' : ''}${u.coachId ? `<div class="hint">${TEAMS.filter(t => t.coach === u.coachId).length} equipe(s)</div>` : ''}</td>
+      <td><span class="role-pill">${u.unassigned && PORTAL_ACCESS.some(link => link.user_id === u.id) ? 'Área do atleta' : esc(u.role)}</span>${presetDiff(u) && !u.unassigned ? ' <span class="hint">ajustado</span>' : ''}${u.coachId ? `<div class="hint">${TEAMS.filter(t => t.coach === u.coachId).length} equipe(s)</div>` : ''}</td>
       <td><div class="perm-dots" title="${PAGES.map(p => p.label + ': ' + ({ edit: 'edição', view: 'visualização', none: 'sem acesso' }[perm(p.id, u)])).join('\n')}">${PAGES.map(p => `<i class="${perm(p.id, u) === 'edit' ? 'e' : perm(p.id, u) === 'view' ? 'v' : ''}"></i>`).join('')}</div><div class="hint">${c.e} edição · ${c.v} só visualização</div></td>
-      <td>${u.active ? '<span class="tag st-ok">Ativo</span>' : '<span class="tag">Inativo</span>'}</td><td class="muted small">${esc(u.last)}</td><td style="text-align:right"><button class="btn sm">Gerenciar</button></td></tr>`; }).join('')}</tbody></table></div>
+      <td>${u.unassigned ? `<span class="tag">${PORTAL_ACCESS.some(link => link.user_id === u.id) ? 'Área do atleta' : 'Sem acesso à v2'}</span>` : u.active ? '<span class="tag st-ok">Ativo</span>' : '<span class="tag">Inativo</span>'}</td><td class="muted small">${esc(u.last)}</td><td style="text-align:right"><button class="btn sm">Gerenciar</button></td></tr>`; }).join('')}</tbody></table></div>
     <div class="panel-foot"><span class="legend"><span><i style="background:var(--ok)"></i>Edição</span><span><i style="background:color-mix(in srgb,var(--info) 55%,transparent)"></i>Somente visualização</span><span><i style="background:var(--line)"></i>Sem acesso</span></span><span>Ordem dos quadrados: ${PAGES.map(p => p.label).join(' · ')}</span></div>`;
   if (S.st.tab === 'roles') body = `<div class="panel-pad"><p class="muted small" style="margin-top:0">Perfis são modelos: ao escolher um perfil para um usuário, as permissões são preenchidas e ainda podem ser ajustadas página a página. Páginas com dados financeiros ficam restritas aos perfis Administrador e Financeiro; o perfil Técnico enxerga apenas as próprias equipes.</p></div><div class="table-wrap"><table class="perm-table"><thead><tr><th>Página</th>${Object.keys(ROLE_PRESETS).map(r => `<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>${PAGES.map(p => `<tr><td>${icon(p.icon)} ${esc(p.label)}${FIN_PAGES.includes(p.id) ? ' <span class="src proposta">financeiro</span>' : ''}</td>${Object.values(ROLE_PRESETS).map(r => `<td>${r[p.id] === 'edit' ? '<span class="tag st-ok nodot">Editar</span>' : r[p.id] === 'view' ? '<span class="tag st-info nodot">Visualizar</span>' : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  if (S.st.tab === 'portal') body = `<div class="panel-pad"><div class="head-actions"><button class="btn primary" data-act="portal-invite" data-edit>${icon('plus')} Convidar responsável ou atleta</button><button class="btn" data-act="portal-link" data-edit>Vincular conta existente</button></div><p class="hint mt">Para menores, o acesso pertence ao responsável. Adultos usam a própria conta. Cada vínculo é autorizado por administrador e pode ser removido aqui.</p></div><div class="table-wrap"><table><thead><tr><th>Conta</th><th>Atleta</th><th>Relação</th><th></th></tr></thead><tbody>${PORTAL_ACCESS.map(link => `<tr><td><strong>${esc(link.userName)}</strong><div class="hint">${esc(link.userEmail)}</div></td><td>${esc(link.athleteName)}</td><td>${link.relation === 'guardian' ? 'Responsável' : 'Próprio atleta'}</td><td><button class="btn sm danger" data-act="portal-unlink" data-user="${link.user_id}" data-athlete="${link.athlete_id}" data-edit>Desvincular</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">Nenhum acesso à Área do atleta vinculado.</td></tr>'}</tbody></table></div>`;
   return `${viewBanner('settings')}
   <div class="page-head"><div><div class="eyebrow">Sistema</div><h1>Configurações</h1><p>Gerencie quem acessa o painel e o que cada pessoa pode ver ou alterar em cada página.</p></div>
     <div class="head-actions"><button class="btn primary" data-act="user-new" data-edit>${icon('plus')} Convidar usuário</button></div></div>
-  <div class="banner note">${icon('shield')}<div class="small"><b>Dois modos por página:</b> <b>Visualizar</b> permite consultar; <b>Editar</b> permite criar, alterar, arquivar e excluir (e inclui visualizar). Sem nenhum dos dois, a página some do menu. Use “Visualizar como”, no topo, para testar. Na implementação, as mesmas regras são aplicadas no banco (Supabase), não só na interface.</div></div>
-  <section class="panel"><div class="tabs">${[['users', 'Usuários do painel', USERS.length], ['roles', 'Perfis de acesso', Object.keys(ROLE_PRESETS).length]].map(([k, l, c]) => `<button class="${S.st.tab === k ? 'on' : ''}" data-act="st-tab" data-tab="${k}">${l} <span class="pill">${c}</span></button>`).join('')}</div>${body}</section>`;
+  <div class="banner note">${icon('shield')}<div class="small"><b>Dois modos por página:</b> <b>Visualizar</b> permite consultar; <b>Editar</b> permite criar, alterar, arquivar e excluir (e inclui visualizar). Sem nenhum dos dois, a página some do menu. As regras precisam ser aplicadas no banco (Supabase), não só na interface.</div></div>
+  <section class="panel"><div class="tabs">${[['users', 'Usuários do painel', USERS.length], ['roles', 'Perfis de acesso', Object.keys(ROLE_PRESETS).length], ['portal', 'Área do atleta', PORTAL_ACCESS.length]].map(([k, l, c]) => `<button class="${S.st.tab === k ? 'on' : ''}" data-act="st-tab" data-tab="${k}">${l} <span class="pill">${c}</span></button>`).join('')}</div>${body}</section>`;
 }
 let UE = null;
 const presetDiff = u => ROLE_PRESETS[u.role] && PAGES.some(p => !(FIN_PAGES.includes(p.id) && !FIN_ROLES.includes(u.role)) && ROLE_PRESETS[u.role][p.id] !== u.perms[p.id]);
@@ -253,15 +254,15 @@ function drawUser() {
       <td>${locked ? `<span class="muted small">${icon('lock', 'i" style="width:13px;height:13px;vertical-align:-2px')} Só Administrador e Financeiro</span>` : v === 'edit' ? '<span class="tag st-ok nodot">Consulta e altera</span>' : v === 'view' ? '<span class="tag st-info nodot">Só consulta</span>' : '<span class="muted small">Oculta no menu</span>'}</td></tr>`;
   };
   openDialog(dHead(u.isNew ? 'Convidar usuário' : 'Usuário do painel', u.isNew ? 'Novo acesso' : esc(u.name), u.isNew ? 'A pessoa recebe um convite por e-mail para entrar com Google ou senha.' : esc(u.email)) + `<div class="d-body"><fieldset class="plain" ${ro ? 'disabled' : ''}>
-    <div class="row2"><div class="field"><label for="ueName">Nome *</label><input class="input" id="ueName" value="${esc(u.name)}"></div><div class="field"><label for="ueEmail">E-mail *</label><input class="input" type="email" id="ueEmail" value="${esc(u.email)}"></div></div>
-    <div class="row2"><div class="field"><label for="ueRole">Perfil</label><select class="select" id="ueRole">${Object.keys(ROLE_PRESETS).map(r => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select><span class="hint">${presetDiff(u) ? 'Permissões ajustadas manualmente a partir do perfil.' : 'Preenche as permissões abaixo; você ainda pode ajustá-las.'}</span></div>
-      <div class="field"><label>Acesso</label><label class="check" style="height:40px"><span class="toggle"><input type="checkbox" id="ueActive" ${u.active ? 'checked' : ''}><span></span></span> ${u.active ? 'Ativo — pode entrar no painel' : 'Inativo — acesso bloqueado'}</label></div></div>
-    ${u.role === 'Técnico' ? `<div class="field"><label for="ueCoach">Técnico vinculado *</label><select class="select" id="ueCoach"><option value="">Selecione...</option>${COACHES.map(k => `<option value="${k.id}" ${u.coachId === k.id ? 'selected' : ''}>${esc(k.name)}</option>`).join('')}</select><span class="hint">${coachTeams ? 'Vê apenas as próprias equipes: ' + coachTeams + '.' : 'Define as equipes que este usuário enxerga no painel.'}</span></div>` : ''}
+    <div class="row2"><div class="field"><label for="ueName">Nome *</label><input class="input" id="ueName" value="${esc(u.name)}" ${u.isNew ? '' : 'readonly'}></div><div class="field"><label for="ueEmail">E-mail *</label><input class="input" type="email" id="ueEmail" value="${esc(u.email)}" ${u.isNew ? '' : 'readonly'}></div></div>
+    <div class="row2"><div class="field"><label for="ueRole">Perfil</label><select class="select" id="ueRole">${Object.keys(ROLE_PRESETS).filter(r => u.isNew || (u.legacyRole === 'admin' ? r === 'Administrador' : r !== 'Administrador')).map(r => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select><span class="hint">${presetDiff(u) ? 'Permissões ajustadas manualmente a partir do perfil.' : 'Preenche as permissões abaixo; você ainda pode ajustá-las.'}</span></div>
+      <div class="field"><label>Acesso</label><label class="check" style="height:40px"><span class="toggle"><input type="checkbox" id="ueActive" ${u.active ? 'checked' : ''} ${u.id === S.userId && u.role === 'Administrador' ? 'disabled' : ''}><span></span></span> ${u.active ? 'Ativo — pode entrar no painel' : 'Inativo — acesso bloqueado'}</label></div></div>
+    ${u.role === 'Técnico' ? `<div class="hint">${coachTeams ? 'Equipes vinculadas: ' + coachTeams + '.' : 'Vincule este técnico às equipes na página Equipes e núcleos.'}</div>` : ''}
     ${finOk ? '' : `<div class="banner view">${icon('lock')}<span class="small">Dados financeiros (Pacotes e mensalidades, Pagamentos e Financeiro) só podem ser acessados, mesmo em visualização, pelos perfis <b>Administrador</b> e <b>Financeiro</b>. Para este perfil, valores de mensalidade e dados bancários também ficam ocultos nas demais páginas.</span></div>`}
     <h3 class="mt">Permissões por página</h3><p class="hint" style="margin:2px 0 8px">${c.e} com edição · ${c.v} somente visualização · ${PAGES.length - c.e - c.v} sem acesso</p>
     <div class="table-wrap" style="margin:0 -24px"><table class="perm-table"><thead><tr><th>Página</th><th>Visualizar</th><th>Editar</th><th>Resultado</th></tr></thead><tbody>${PAGES.map(row).join('')}</tbody></table></div>
     <div class="err" id="ueErr" role="alert"></div></fieldset></div>
-    <div class="d-foot">${u.isNew ? '' : `<button class="btn left" data-act="user-viewas" data-id="${u.id}">${icon('eye')} Ver painel como ${esc(u.name.split(' ')[0])}</button>`}<button class="btn" data-act="close-dialog">${ro ? 'Fechar' : 'Cancelar'}</button>${ro ? '' : `<button class="btn primary" data-act="user-save">${u.isNew ? 'Enviar convite' : 'Salvar permissões'}</button>`}</div>`, 'drawer wide');
+    <div class="d-foot"><button class="btn" data-act="close-dialog">${ro ? 'Fechar' : 'Cancelar'}</button>${ro ? '' : `<button class="btn primary" data-act="user-save">${u.isNew ? 'Enviar convite' : 'Salvar permissões'}</button>`}</div>`, 'drawer wide');
   const body = $('#dlg .d-body');
   body.addEventListener('change', e => {
     const el = e.target, grab = () => { UE.name = $('#ueName').value; UE.email = $('#ueEmail').value; UE.active = $('#ueActive').checked; if ($('#ueCoach')) UE.coachId = $('#ueCoach').value || null; };
@@ -270,16 +271,97 @@ function drawUser() {
     else if (el.id === 'ueActive' || el.id === 'ueCoach') { grab(); drawUser(); }
   });
 }
-function saveUser() {
-  $('#ueErr').textContent = 'Convites e permissões ainda precisam ser conectados ao serviço de autenticação. Nenhuma alteração foi gravada.';
-  return;
+async function saveUser() {
   UE.name = $('#ueName').value.trim(); UE.email = $('#ueEmail').value.trim(); UE.active = $('#ueActive').checked;
-  if ($('#ueCoach')) UE.coachId = $('#ueCoach').value || null;
   if (!UE.name || !/^\S+@\S+\.\S+$/.test(UE.email)) { $('#ueErr').textContent = 'Informe nome e um e-mail válido.'; return; }
-  if (UE.role === 'Técnico' && !UE.coachId) { $('#ueErr').textContent = 'Vincule o usuário a um técnico para definir as equipes que ele vê.'; return; }
   if (!FIN_ROLES.includes(UE.role)) FIN_PAGES.forEach(p => { UE.perms[p] = 'none'; });
-  const next = UE.isNew ? [...USERS, UE] : USERS.map(u => u.id === UE.id ? UE : u);
-  if (!next.some(u => u.active && u.perms.settings === 'edit')) { $('#ueErr').textContent = 'Mantenha ao menos um usuário ativo com edição em Configurações.'; return; }
-  const isNew = UE.isNew; delete UE.isNew;
-  USERS = next.map(u => ({ ...u })); closeDialog(); fillViewAs(); render(); toast(isNew ? `Convite enviado para ${UE.email} (simulação).` : 'Permissões salvas.');
+  const role = { Administrador: 'admin', Financeiro: 'finance', 'Coordenação técnica': 'coordination', Atendimento: 'attendance', 'Técnico': 'coach' }[UE.role];
+  const button = $('#dlg [data-act="user-save"]'); button.disabled = true;
+  $('#ueErr').textContent = '';
+  try {
+    if (UE.isNew) {
+      const { error } = await financeDbClient().functions.invoke('v2-invite-user', {
+        body: { email: UE.email, fullName: UE.name, role, permissions: UE.perms }
+      });
+      if (error) throw error;
+      toast(`Convite enviado para ${UE.email}.`);
+    } else {
+      const { error } = await financeDbClient().rpc('v2_admin_set_staff', {
+        p_user: UE.id, p_role: role, p_permissions: UE.perms, p_active: UE.active
+      });
+      if (error) throw error;
+      toast('Permissões salvas no banco.');
+    }
+    closeDialog(); await liveReload(); fillViewAs();
+  } catch (error) {
+    $('#ueErr').textContent = `Não foi possível salvar: ${error.message}`;
+    button.disabled = false;
+  }
+}
+
+function portalAccountRelation(athlete) {
+  if (!athlete?.birth) return null;
+  const cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear() - 18);
+  return athlete.birth <= ymd(cutoff) ? 'self' : 'guardian';
+}
+function portalAthleteOptions() {
+  return ATHLETES.filter(a => a.active && a.birth).sort((a, b) => a.name.localeCompare(b.name))
+    .map(a => `<option value="${a.id}">${esc(a.name)} · ${esc(teamOf(a.teamId)?.name || 'Sem equipe')}</option>`).join('');
+}
+function portalInviteForm() {
+  openDialog(dHead('Convidar para a Área do atleta', 'Responsável ou atleta adulto') + `<div class="d-body">
+    <div class="field"><label for="piName">Nome da pessoa convidada</label><input class="input" id="piName" autocomplete="name"></div>
+    <div class="field"><label for="piEmail">E-mail da conta</label><input class="input" type="email" id="piEmail" autocomplete="email"></div>
+    <div class="field"><label for="piAthlete">Atleta vinculado</label><select class="select" id="piAthlete"><option value="">Selecione...</option>${portalAthleteOptions()}</select></div>
+    <p class="hint">Para menores, convide o responsável legal. Um adulto recebe acesso somente ao próprio cadastro. Confirme a identidade antes de enviar o convite.</p>
+    <div class="err" id="piError" role="alert"></div></div>
+    <div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="portal-invite-save" data-edit>Enviar convite</button></div>`, 'drawer');
+}
+async function portalInviteSave() {
+  const fullName = $('#piName').value.trim(), email = $('#piEmail').value.trim();
+  const athlete = ATHLETES.find(a => a.id === $('#piAthlete').value);
+  const relation = portalAccountRelation(athlete), errorBox = $('#piError');
+  if (!fullName || !/^\S+@\S+\.\S+$/.test(email) || !relation) {
+    errorBox.textContent = 'Informe nome, e-mail válido e um atleta com data de nascimento.'; return;
+  }
+  const button = $('#dlg [data-act="portal-invite-save"]'); button.disabled = true;
+  try {
+    const { error } = await financeDbClient().functions.invoke('v2-invite-user', {
+      body: { fullName, email, role: relation === 'guardian' ? 'guardian' : 'athlete', athleteId: athlete.id }
+    });
+    if (error) {
+      let response = null;
+      try { if (error.context?.json) response = await error.context.json(); } catch { }
+      throw new Error(response?.error || error.message);
+    }
+    closeDialog(); await liveReload(); toast(`Convite enviado para ${email}.`);
+  } catch (error) { errorBox.textContent = `Não foi possível convidar: ${error.message}`; button.disabled = false; }
+}
+function portalLinkForm() {
+  openDialog(dHead('Vincular conta existente', 'Área do atleta') + `<div class="d-body">
+    <div class="field"><label for="plUser">Conta autenticada</label><select class="select" id="plUser"><option value="">Selecione...</option>${USERS.map(u => `<option value="${u.id}">${esc(u.name)} · ${esc(u.email)}</option>`).join('')}</select></div>
+    <div class="field"><label for="plAthlete">Atleta</label><select class="select" id="plAthlete"><option value="">Selecione...</option>${portalAthleteOptions()}</select></div>
+    <p class="hint">Confira a identidade da conta e o vínculo familiar antes de conceder acesso aos dados do atleta.</p>
+    <div class="err" id="plError" role="alert"></div></div><div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="portal-link-save" data-edit>Vincular</button></div>`, 'drawer');
+}
+async function portalLinkSave() {
+  const userId = $('#plUser').value, athlete = ATHLETES.find(a => a.id === $('#plAthlete').value);
+  const relation = portalAccountRelation(athlete), errorBox = $('#plError');
+  if (!userId || !relation) { errorBox.textContent = 'Selecione uma conta e um atleta com data de nascimento.'; return; }
+  const button = $('#dlg [data-act="portal-link-save"]'); button.disabled = true;
+  try {
+    const { error } = await financeDbClient().rpc('v2_admin_link_athlete', {
+      p_user: userId, p_athlete: athlete.id, p_relation: relation
+    });
+    if (error) throw error;
+    closeDialog(); await liveReload(); toast('Acesso do atleta vinculado.');
+  } catch (error) { errorBox.textContent = `Não foi possível vincular: ${error.message}`; button.disabled = false; }
+}
+async function portalUnlink(userId, athleteId) {
+  if (!await confirmBox({ title: 'Desvincular acesso?', text: 'A conta deixará de ver este atleta na Área do atleta.', ok: 'Desvincular', danger: true })) return;
+  const { error } = await financeDbClient().rpc('v2_admin_unlink_athlete', {
+    p_user: userId, p_athlete: athleteId
+  });
+  if (error) return toast(error.message, true);
+  await liveReload(); toast('Acesso removido.');
 }

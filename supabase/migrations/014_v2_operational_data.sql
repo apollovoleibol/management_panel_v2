@@ -125,10 +125,12 @@ create policy v2_coach_items_write on public.v2_coach_items for all to authentic
   using (private.v2_can('payments','edit')) with check (private.v2_can('payments','edit'));
 create policy v2_coach_payouts_read on public.v2_coach_payouts for select to authenticated
   using (private.v2_can('payments','view'));
-create policy v2_coach_payouts_write on public.v2_coach_payouts for all to authenticated
-  using (private.v2_can('payments','edit')) with check (private.v2_can('payments','edit'));
 revoke all on public.v2_coach_rates, public.v2_coach_items, public.v2_coach_payouts from anon, authenticated;
-grant select, insert, update, delete on public.v2_coach_rates, public.v2_coach_items, public.v2_coach_payouts to authenticated;
+grant select, insert, update, delete on public.v2_coach_rates, public.v2_coach_items to authenticated;
+-- A payout is created only by v2_record_coach_payout, which records the ledger
+-- entry in the same transaction. Direct browser writes would allow forged paid
+-- status without a matching financial movement.
+grant select on public.v2_coach_payouts to authenticated;
 
 -- The payout and its ledger entry must succeed or fail together. The browser
 -- never supplies the amount, which is recomputed from approved source items.
