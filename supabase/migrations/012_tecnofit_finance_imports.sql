@@ -39,7 +39,7 @@ create table if not exists public.finance_report_coverage (
 );
 
 create or replace function public.finance_has_access()
-returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+returns boolean language sql stable security definer set search_path = '' as $$
   select exists (
     select 1 from public.profiles p join public.finance_access a on a.user_id = p.id
     where p.id = auth.uid() and p.is_active is true and a.is_active and a.can_view
@@ -48,7 +48,7 @@ returns boolean language sql stable security definer set search_path = public, p
 $$;
 
 create or replace function public.finance_can_import()
-returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+returns boolean language sql stable security definer set search_path = '' as $$
   select public.finance_has_access() and exists (
     select 1 from public.finance_access a
     where a.user_id = auth.uid() and a.is_active and a.can_import
@@ -71,7 +71,7 @@ create or replace function public.finance_import_report(
   p_report_type text, p_period_start date, p_period_end date, p_rows jsonb
 )
 returns table(import_id uuid, imported_at timestamptz, row_count integer)
-language plpgsql security definer set search_path = public, pg_temp as $$
+language plpgsql security definer set search_path = '' as $$
 declare
   v_id uuid;
   v_at timestamptz;

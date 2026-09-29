@@ -26,12 +26,14 @@ function opsKpisHTML() {
 function athletesProjectionHTML() {
   const months = lastMonths(6), future = [1, 2, 3].map(k => new Date(TODAY.getFullYear(), TODAY.getMonth() + k, 1));
   const countAt = m => ATHLETES.filter(a => a.active && parseYmd(a.since) <= new Date(m.getFullYear(), m.getMonth() + 1, 0)).length;
-  const real = months.map(countAt), growth = Math.max(1, (real.at(-1) - real[0]) / 5);
+  const real = months.map(countAt), growth = Math.max(0, (real.at(-1) - real[0]) / 5);
   const proj = [...real.map((v, i) => i === real.length - 1 ? v : null), ...future.map((_, k) => Math.round(real.at(-1) + growth * (k + 1)))];
   const l30 = SESSIONS.filter(s => parseYmd(s.date) >= addDays(TODAY, -29));
-  const lines = [['Atletas ativos em 90 dias', `${proj.at(-1)} <span class="delta up">+${proj.at(-1) - real.at(-1)}</span>`], ['Novas matrículas por mês (média)', Math.round(growth)], ['Testes previstos (30 dias)', 100], ['Conversão teste → matrícula', pct(31, 71)], ['Presença média projetada', (presencePct(l30) ?? 0) + '%']];
+  const recentBookings = BOOKINGS.filter(b => b.createdAt && parseYmd(b.createdAt) >= addDays(TODAY, -29));
+  const enrolled = recentBookings.filter(b => b.status === 'Tecnofit').length;
+  const lines = [['Atletas ativos em 90 dias', `${proj.at(-1)} <span class="delta up">+${proj.at(-1) - real.at(-1)}</span>`], ['Novas matrículas por mês (média)', Math.round(growth)], ['Testes agendados (30 dias)', recentBookings.length], ['Conversão teste → matrícula', pct(enrolled, recentBookings.length)], ['Presença média (30 dias)', (presencePct(l30) ?? '—') + '%']];
   return `<div class="split-wide">
-    <section class="panel"><div class="panel-head"><div><h2>Atletas ativos: realizado e projeção</h2><div class="sub">Pela data de entrada dos atletas ativos; projeção pelo ritmo médio de matrículas</div></div>
+    <section class="panel"><div class="panel-head"><div><h2>Atletas atuais e projeção</h2><div class="sub">Coorte dos atletas ativos hoje; previsão simples pelo ritmo recente de entradas</div></div>
       <div class="legend"><span><i style="background:var(--ok)"></i>Atletas ativos</span><span><i class="dash" style="border-color:var(--info)"></i>Projeção</span></div></div>
       <div class="panel-pad">${lineChart({ labels: [...months, ...future].map(m => MON[m.getMonth()]), series: [{ values: [...real, null, null, null], color: 'var(--ok)', area: true }, { values: proj, color: 'var(--info)', dash: true }], fmt: v => Math.round(v) })}</div></section>
     <section class="panel"><div class="panel-head"><div><h2>Próximos 90 dias</h2><div class="sub">Cenário base · sem dados financeiros</div></div></div>

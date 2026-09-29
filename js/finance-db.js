@@ -10,7 +10,7 @@ function financeDbClient() {
   if (!FIN_DB.client) {
     if (!window.supabase?.createClient) throw new Error('Cliente Supabase indisponível. Verifique a conexão de internet.');
     FIN_DB.client = window.supabase.createClient(FIN_DB_URL, FIN_DB_ANON, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' }
     });
   }
   return FIN_DB.client;
@@ -49,8 +49,6 @@ async function financeDbRequireRole() {
   const { data, error } = await financeDbClient().rpc('finance_has_access');
   if (error) throw error;
   if (data !== true) {
-    await financeDbClient().auth.signOut();
-    FIN_DB.session = null;
     throw new Error('Esta conta não tem perfil financeiro ativo no banco.');
   }
   const permission = await financeDbClient().rpc('finance_can_import');

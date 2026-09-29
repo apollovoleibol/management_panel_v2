@@ -48,12 +48,14 @@ function nucleusForm(id) {
     <div class="d-foot">${id ? `<button class="btn danger left" data-act="nucleus-delete" data-id="${id}">${icon('trash')} Excluir</button>` : ''}<button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="nucleus-save" data-id="${id || ''}">Salvar núcleo</button></div>`);
   $('#nuPhone').addEventListener('input', e => { e.target.value = maskPhone(e.target.value); });
 }
-function saveNucleus(id) {
+async function saveNucleus(id) {
   const name = $('#nuName').value.trim(), address = $('#nuAddr').value.trim();
   if (!name || !address) { $('#nuErr').textContent = 'Informe nome e endereço do núcleo.'; return; }
   const data = { name, address, venue: $('#nuVenue').value.trim() || name, phone: digits($('#nuPhone').value), notes: $('#nuNotes').value.trim() };
-  if (id) Object.assign(nucleusOf(id), data); else { const nid = name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '') || uid('n'); NUCLEI.push({ id: NUCLEI.some(x => x.id === nid) ? uid('n') : nid, ...data }); S.cal.nuclei.add(NUCLEI.at(-1).id); }
-  closeDialog(); render(); toast(id ? 'Núcleo atualizado.' : 'Núcleo criado.');
+  try {
+    await liveWrite('training_locations', { name, venue: data.venue, address, phone: data.phone || null, notes: data.notes || null }, id);
+    closeDialog(); await liveReload(); toast(id ? 'Núcleo atualizado.' : 'Núcleo criado.');
+  } catch (error) { $('#nuErr').textContent = `Não foi possível salvar: ${error.message}`; }
 }
 
 let TE = null; // cópia de trabalho da equipe em edição
@@ -118,18 +120,47 @@ function collectTE() {
   if (TE.tab !== 'dados' || !$('#teName')) return;
   Object.assign(TE, { available: $('#teAvail').checked, name: $('#teName').value.trim(), category: $('#teCat').value.trim(), desc: $('#teDesc').value.trim(), ageMin: $('#teAgeMin').value === '' ? '' : Number($('#teAgeMin').value), ageMax: $('#teAgeMax').value === '' ? null : Number($('#teAgeMax').value), gender: $('#teGender').value, n: $('#teN').value, coach: $('#teCoach').value || null });
 }
-function saveTeam() {
+async function saveTeam() {
   collectTE();
   const err = (m, tab) => { if (tab && TE.tab !== tab) { TE.tab = tab; drawTeamEditor(); $('#dlg').dataset.dirty = '1'; } $('#teErr').textContent = m; return false; };
   if (!TE.name || !TE.category) return err('Informe nome e categoria da equipe.', 'dados');
   if (TE.ageMin !== '' && TE.ageMax != null && TE.ageMax < TE.ageMin) return err('A idade máxima deve ser maior que a mínima.', 'dados');
   const bad = TE.schedule.find(s => toMin(s.end) <= toMin(s.start));
   if (bad) return err(`${DOW_FULL[bad.day]}: o fim do treino deve ser depois do início.`, 'horarios');
-  const { tab, month, plans, isNew, ...data } = TE;
-  if (isNew) TEAMS.push(data); else Object.assign(teamOf(data.id), data);
-  PLANS.forEach(p => { const has = p.teams.includes(data.id); if (plans.includes(p.id) && !has) p.teams.push(data.id); if (!plans.includes(p.id) && has) p.teams = p.teams.filter(x => x !== data.id); });
-  FEEDER.history.unshift({ at: ymd(TODAY), who: me().name, what: `Equipe ${data.name} ${isNew ? 'criada' : 'atualizada'}` });
-  $('#dlg').dataset.dirty = '0'; closeDialog(); render(); toast(isNew ? 'Equipe criada.' : 'Alterações salvas. O assistente passa a usá-las na próxima atualização do quadro.');
+  const { plans, isNew, ...data } = TE;
+  const before = isNew ? null : teamOf(data.id);
+  const payload = { name: data.name, category: data.category, description: data.desc,
+    age_min: data.ageMin === '' ? null : data.ageMin, age_max: data.ageMax === '' ? null : data.ageMax,
+    gender: data.gender || null, location_id: data.n || null, is_active: data.active,
+    available_for_booking: data.available,
+    training_schedule: data.schedule.map(s => ({ day: s.day, start: s.start, end: s.end })) };
+  if (seesFinance()) payload.available_payment_plans = PLANS.filter(p => plans.includes(p.id)).map(planLabel);
+  try {
+    const saved = await liveWrite('teams', payload, isNew ? null : data.id);
+    const teamId = saved.id;
+    if (before?.coach !== data.coach) {
+      const oldHead = before?.coach;
+      const { error: removeError } = oldHead
+        ? await financeDbClient().from('team_coaches').delete().eq('team_id', teamId).eq('coach_id', oldHead).eq('is_head', true)
+        : { error: null };
+      if (removeError) throw removeError;
+      if (data.coach) {
+        const { error: addError } = await financeDbClient().from('team_coaches')
+          .upsert({ team_id: teamId, coach_id: data.coach, is_head: true }, { onConflict: 'team_id,coach_id' });
+        if (addError) throw addError;
+      }
+    }
+    const oldDates = new Set(before?.blocked || []), newDates = new Set(data.blocked);
+    for (const date of oldDates) if (!newDates.has(date)) {
+      const { error } = await financeDbClient().from('team_unavailable_dates').delete().eq('team_id', teamId).eq('date', date);
+      if (error) throw error;
+    }
+    for (const date of newDates) if (!oldDates.has(date)) {
+      const { error } = await financeDbClient().from('team_unavailable_dates').insert({ team_id: teamId, date });
+      if (error) throw error;
+    }
+    $('#dlg').dataset.dirty = '0'; closeDialog(); await liveReload(); toast(isNew ? 'Equipe criada.' : 'Equipe atualizada.');
+  } catch (error) { err(`Não foi possível salvar todas as alterações: ${error.message}`); await liveReload().catch(() => {}); }
 }
 
 /* ═══════════════ PACOTES E MENSALIDADES ═══════════════ */
@@ -248,7 +279,7 @@ function quadroText(highlight = false) {
 }
 function renderFeeder() {
   const vis = feederTeams(), hidden = TEAMS.filter(t => !(t.active && t.available)), warns = vis.reduce((s, t) => s + teamWarnings(t).filter(w => w !== 'Sem pacotes').length, 0);
-  const mins = Math.max(1, Math.round((NOW - FEEDER.lastSync) / 60000));
+  const mins = null;
   const tabs = [['teams', 'Equipes no quadro', vis.length], ['rules', 'Instruções do assistente', FEEDER.rules.format.length + FEEDER.rules.absolute.length + FEEDER.rules.steps.length], ['text', 'Texto enviado', null], ['sim', 'Simulador', null]];
   let body = '';
   if (S.fd.tab === 'teams') body = `<div class="panel-pad"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><p class="muted small" style="margin:0">Clique em uma equipe para ver campo a campo o que é enviado e de onde vem.</p><button class="btn sm" data-act="fd-expand">${S.fd.open.size >= vis.length ? 'Recolher todas' : 'Expandir todas'}</button></div>
@@ -272,7 +303,7 @@ function renderFeeder() {
     </div>`;
   if (S.fd.tab === 'rules') {
     const grp = (k, title, sub) => `<section class="panel" style="box-shadow:none;margin-bottom:14px"><div class="panel-head"><div><h2>${title}</h2><div class="sub">${sub}</div></div><button class="btn sm" data-act="fd-rule-add" data-g="${k}" data-edit>${icon('plus')} Adicionar</button></div><div class="panel-pad" style="padding-top:4px;padding-bottom:4px">${FEEDER.rules[k].map((r, i) => `<div class="rule"><span class="n">${k === 'steps' ? i + 1 : '•'}</span><p>${esc(r)}</p><div class="rule-actions"><button class="btn sm ghost sq" data-act="fd-rule-edit" data-g="${k}" data-i="${i}" data-edit aria-label="Editar regra">${icon('edit')}</button><button class="btn sm ghost sq" data-act="fd-rule-del" data-g="${k}" data-i="${i}" data-edit aria-label="Remover regra">${icon('trash')}</button></div></div>`).join('')}</div></section>`;
-    body = `<div class="panel-pad"><div class="banner warn">${icon('alert')}<div><b>Hoje estas instruções estão fixas no código do Apps Script</b> (função que monta o prompt). Proposta: guardá-las em uma tabela de configuração do assistente, com versão e histórico, para que possam ser editadas aqui sem mexer no código.</div></div>
+    body = `<div class="panel-pad"><div class="banner warn">${icon('alert')}<div><b>Regras ainda não conectadas ao Apps Script.</b> Os controles abaixo são apenas uma prévia e não alteram o chatbot em produção.</div></div>
       <div class="split" style="grid-template-columns:minmax(0,1fr) 300px"><div>${grp('absolute', 'Diretrizes absolutas', 'Regras que o assistente nunca pode quebrar')}${grp('steps', 'Passo a passo do agendamento', 'Ordem obrigatória da conversa para novos agendamentos')}${grp('format', 'Formatação das respostas', 'Como o texto aparece para o usuário')}</div>
       <aside><section class="panel" style="box-shadow:none"><div class="panel-head"><h2>Parâmetros do quadro</h2></div><div class="panel-pad"><fieldset class="plain" ${canEdit('feeder') ? '' : 'disabled'}>
         <div class="field"><label for="fdDates">Datas oferecidas por equipe</label><select class="select" id="fdDates">${[2, 3, 4, 5, 6].map(n => `<option ${FEEDER.datesCount === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -299,10 +330,10 @@ function renderFeeder() {
   <div class="grid g4 mb">
     <div class="kpi"><div class="kpi-label">Equipes visíveis${icon('bot')}</div><div class="kpi-value">${vis.length} <span class="muted" style="font-size:14px;font-weight:500">de ${TEAMS.length}</span></div><div class="kpi-foot">ativas e disponíveis para agendamento</div></div>
     <div class="kpi"><div class="kpi-label">Avisos de dados${icon('alert')}</div><div class="kpi-value" style="color:${warns ? 'var(--warn)' : 'var(--ok)'}">${warns}</div><div class="kpi-foot">campos vazios em equipes visíveis</div></div>
-    <div class="kpi"><div class="kpi-label">Última atualização${icon('clock')}</div><div class="kpi-value">há ${mins} min</div><div class="kpi-foot">o quadro é renovado a cada ${FEEDER.cacheMin} min</div></div>
+    <div class="kpi"><div class="kpi-label">Sincronização${icon('clock')}</div><div class="kpi-value" style="font-size:18px">Pendente</div><div class="kpi-foot">Prévia local; confirme os dados no chatbot em produção</div></div>
     <div class="kpi"><div class="kpi-label">Datas oferecidas${icon('calendar')}</div><div class="kpi-value">${vis.reduce((s, t) => s + nextDatesFor(t).length, 0)}</div><div class="kpi-foot">${FEEDER.datesCount} por equipe · antecedência ${FEEDER.minHoursAhead} h</div></div>
   </div>
-  <section class="panel mb"><div class="panel-head"><div><h2>Como o assistente recebe os dados</h2><div class="sub">Tudo o que é editado no painel chega ao assistente por este caminho</div></div></div>
+  <section class="panel mb"><div class="panel-head"><div><h2>Fluxo previsto do assistente</h2><div class="sub">A integração com o Apps Script precisa ser validada antes de ativar regras e sincronização</div></div></div>
     <div class="panel-pad"><div class="flow">
       <div class="step"><b>1. Fontes no painel</b>Dados de cadastro<ul><li>Equipes (dados, horários)</li><li>Núcleos (endereço)</li><li>Datas indisponíveis</li><li>Técnico responsável</li></ul></div><div class="arrow">${icon('arrow')}</div>
       <div class="step"><b>2. Quadro oficial</b>Texto montado por equipe visível, com as próximas datas calculadas<ul><li>Atualização a cada ${FEEDER.cacheMin} min</li></ul></div><div class="arrow">${icon('arrow')}</div>

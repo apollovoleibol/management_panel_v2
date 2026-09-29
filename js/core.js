@@ -379,7 +379,10 @@ const FIN_ROLES = ['Administrador', 'Financeiro'];
 const FIN_PAGES = ['packages', 'payments', 'finance'];
 const seesFinance = (u = me()) => !!u && FIN_ROLES.includes(u.role);
 const isCoach = (u = me()) => !!u && u.role === 'Técnico';
-const myTeamIds = (u = me()) => isCoach(u) ? TEAMS.filter(t => t.coach === u.coachId).map(t => t.id) : TEAMS.map(t => t.id);
+const myTeamIds = (u = me()) => isCoach(u)
+  ? TEAMS.filter(t => (typeof LIVE !== 'undefined' && LIVE.ready
+    ? LIVE.teamCoachIds.get(t.id)?.includes(u.coachId) : t.coach === u.coachId)).map(t => t.id)
+  : TEAMS.map(t => t.id);
 const perm = (p, u = me()) => (FIN_PAGES.includes(p) && !seesFinance(u)) ? 'none' : (u && u.perms[p]) || 'none';
 /* Rótulo do pacote sem valores para quem não vê dados financeiros */
 const maskPlan = str => seesFinance() ? str : String(str || '').replace(/\s*-\s*R\$.*$/, '');

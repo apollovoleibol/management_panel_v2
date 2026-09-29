@@ -6,8 +6,10 @@
 <title>Apollo · Painel de Gestão v2</title>
 <link rel="icon" href="assets/favicon-32.png">
 <link rel="stylesheet" href="styles.css?v=16">
+<style>body:not(.app-ready) .sidebar,body:not(.app-ready) .main{display:none}#startup{min-height:100vh;display:grid;place-items:center;padding:24px;font-family:inherit;color:#0f1332}body.app-ready #startup{display:none}</style>
 </head>
 <body>
+<div id="startup" role="status">Carregando dados da Apollo...</div>
 <aside class="sidebar" id="sidebar" aria-label="Navegação principal">
   <div class="brand">
     <img src="assets/apollo-logo.svg" alt="Apollo">
@@ -24,11 +26,7 @@
     </button>
     <div class="crumbs">Gestão <span aria-hidden="true">/</span> <b id="crumb">Visão geral</b></div>
     <div class="top-right">
-      <span class="proto-tag">PROTÓTIPO · DADOS FICTÍCIOS</span>
-      <label class="viewas" title="Simule o painel como outro usuário para testar as permissões">
-        <span class="lab">Visualizar como</span>
-        <select id="viewAs" aria-label="Visualizar o painel como"></select>
-      </label>
+      <label class="viewas" hidden><select id="viewAs" aria-label="Usuário atual"></select></label>
       <button class="icon-btn" id="themeBtn" aria-label="Alternar tema claro/escuro">
         <svg class="i" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </button>
@@ -50,6 +48,8 @@
 <script src="js/finance-reports.js?v=18"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/finance-db.js?v=18"></script>
+<script src="js/auth.js?v=19"></script>
+<script src="js/live-data.js?v=19"></script>
 <script src="js/finance-page.js?v=18"></script>
 <script src="js/main.js?v=18"></script>
 </body>

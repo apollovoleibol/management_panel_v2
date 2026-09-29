@@ -28,14 +28,18 @@ function renderOverview() {
 
   const past = BOOKINGS.filter(b => parseLocal(b.date) < NOW && b.status !== 'Cancelado');
   const showed = past.filter(b => !['Ausente', 'Pendente', 'Agendado'].includes(b.status)).length;
-  const funnel = [['Conversas iniciadas', 212, 'Assistente'], ['Agendamentos', 96, 'Supabase'], ['Compareceram ao teste', 71, 'Supabase'], ['Em cadastro', 38, 'Supabase'], ['Matriculados (Tecnofit)', 31, 'Tecnofit']];
+  const recentBookings = BOOKINGS.filter(b => b.createdAt && parseYmd(b.createdAt) >= addDays(TODAY, -29));
+  const attended = recentBookings.filter(b => ['Em avaliação','Em cadastro','Tecnofit'].includes(b.status));
+  const registering = recentBookings.filter(b => ['Em cadastro','Tecnofit'].includes(b.status));
+  const enrolled = recentBookings.filter(b => b.status === 'Tecnofit');
+  const funnel = [['Agendamentos', recentBookings.length, 'Supabase'], ['Compareceram ao teste', attended.length, 'Supabase'], ['Em cadastro', registering.length, 'Supabase'], ['Matriculados', enrolled.length, 'Supabase']];
 
   const months = lastMonths(6), labels = months.map(m => MON[m.getMonth()]);
   const realized = months.map(m => monthKey(m) === CUR_MONTH ? null : monthTotals(monthKey(m)).inn);
   const realizedVals = realized.filter(v => v != null);
-  const growth = realizedVals.length > 1 ? Math.pow(realizedVals.at(-1) / realizedVals[0], 1 / (realizedVals.length - 1)) : 1.01;
+  const growth = realizedVals.length > 1 && realizedVals[0] > 0 ? Math.pow(realizedVals.at(-1) / realizedVals[0], 1 / (realizedVals.length - 1)) : 1;
   const future = [1, 2, 3].map(k => new Date(TODAY.getFullYear(), TODAY.getMonth() + k, 1));
-  const projStart = realizedVals.at(-1);
+  const projStart = realizedVals.at(-1) || 0;
   const projection = [...realized.map((v, i) => i === realized.length - 2 ? v : null), Math.round(projStart * growth), ...future.map((_, k) => Math.round(projStart * Math.pow(growth, k + 2)))];
   const realLine = [...realized, null, null, null];
   const outLine = [...months.map(m => monthKey(m) === CUR_MONTH ? null : monthTotals(monthKey(m)).out), null, null, null];
@@ -47,26 +51,26 @@ function renderOverview() {
     ['Mensalidades vencidas', FIN_REPORTS.open ? money(overdue.reduce((s, x) => s + x.alertAmount, 0)) : '—', FIN_REPORTS.open ? `${new Set(overdue.map(x => x.clientId)).size} atleta(s)` : 'Importe Vendas em Aberto', 'Tecnofit', 'alert'],
     ['Fluxo analítico', r.flow ? money(r.flow.total) : '—', 'Entradas agregadas do mês', 'Tecnofit', 'chart'],
   ]; })() : [
-    ['Entradas no mês', money(cur.inn), `${dlt(cur.inn, prev.inn)} até hoje vs. ${MON[TODAY.getMonth() - 1 < 0 ? 11 : TODAY.getMonth() - 1]} completo`, 'Tecnofit', 'money'],
+    ['Entradas no mês', '—', 'Importe os relatórios do Tecnofit', 'Tecnofit', 'money'],
     ['Receita prevista (tabela)', money(expected), `${active} atletas ativos × pacote`, 'Supabase', 'layers'],
-    ['Inadimplência', money(delinq), `<span class="delta down">${pct(delinq, expected, 1)}</span> da receita prevista · ${delinqAth} atletas`, 'Tecnofit', 'alert'],
-    ['Custo com técnicos', money(coachCost), `${monthName} até hoje · horas + diárias`, 'Pagamentos', 'wallet'],
-    ['Resultado do mês', money(cur.bal), `Entradas ${moneyK(cur.inn)} · saídas ${moneyK(cur.out)}`, 'Financeiro', 'trend'],
+    ['Inadimplência', '—', 'Importe Vendas em Aberto', 'Tecnofit', 'alert'],
+    ['Custo com técnicos', COACH_ITEMS.length ? money(coachCost) : '—', 'Cadastre as horas e diárias', 'Pagamentos', 'wallet'],
+    ['Resultado do mês', '—', 'Aguardando dados financeiros', 'Financeiro', 'trend'],
   ];
   const svc = [
-    ['1ª resposta do assistente', '6 s', 'média · 30 dias', 'Assistente', 'bot'],
-    ['Tempo até agendar', '7 min 40 s', 'da 1ª mensagem ao [BOOKING]', 'Assistente', 'clock'],
-    ['Retorno humano', '3 h 10 min', 'agendamento → 1º contato WhatsApp', 'Proposta', 'whatsapp'],
+    ['1ª resposta do assistente', '—', 'Medição ainda indisponível', 'Assistente', 'bot'],
+    ['Tempo até agendar', '—', 'Medição ainda indisponível', 'Assistente', 'clock'],
+    ['Retorno humano', '—', 'Medição ainda indisponível', 'Assistente', 'whatsapp'],
     ['Comparecimento', pct(showed, past.length), `${showed} de ${past.length} testes realizados`, 'Supabase', 'check'],
     ['Reagendamentos', pct(BOOKINGS.filter(b => b.reag > 0).length, BOOKINGS.length), 'dos agendamentos no período', 'Supabase', 'refresh'],
-    ['Satisfação', '4,7 / 5', 'pesquisa pós-aula experimental', 'Proposta', 'star'],
+    ['Satisfação', '—', 'Pesquisa ainda não implantada', 'Proposta', 'star'],
   ];
 
   return `
   <div class="page-head"><div><div class="eyebrow">Apollo · ${monthName} de ${TODAY.getFullYear()}</div><h1>Visão geral</h1><p>${fin ? 'Finanças, atendimento, conversão e a agenda de treinos em um só lugar.' : 'Operação, atendimento, conversão e a agenda de treinos em um só lugar.'} Cada número indica a fonte de onde vem.</p></div>
     <div class="head-actions"><button class="btn" data-act="export-overview">${icon('download')} Exportar resumo</button></div></div>
 
-  ${importedFinance ? `<div class="banner note">${icon('info')}<span>Os indicadores financeiros abaixo vêm dos arquivos importados nesta sessão. Os demais indicadores desta visão geral continuam demonstrativos.</span></div>` : ''}
+  ${importedFinance ? `<div class="banner note">${icon('info')}<span>Indicadores financeiros dos relatórios importados; indicadores operacionais do Supabase.</span></div>` : ''}
   ${fin ? `<div class="section-title" style="margin-top:0"><h2>Financeiro</h2></div>
   <div class="grid g5">${kpis.map(([l, v, f, s, i]) => `<div class="kpi"><div class="kpi-label">${l}${icon(i)}</div><div class="kpi-value">${v}</div><div class="kpi-foot">${f}</div><div class="kpi-foot" style="margin-top:6px">${srcTag(s)}</div></div>`).join('')}</div>` : opsKpisHTML()}
 
@@ -75,15 +79,15 @@ function renderOverview() {
 
   <div class="section-title"><h2>Atendimento e conversão de leads</h2></div>
   <div class="split-wide">
-    <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Últimos 30 dias · do primeiro contato com o assistente à matrícula</div></div><span class="tag nodot st-ok">Conversão total ${pct(31, 212, 1)}</span></div>
-      <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}<br>${srcTag(s)}</span><div class="funnel-bar"><span style="width:${v / funnel[0][1] * 100}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
-      <div class="grid g3 mt">${[['centro', 36], ['sul', 31], ['norte', 22]].map(([n, v]) => `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n)}<b>${v}%</b></div><div class="bar"><span style="width:${v * 2}%;background:var(--n-${n})"></span></div><div class="hint" style="margin-top:4px">agendamento → matrícula</div></div>`).join('')}</div></div>
+    <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Últimos 30 dias · agendamentos registrados no Supabase</div></div><span class="tag nodot st-ok">Conversão total ${pct(enrolled.length, recentBookings.length, 1)}</span></div>
+      <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}<br>${srcTag(s)}</span><div class="funnel-bar"><span style="width:${recentBookings.length ? v / recentBookings.length * 100 : 0}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
+      <div class="grid g3 mt">${NUCLEI.map(n => { const local = recentBookings.filter(b => teamOf(b.teamId)?.n === n.id); const converted = local.filter(b => b.status === 'Tecnofit').length; const value = local.length ? Math.round(converted / local.length * 100) : 0; return `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n.id)}<b>${local.length ? value + '%' : '—'}</b></div><div class="bar"><span style="width:${value}%;background:var(--brand)"></span></div><div class="hint" style="margin-top:4px">agendamento → matrícula</div></div>`; }).join('')}</div></div>
     </section>
     <div class="grid g2">${svc.map(([l, v, f, s, i]) => `<div class="kpi"><div class="kpi-label">${l}${icon(i)}</div><div class="kpi-value" style="font-size:22px">${v}</div><div class="kpi-foot">${f}</div><div class="kpi-foot" style="margin-top:4px">${srcTag(s)}</div></div>`).join('')}</div>
   </div>
 
   <div class="section-title"><h2>Projeções</h2></div>
-  ${fin && !importedFinance ? `  <div class="split-wide">
+  ${false ? `  <div class="split-wide">
     <section class="panel"><div class="panel-head"><div><h2>Receita: realizado e projeção</h2><div class="sub">Entradas mensais; projeção pela tendência dos últimos meses (cenário base)</div></div>
       <div class="legend"><span><i style="background:var(--ok)"></i>Entradas realizadas</span><span><i style="background:var(--brand)"></i>Saídas</span><span><i class="dash" style="border-color:var(--info)"></i>Projeção de entradas</span></div></div>
       <div class="panel-pad">${lineChart({ labels: [...labels, ...future.map(m => MON[m.getMonth()])], series: [{ values: realLine, color: 'var(--ok)', area: true }, { values: outLine, color: 'var(--brand)' }, { values: projection, color: 'var(--info)', dash: true }], fmt: v => 'R$ ' + Math.round(v / 100000) + ' mil' })}</div>
@@ -237,7 +241,7 @@ function openBooking(id) {
       <button class="btn" data-act="${b.archived ? 'booking-unarchive' : 'booking-archive'}" data-id="${id}" data-edit>${icon(b.archived ? 'unarchive' : 'archive')} ${b.archived ? 'Restaurar' : 'Arquivar'}</button>
     </div>
     <h3 class="mt2">Histórico</h3>
-    <div class="timeline"><div>Agendado pelo assistente<small>${b.createdAt.split('-').reverse().join('/')} · via chatbot</small></div>${b.reag ? `<div>Reagendado ${b.reag}x<small>Pelo próprio usuário, na conversa</small></div>` : ''}${b.status !== 'Agendado' && b.status !== 'Pendente' ? `<div>Status alterado para ${esc(b.status)}<small>Painel de Gestão</small></div>` : ''}${b.archived ? '<div>Arquivado<small>Painel de Gestão</small></div>' : ''}</div>
+    <div class="timeline"><div>Agendamento criado<small>${b.createdAt ? b.createdAt.split('-').reverse().join('/') : 'Data indisponível'}</small></div>${b.reag ? `<div>Reagendado ${b.reag}x</div>` : ''}${b.status !== 'Agendado' && b.status !== 'Pendente' ? `<div>Status atual: ${esc(b.status)}</div>` : ''}${b.archived ? '<div>Arquivado</div>' : ''}</div>
     ${ed ? '' : `<div class="banner view mt">${icon('eye')}<span>Seu perfil pode consultar este agendamento, mas não editar.</span></div>`}
   </div>`, 'drawer');
 }
@@ -277,22 +281,24 @@ function bookingForm(id, preset = {}) {
     st.date = `${day.dataset.day}T${s ? s.start : '00:00'}`; dlg.dataset.dirty = '1'; draw();
   });
 }
-function saveBooking(id) {
+async function saveBooking(id) {
   const st = $('#dlg')._bk, t = teamOf(st.team), minor = isMinorTeam(t);
   const nome = $('#fbNome').value.trim(), menor = $('#fbMenor').value.trim(), wpp = digits($('#fbWpp').value);
   $('#fbWppErr').classList.toggle('hide', !wpp || wpp.length >= 10);
   if (!st.team || !nome || !wpp || !st.date || (minor && !menor)) { $('#fbErr').textContent = 'Preencha todos os campos obrigatórios.'; return false; }
   if (wpp.length < 10) { $('#fbErr').textContent = 'Número de WhatsApp inválido.'; return false; }
-  if (id) {
-    const b = BOOKINGS.find(x => x.id === id);
-    if (b.date !== st.date) b.reag = (b.reag || 0);
-    Object.assign(b, { teamId: st.team, nome, nomeMenor: minor ? menor : '', whatsapp: wpp, date: st.date, status: $('#fbStatus').value });
-    toast('Agendamento atualizado.');
-  } else {
-    BOOKINGS.unshift({ id: uid('b'), nome, nomeMenor: minor ? menor : '', whatsapp: wpp, teamId: st.team, date: st.date, status: 'Agendado', reag: 0, archived: false, createdAt: ymd(TODAY) });
-    toast('Agendamento criado com status Agendado.');
-  }
-  $('#dlg').dataset.dirty = '0'; closeDialog(); render(); return true;
+  const statuses = { 'Pendente': 'PENDING', 'Agendado': 'CONFIRMED', 'Em avaliação': 'IN_EVALUATION',
+    'Em cadastro': 'IN_REGISTRATION', 'Tecnofit': 'TECNOFIT', 'Ausente': 'MISSED', 'Cancelado': 'CANCELLED' };
+  const before = id ? BOOKINGS.find(x => x.id === id) : null;
+  const payload = { name: nome, minor_name: minor ? menor : null, whatsapp_phone: wpp,
+    scheduled_at: st.date, target_team: t.name, target_location: nucleusOf(t.n)?.venue || '', team_id: t.id,
+    status: id ? statuses[$('#fbStatus').value] : 'CONFIRMED' };
+  if (before && before.date !== st.date) payload.reschedule_count = before.reag + 1;
+  try {
+    await liveWrite('tryouts', payload, id);
+    $('#dlg').dataset.dirty = '0'; closeDialog(); await liveReload();
+    toast(id ? 'Agendamento atualizado.' : 'Agendamento criado.'); return true;
+  } catch (error) { $('#fbErr').textContent = `Não foi possível salvar: ${error.message}`; return false; }
 }
 function waMessage(id) {
   const b = BOOKINGS.find(x => x.id === id), t = teamOf(b.teamId), n = nucleusOf(t.n), d = parseLocal(b.date);
@@ -311,10 +317,8 @@ function waMessage(id) {
 const fmtBot = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/__(.+?)__/g, '<u>$1</u>').replace(/_(.+?)_/g, '<i>$1</i>');
 function openChat(id) {
   const b = BOOKINGS.find(x => x.id === id);
-  openDialog(dHead('Histórico — Apollo AI Bot', esc(b.nome), fmtPhone(b.whatsapp)) + `<div class="d-body"><div class="chat" id="chatBox">${chatFor(b).map(m => `<div class="bubble ${m.role === 'model' ? 'bot' : 'user'}">${fmtBot(m.text)}<time>${m.time}</time></div>`).join('')}</div>
-    <p class="hint mt">Somente a conversa deste contato é carregada. O conteúdo é exibido como texto (sem executar HTML).</p></div>
+  openDialog(dHead('Histórico — Apollo AI Bot', esc(b.nome), fmtPhone(b.whatsapp)) + `<div class="d-body"><div class="banner note">${icon('info')}<span>O histórico de conversa deste agendamento ainda não está conectado ao banco. Consulte o canal original do chatbot.</span></div></div>
     <div class="d-foot"><button class="btn" data-act="booking-open" data-id="${id}">${icon('left')} Voltar ao agendamento</button></div>`, 'drawer');
-  setTimeout(() => { const c = $('#chatBox'); if (c) c.scrollTop = c.scrollHeight; }, 30);
 }
 
 /* ═══════════════ ATLETAS ═══════════════ */
@@ -393,7 +397,7 @@ function athleteForm(id) {
   $('#atForm').addEventListener('input', () => { dlg.dataset.dirty = '1'; });
   $('#atForm').addEventListener('change', () => { dlg.dataset.dirty = '1'; });
 }
-function saveAthlete(id) {
+async function saveAthlete(id) {
   const t = teamOf($('#faTeam').value), minor = isMinorTeam(t), v = i => $('#' + i).value.trim();
   const planSel = $('#faPlan').value, plan = PLANS.find(p => String(p.id) === planSel);
   const err = m => { $('#faErr').textContent = m; return false; };
@@ -405,7 +409,19 @@ function saveAthlete(id) {
   if (minor && (!v('faResp') || digits(v('faRespWpp')).length < 10)) return err('Equipe de menores: informe nome e WhatsApp do responsável.');
   const data = { name: v('faName'), birth: v('faBirth'), email: v('faEmail'), cpf: v('faCpf'), rg: v('faRg'), phone: digits(v('faWpp')), parentName: minor ? v('faResp') : '', parentPhone: minor ? digits(v('faRespWpp')) : '', teamId: t.id, address: v('faAddr'), bank: v('faBank'), active: $('#faStatus').value === 'ativo' };
   if (plan) Object.assign(data, { plan: planLabel(plan), planId: plan.id });
-  if (id) Object.assign(ATHLETES.find(a => a.id === id), data);
-  else ATHLETES.push({ id: uid('a'), since: ymd(TODAY), plan: '', planId: null, ...data });
-  $('#dlg').dataset.dirty = '0'; closeDialog(); render(); toast(id ? 'Cadastro atualizado.' : 'Atleta cadastrado.'); return true;
+  const payload = { full_name: data.name, birth_date: data.birth || null,
+    email: data.email || null, cpf: digits(data.cpf), rg: data.rg || null,
+    phone: data.phone || null, parent_name: data.parentName || null,
+    parent_phone: data.parentPhone || null, team_id: data.teamId,
+    address: data.address || null,
+    is_active: data.active };
+  if (seesFinance()) {
+    payload.payment_bank = data.bank || null;
+    if (plan) payload.payment_plan = planLabel(plan);
+  }
+  try {
+    await liveWrite('athletes', payload, id);
+    $('#dlg').dataset.dirty = '0'; closeDialog(); await liveReload();
+    toast(id ? 'Cadastro atualizado.' : 'Atleta cadastrado.'); return true;
+  } catch (error) { return err(`Não foi possível salvar: ${error.message}`); }
 }

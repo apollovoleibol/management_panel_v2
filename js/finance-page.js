@@ -103,7 +103,7 @@ function finCoverageCard(type, name) {
 function finImportsHtml() {
   const account = FIN_DB.authorized ? FIN_DB.session?.user?.email : '';
   return `<div class="panel-pad"><h3>Importação individual por relatório</h3><p class="muted small">Cada arquivo é tratado e gravado separadamente. O arquivo original não é enviado ao banco. A cobertura abaixo usa o período informado por quem exportou; confira sempre o filtro aplicado no Tecnofit.</p>
-    ${account ? `<div class="banner note">${icon('check')}<span>Banco conectado como <b>${esc(account)}</b> · ${FIN_DB.canImport ? 'visualização e importação' : 'somente visualização'}. <button class="btn sm" data-act="fin-db-refresh">Atualizar dados</button> <button class="btn sm" data-act="fin-db-signout">Desconectar</button></span></div>` : `<div class="banner warn">${icon('alert')}<span>Conecte uma conta real com perfil Administrador ou Financeiro e autorização específica para consultar ou importar. O seletor “Visualizar como” simula permissões e não autentica no banco.</span></div><div class="row2"><div class="field"><label for="finDbEmail">E-mail do painel real</label><input class="input" id="finDbEmail" type="email" autocomplete="username"></div><div class="field"><label for="finDbPassword">Senha</label><input class="input" id="finDbPassword" type="password" autocomplete="current-password"></div></div><button class="btn primary" data-act="fin-db-signin">Conectar ao Supabase</button>`}
+    ${account ? `<div class="banner note">${icon('check')}<span>Conectado como <b>${esc(account)}</b> · ${FIN_DB.canImport ? 'visualização e importação' : 'somente visualização'}. <button class="btn sm" data-act="fin-db-refresh">Atualizar dados</button></span></div>` : `<div class="banner warn">${icon('alert')}<span>Esta conta precisa ser autorizada na tabela finance_access para consultar ou importar relatórios.</span></div>`}
     ${FIN_DB.error ? `<p class="err mt" role="alert">${esc(FIN_DB.error)}</p>` : ''}</div>
     <div class="panel-pad"><div class="grid g2">${Object.entries(finReportNames).map(([type, name]) => finCoverageCard(type, name)).join('')}</div></div>
     <div class="panel-pad"><h3>Onde exportar e qual período usar</h3></div>${finGuide()}
@@ -115,16 +115,28 @@ function renderFinanceV3() {
   const content = { summary: () => finSummaryHtml(key, summary), receipts: () => finReceiptsHtml(summary), statement: () => finStatementHtml(summary), flow: () => finFlowHtml(key, summary), alerts: finAlertsHtml, manual: () => finManualHtml(key), imports: finImportsHtml };
   if (!content[S.fin.tab]) S.fin.tab = 'summary';
   return `${viewBanner('finance')}<div class="page-head"><div><div class="eyebrow">Finanças · Tecnofit</div><h1>Financeiro</h1><p>Recebimentos, movimentações, fluxo de caixa e alertas de mensalidades com origem explícita.</p></div><div class="head-actions"><select class="select" id="finMonth" aria-label="Mês" style="width:auto">${monthOptions(key, 12)}</select><button class="btn" data-act="fin-tab" data-tab="imports">Importações</button><button class="btn primary" data-act="finance-manual-new" data-edit>${icon('plus')} Lançamento manual</button></div></div>
-  ${finHasImports() ? `<div class="banner note">${icon('info')}<span>Dados financeiros carregados do banco. ${!FIN_REPORTS.open ? 'Alertas aguardam Vendas em Aberto.' : `${alerts.length} mensalidade(s) vencida(s) na última fotografia.`} Os demais módulos do protótipo continuam fictícios.</span></div>` : `<div class="banner note">${icon('info')}<span><b>Comece pelas exportações do Tecnofit.</b> Abra “Importações” para conectar o banco, importar cada relatório e conferir os meses cobertos.</span></div>`}
+  ${finHasImports() ? `<div class="banner note">${icon('info')}<span>Dados financeiros carregados do banco. ${!FIN_REPORTS.open ? 'Alertas aguardam Vendas em Aberto.' : `${alerts.length} mensalidade(s) vencida(s) na última fotografia.`}</span></div>` : `<div class="banner note">${icon('info')}<span><b>Comece pelas exportações do Tecnofit.</b> Abra “Importações” para enviar cada relatório e conferir os meses cobertos.</span></div>`}
   <section class="panel"><div class="tabs fin-tabs">${tabs.map(([id, name]) => `<button class="${S.fin.tab === id ? 'on' : ''}" data-act="fin-tab" data-tab="${id}">${name}</button>`).join('')}</div>${content[S.fin.tab]()}</section>`;
 }
 function financeManualForm() {
   openDialog(dHead('Novo lançamento', 'Entrada ou saída manual') + `<div class="d-body"><div class="row2"><div class="field"><label for="fmType">Tipo</label><select id="fmType" class="select"><option value="out">Saída</option><option value="in">Entrada</option></select></div><div class="field"><label for="fmDate">Data</label><input id="fmDate" class="input" type="date" value="${ymd(TODAY)}"></div></div><div class="field"><label for="fmDesc">Descrição</label><input id="fmDesc" class="input"></div><div class="row2"><div class="field"><label for="fmCat">Categoria</label><input id="fmCat" class="input" placeholder="Ex.: Locação"></div><div class="field"><label for="fmAmount">Valor (R$)</label><input id="fmAmount" class="input" type="number" min="0.01" step="0.01"></div></div><div class="err" id="fmError" role="alert"></div></div><div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="finance-manual-save" data-edit>Salvar</button></div>`, 'drawer');
 }
-function financeManualSave() {
+async function financeManualSave() {
   if (!canEdit('finance')) return;
   const amount = centsInput($('#fmAmount').value), date = $('#fmDate').value, desc = $('#fmDesc').value.trim();
   if (!desc || !/^\d{4}-\d{2}-\d{2}$/.test(date) || amount <= 0) { $('#fmError').textContent = 'Informe data, descrição e valor maior que zero.'; return; }
-  FIN_MANUAL.push({ date, desc, cat: $('#fmCat').value.trim() || 'Outros', type: $('#fmType').value, amount });
-  S.fin.month = date.slice(0, 7); S.fin.tab = 'manual'; closeDialog(); render(); toast('Lançamento manual salvo nesta sessão.');
+  const { error } = await financeDbClient().from('v2_finance_manual').insert({
+    entry_date: date, description: desc, category: $('#fmCat').value.trim() || 'Outros',
+    direction: $('#fmType').value, amount_cents: amount, created_by: APOLLO_AUTH.user.id
+  });
+  if (error) { $('#fmError').textContent = `Não foi possível salvar: ${error.message}`; return; }
+  await financeManualRefresh();
+  S.fin.month = date.slice(0, 7); S.fin.tab = 'manual'; closeDialog(); render(); toast('Lançamento manual salvo.');
+}
+async function financeManualRefresh() {
+  if (!seesFinance()) return;
+  const rows = await liveAll('v2_finance_manual', 'id,entry_date,description,category,direction,amount_cents');
+  FIN_MANUAL.splice(0, FIN_MANUAL.length, ...rows.map(r => ({
+    id: r.id, date: r.entry_date, desc: r.description, cat: r.category, type: r.direction, amount: r.amount_cents
+  })));
 }

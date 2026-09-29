@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Apollo · Entrar</title>
 <link rel="icon" href="assets/favicon-32.png">
-<link rel="stylesheet" href="styles.css?v=18">
-<link rel="stylesheet" href="atleta.css?v=18">
+<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="atleta.css?v=19">
 </head>
 <body>
 <div class="login">
@@ -14,106 +14,37 @@
     <img src="assets/apollo-logo.svg" alt="Apollo">
     <div style="position:relative;z-index:1">
       <h1>Uma entrada só para toda a Apollo.</h1>
-      <p>Equipe, técnicos, atletas e famílias usam o mesmo acesso. O sistema reconhece o seu perfil e leva você ao lugar certo.</p>
-      <div class="who-list" id="whoList"></div>
+      <p>Equipe, técnicos, atletas e famílias usam o mesmo acesso. O sistema identifica as áreas vinculadas ao seu cadastro.</p>
+      <div class="who-list">
+        <div><span>Equipe e técnicos → Painel de Gestão</span></div>
+        <div><span>Atletas adultos e responsáveis → Área do atleta</span></div>
+      </div>
     </div>
-    <small>Apollo Voleibol · protótipo com dados fictícios</small>
+    <small>Apollo Voleibol</small>
   </section>
-
   <section class="login-side">
-    <div class="login-card" id="card"></div>
+    <div class="login-card" id="card">
+      <div class="eyebrow">Acesso Apollo</div>
+      <h2>Entrar</h2>
+      <p class="muted small">Use o e-mail cadastrado pela secretaria ou administração.</p>
+      <button class="btn gbtn" id="googleBtn" type="button">Continuar com Google</button>
+      <div class="or">ou</div>
+      <form id="pwForm">
+        <div class="field"><label for="em">E-mail</label><input class="input" id="em" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="pw">Senha</label><input class="input" id="pw" type="password" autocomplete="current-password" required></div>
+        <button class="btn primary gbtn" type="submit">Entrar</button>
+      </form>
+      <div class="small" style="display:flex;justify-content:space-between;margin-top:12px">
+        <button class="btn ghost sm" type="button" id="firstBtn">Primeiro acesso</button>
+        <button class="btn ghost sm" type="button" id="forgotBtn">Esqueci a senha</button>
+      </div>
+      <p id="loginMessage" class="muted small" role="status" aria-live="polite"></p>
+    </div>
   </section>
 </div>
-
-<dialog id="dlg" aria-labelledby="dlgTitle"></dialog>
-<dialog id="dlg2" class="sm" aria-labelledby="dlg2Title"></dialog>
-<div id="toast" class="toast hide" role="status" aria-live="polite"></div>
-
-<script src="js/core.js?v=18"></script>
-<script>
-'use strict';
-ICONS.google = 'M21 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.1a4.4 4.4 0 0 1-1.9 2.9v2.4h3.1c1.8-1.7 2.7-4.1 2.7-7.1z M12 21c2.6 0 4.7-.9 6.3-2.3l-3.1-2.4c-.9.6-2 .9-3.2.9-2.5 0-4.6-1.7-5.3-3.9H3.5v2.5A9.5 9.5 0 0 0 12 21z M6.7 13.3a5.7 5.7 0 0 1 0-3.6V7.2H3.5a9.5 9.5 0 0 0 0 8.6z M12 6.8c1.4 0 2.6.5 3.6 1.4l2.7-2.7A9.5 9.5 0 0 0 3.5 7.2l3.2 2.5C7.4 7.5 9.5 6.8 12 6.8z';
-ICONS.home = 'M3 11l9-8 9 8 M5 9.5V21h14V9.5 M10 21v-6h4v6';
-
-$('#whoList').innerHTML = [
-  ['grid', 'Administração, coordenação, financeiro e atendimento → Painel de Gestão'],
-  ['whatsapp', 'Técnicos → Painel com as próprias equipes (e o Manager App na quadra)'],
-  ['users', 'Pais e responsáveis → Área do atleta, com todos os filhos matriculados'],
-  ['star', 'Atletas adultos → Área do atleta'],
-].map(([i, t]) => `<div>${icon(i)}<span>${t}</span></div>`).join('');
-
-/* Contas de demonstração: simulam o que o sistema encontraria após a autenticação */
-const DEMO = [
-  { id: 'admin', name: 'Ana Ribeiro', role: 'Administradora', route: 'panel', as: 'u1', icon: 'grid' },
-  { id: 'coach', name: 'Rafael Moura', role: 'Técnico · Sub-17 Feminino e Adulto Misto', route: 'panel', as: 'u5', icon: 'whatsapp' },
-  { id: 'familia', name: 'Renata Gomes', role: 'Mãe da Alice (Sub-15) e do Enzo (escolinha)', route: 'athlete', icon: 'users' },
-  { id: 'larissa', name: 'Larissa Gomes', role: 'Atleta adulta · Adulto Feminino (competitivo)', route: 'athlete', icon: 'trophy' },
-  { id: 'lucas', name: 'Lucas Ferreira', role: 'Atleta adulto · Adulto Misto (iniciante)', route: 'athlete', icon: 'star' },
-  { id: 'juliana', name: 'Juliana Prado', role: 'Técnica e mãe da Clara (Sub-13)', route: 'both', as: 'u7', icon: 'shield' },
-  { id: 'inativo', name: 'Gustavo Almeida', role: 'Cadastro inativo', route: 'inactive', icon: 'lock' },
-];
-const target = d => d.route === 'panel' ? `index.html?como=${d.as}` : `area-do-atleta.html?conta=${d.id}`;
-
-function drawLogin() {
-  $('#card').innerHTML = `
-    <div class="eyebrow">Bem-vindo(a) de volta</div>
-    <h2>Entrar na Apollo</h2>
-    <p class="muted small" style="margin:0 0 20px">Use o e-mail cadastrado na matrícula ou no seu acesso de equipe.</p>
-    <button class="btn gbtn" data-demo-open>${icon('google')} Continuar com Google</button>
-    <div class="or">ou</div>
-    <form id="pwForm" novalidate>
-      <div class="field"><label for="em">E-mail</label><input class="input" id="em" type="email" autocomplete="username" placeholder="voce@exemplo.com"></div>
-      <div class="field"><label for="pw">Senha</label><input class="input" id="pw" type="password" autocomplete="current-password" placeholder="••••••••"></div>
-      <button class="btn primary gbtn" type="submit">Entrar</button>
-      <div style="display:flex;justify-content:space-between;margin-top:10px" class="small"><a href="#" data-first>Primeiro acesso da família?</a><a href="#" data-forgot>Esqueci a senha</a></div>
-    </form>
-    <details class="panel mt2" style="box-shadow:none" open>
-      <summary class="panel-head" style="cursor:pointer;border:0"><div><h3>Protótipo: escolha uma conta de demonstração</h3><div class="hint">Simula o login e mostra para onde cada perfil é levado</div></div></summary>
-      <div class="panel-pad" style="padding-top:0"><div class="demo-accounts">${DEMO.map(d => `<button class="demo-acc" data-demo="${d.id}"><span class="avatar">${initials(d.name)}</span><span><strong>${esc(d.name)}</strong><small>${esc(d.role)}</small></span><span class="go">${icon('arrow')}</span></button>`).join('')}</div></div>
-    </details>
-    <details class="panel mt" style="box-shadow:none">
-      <summary class="panel-head" style="cursor:pointer;border:0"><h3>Como o direcionamento funciona</h3></summary>
-      <div class="panel-pad" style="padding-top:0"><div class="route-steps">
-        <div><b>1</b><span>Autenticação pelo Google ou e-mail e senha (Supabase Auth), a mesma tela para todos.</span></div>
-        <div><b>2</b><span>Perfil de equipe ativo (admin, financeiro, coordenação, atendimento, técnico) → <b>Painel de Gestão</b>, com as permissões configuradas.</span></div>
-        <div><b>3</b><span>E-mail vinculado a um atleta ativo, ou a um responsável de atleta ativo → <b>Área do atleta</b>.</span></div>
-        <div><b>4</b><span>As duas coisas (ex.: técnica que também é mãe) → o sistema pergunta para onde ir, e dá para trocar depois pelo menu.</span></div>
-        <div><b>5</b><span>Atleta inativo ou conta sem vínculo → mensagem com o contato da secretaria, sem expor dados.</span></div>
-      </div></div>
-    </details>`;
-  $('#pwForm').addEventListener('submit', e => { e.preventDefault(); toast('Protótipo: escolha uma conta de demonstração abaixo.', true); });
-}
-
-function routeTo(d) {
-  $('#card').innerHTML = `<div class="routing"><div class="spinner"></div><h2 style="font-size:19px">Olá, ${esc(d.name.split(' ')[0])}!</h2><p class="muted small">Identificando seu perfil...</p></div>`;
-  setTimeout(() => {
-    if (d.route === 'both') return drawChoice(d);
-    if (d.route === 'inactive') return drawInactive(d);
-    location.href = target(d);
-  }, 900);
-}
-function drawChoice(d) {
-  $('#card').innerHTML = `<div class="eyebrow">Você tem dois acessos</div><h2>Para onde você quer ir, ${esc(d.name.split(' ')[0])}?</h2>
-    <p class="muted small" style="margin:0">Você pode alternar entre eles a qualquer momento pelo menu do usuário.</p>
-    <div class="choice">
-      <button onclick="location.href='index.html?como=${d.as}'"><span class="ic navy">${icon('grid')}</span><span><strong>Painel de Gestão</strong><br><small class="muted">Como técnica · Sub-13 Misto e Sub-15 Feminino</small></span></button>
-      <button onclick="location.href='area-do-atleta.html?conta=${d.id}'"><span class="ic">${icon('users')}</span><span><strong>Área do atleta</strong><br><small class="muted">Como responsável · Clara Prado</small></span></button>
-    </div><button class="btn ghost mt" onclick="drawLogin()">${icon('left')} Voltar</button>`;
-}
-function drawInactive(d) {
-  $('#card').innerHTML = `<div class="banner warn" style="margin-top:0">${icon('alert')}<div><b>Seu cadastro está inativo no momento.</b><br><span class="small">Para voltar a treinar ou consultar informações, fale com a secretaria da Apollo.</span></div></div>
-    <a class="btn wa gbtn" href="https://wa.me/551130001000" target="_blank" rel="noopener">${icon('whatsapp')} Falar com a secretaria</a>
-    <button class="btn ghost mt" onclick="drawLogin()">${icon('left')} Voltar</button>`;
-}
-
-document.addEventListener('click', e => {
-  const b = e.target.closest('[data-demo]'); if (b) return routeTo(DEMO.find(d => d.id === b.dataset.demo));
-  if (e.target.closest('[data-demo-open]')) { toast('Protótipo: escolha uma conta de demonstração abaixo.'); $('.demo-accounts').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-  if (e.target.closest('[data-first]')) { e.preventDefault(); openDialog(dHead('Primeiro acesso', 'Acesso da família') + `<div class="d-body"><p class="small" style="margin-top:0">Na matrícula, a secretaria cadastra o e-mail do responsável (ou do atleta adulto). Com esse e-mail, a família:</p><div class="route-steps"><div><b>1</b><span>Recebe um convite por e-mail/WhatsApp com link de ativação.</span></div><div><b>2</b><span>Entra com Google ou cria uma senha.</span></div><div><b>3</b><span>Confirma os dados e aceita os termos (uso de imagem, LGPD) de cada filho.</span></div></div><p class="hint mt">Pais separados ou dois responsáveis podem ter acessos próprios ligados ao mesmo atleta.</p></div><div class="d-foot"><button class="btn primary" data-act="close-dialog">Entendi</button></div>`); }
-  if (e.target.closest('[data-forgot]')) { e.preventDefault(); toast('Enviaríamos um link de redefinição para o e-mail informado.'); }
-  if (e.target.closest('[data-act="close-dialog"]')) closeDialog();
-});
-drawLogin();
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/finance-db.js?v=19"></script>
+<script src="js/auth.js?v=19"></script>
+<script src="js/login.js?v=19"></script>
 </body>
 </html>

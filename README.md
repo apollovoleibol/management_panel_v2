@@ -1,8 +1,8 @@
-# Painel de Gestão v2 — protótipo navegável
+# Painel de Gestão v2 — implantação em andamento
 
-Protótipo da nova versão do Painel de Gestão Apollo (setembro/2026). Os módulos demonstrativos usam dados fictícios. A área Financeiro prepara cada relatório Tecnofit no navegador e grava somente registros tratados e metadados no Supabase, após autenticação real e aplicação da migração de banco. O arquivo original não é enviado. Lançamentos manuais e os demais módulos continuam temporários neste protótipo.
+Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login e parte das operações já foram conectados ao Supabase, mas a implantação ainda não está pronta para uso em produção. As migrações da v2 e os controles de acesso precisam de validação no projeto compartilhado com a v1. Consulte [o estado da implantação](docs/IMPLEMENTACAO_REAL.md) antes de publicar.
 
-**Como abrir:** dê dois cliques em `index.html`. Para abrir direto numa página, use a âncora: `index.html#bookings`, `#athletes`, `#teams`, `#packages`, `#feeder`, `#payments`, `#finance` ou `#settings`.
+**Como abrir:** use `login.html` com uma conta Supabase autorizada. Para abrir direto numa página após o login, use a âncora: `index.html#bookings`, `#athletes`, `#teams`, `#packages`, `#feeder`, `#payments`, `#finance` ou `#settings`.
 
 **Publicação paralela à v1:** consulte [PUBLICACAO_V2.md](PUBLICACAO_V2.md). A primeira publicação no novo repositório é destinada à homologação visual.
 
@@ -13,7 +13,7 @@ Protótipo da nova versão do Painel de Gestão Apollo (setembro/2026). Os módu
   - atleta ativo, ou responsável por atleta ativo → Área do atleta;
   - quem tem os dois acessos escolhe para onde ir;
   - cadastro inativo → contato da secretaria.
-- `area-do-atleta.html?conta=familia|larissa|lucas|juliana`: proposta da área do atleta, pensada primeiro para o celular.
+- `area-do-atleta.html`: proposta da área do atleta, pensada primeiro para o celular. Requer vínculo de conta e dados reais no banco.
   - **Início:** próximo treino (com como chegar e aviso de ausência), pendências, próxima competição, presença e comunicados.
   - **Agenda:** treinos, competições e eventos, com aviso de ausência e exportação para o calendário do celular (.ics). Para os pais, há a opção "toda a família".
   - **Evolução:** frequência nas últimas 8 semanas. Os competitivos (base e adulto) veem o scout do Manager App; escolinha e iniciantes veem a avaliação de fundamentos. Ambos com recado do técnico.
@@ -49,8 +49,8 @@ Protótipo da nova versão do Painel de Gestão Apollo (setembro/2026). Os módu
   - Administrador e Financeiro veem as métricas financeiras.
   - Coordenação e Atendimento veem indicadores operacionais e a projeção de atletas, sem valores em R$.
   - O Técnico vê só as próprias equipes, com os indicadores do Manager App: presença, horas, treinos, chamadas, testes a avaliar, presença por equipe, atletas com baixa presença e próximas competições. Agendamentos, Atletas e a agenda também ficam restritos às equipes dele (vínculo definido em Configurações).
-- **Demonstração:** `index.html?como=u5` abre o painel já como o técnico Rafael (u2 = coordenação, u3 = financeiro, u4 = atendimento, u7 = técnica Juliana).
-- **Tecnofit por upload individual:** a guia **Importações** tem um cartão por relatório: `Contas a Receber (Incluir colunas ocultas).xlsx`, `Relatório de Vendas em Aberto.xls` (HTML exportado como XLS), `Relatório de Fluxo de Caixa Analítico.xls` (HTML exportado como XLS) e extrato `.csv`. O navegador lê e trata um arquivo por vez. Após conferir o intervalo usado no Tecnofit, uma chamada autenticada grava somente registros normalizados e metadados no Supabase. A função de banco substitui atomicamente os meses reimportados; Vendas em Aberto substitui a fotografia anterior. O histórico mostra a última importação, meses cobertos e lacunas nos últimos 12 meses. **É preciso aplicar a [migração financeira](supabase/migrations/012_tecnofit_finance_imports.sql) no Supabase principal antes de usar a gravação.** O login demonstrativo de `login.html` não autentica no banco; a guia Importações pede uma conta real autorizada. [Levantamento técnico](docs/INTEGRACAO_TECNOFIT_2026-09-29.md).
+- **Prévia anterior:** o parâmetro `?como=` pertencia ao protótipo e não concede acesso na versão autenticada.
+- **Tecnofit por upload individual:** a guia **Importações** tem um cartão por relatório: `Contas a Receber (Incluir colunas ocultas).xlsx`, `Relatório de Vendas em Aberto.xls` (HTML exportado como XLS), `Relatório de Fluxo de Caixa Analítico.xls` (HTML exportado como XLS) e extrato `.csv`. O navegador lê e trata um arquivo por vez. Após conferir o intervalo usado no Tecnofit, uma chamada autenticada grava somente registros normalizados e metadados no Supabase. A função de banco substitui atomicamente os meses reimportados; Vendas em Aberto substitui a fotografia anterior. O histórico mostra a última importação, meses cobertos e lacunas nos últimos 12 meses. **A [migração financeira](supabase/migrations/012_tecnofit_finance_imports.sql) ainda não foi aplicada no Supabase principal.** [Levantamento técnico](docs/INTEGRACAO_TECNOFIT_2026-09-29.md).
 - **Alertas:** só entram mensalidades com saldo aberto positivo e vencimento anterior ao dia atual; status de cliente “Bloqueado” e “Não recebido” em Contas a Receber não são usados como prova de atraso. Quando há vários vencimentos na mesma linha exportada, ela é exibida agrupada para conferência. O relatório não traz responsáveis legais, portanto nenhum contato automático é disparado.
 - **Pagamentos de técnicos:** as horas de treino são geradas a partir dos horários das equipes, descontando as datas indisponíveis. Competições (diárias) e extras são lançados manualmente. O fluxo segue aprovação → pagamento → saída registrada no Financeiro.
 - Métricas marcadas como `PROPOSTA` (retorno humano, satisfação) dependem de dados que ainda não são coletados.

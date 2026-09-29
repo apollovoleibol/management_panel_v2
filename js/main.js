@@ -12,15 +12,13 @@ function renderNav() {
   });
   $('#nav').innerHTML = html;
   const u = me();
-  $('#sideUser').innerHTML = `<span class="avatar">${initials(u.name)}</span><div style="min-width:0"><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></div>${u.id === 'u7' ? `<a class="lock" href="area-do-atleta.html?conta=juliana" title="Ir para a Área do atleta (responsável)" style="margin-left:auto;color:var(--nav-muted)">${icon('users')}</a>` : ''}<a href="login.html" title="Sair" aria-label="Sair" style="${u.id === 'u7' ? '' : 'margin-left:auto;'}color:var(--nav-muted);display:grid;place-items:center">${icon('logout')}</a>`;
+  $('#sideUser').innerHTML = `<span class="avatar">${initials(u.name)}</span><div style="min-width:0"><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></div>${apolloHasAthleteAccess() ? `<a class="lock" href="area-do-atleta.html" title="Ir para a Área do atleta" style="margin-left:auto;color:var(--nav-muted)">${icon('users')}</a>` : ''}<button class="icon-btn" data-act="logout" title="Sair" aria-label="Sair" style="margin-left:auto;color:var(--nav-muted)">${icon('logout')}</button>`;
   $('#crumb').textContent = PAGES.find(p => p.id === S.page).label;
 }
 function render() {
   if (!canView(S.page)) S.page = (PAGES.find(p => canView(p.id)) || PAGES[0]).id;
   renderNav();
-  const imported = seesFinance() && finHasImports();
-  $('.proto-tag').textContent = imported ? 'PROTÓTIPO · FINANCEIRO NO BANCO' : 'PROTÓTIPO · DADOS FICTÍCIOS';
-  $('#content').innerHTML = RENDER[S.page]() + `<footer class="foot"><span>Apollo · Painel de Gestão v2 — protótipo navegável</span><span>${imported ? 'Relatórios financeiros persistidos no Supabase; demais módulos demonstrativos' : 'Dados demonstrativos em memória'} · lançamentos manuais desta versão ainda são temporários</span></footer>`;
+  $('#content').innerHTML = RENDER[S.page]() + `<footer class="foot"><span>Apollo · Painel de Gestão v2</span><span>Dados sincronizados com o Supabase</span></footer>`;
   if (!canEdit(S.page)) $$('#content [data-edit]').forEach(b => { b.classList.add('locked'); b.setAttribute('aria-disabled', 'true'); b.title = 'Somente visualização para o seu perfil'; });
 }
 function go(page) { S.page = page; closeSidebar(); render(); window.scrollTo(0, 0); $('#content').focus({ preventScroll: true }); }
@@ -47,12 +45,13 @@ document.addEventListener('click', async e => {
   if (el.dataset.need && !canEdit(el.dataset.need)) { e.preventDefault(); return toast('Seu perfil não pode editar ' + PAGES.find(p => p.id === el.dataset.need).label + '.', true); }
   if (el.tagName === 'INPUT' && el.type === 'checkbox' && !a.startsWith('fd-visible') && !a.startsWith('pay-approve')) return;
   switch (a) {
+    case 'logout': return apolloSignOut();
     case 'close-dialog': return closeDialog();
     case 'try-close': return guardClose();
     case 'export-overview': {
       const rows = [['Indicador', 'Valor'], ['Atletas ativos', ATHLETES.filter(x => x.active && myTeamIds().includes(x.teamId)).length], ['Agendamentos ativos', BOOKINGS.filter(b => !b.archived && myTeamIds().includes(b.teamId)).length]];
       if (seesFinance() && finHasImports()) { const r = finSummary(CUR_MONTH); rows.push(['Recebido bruto', FIN_REPORTS.receivables ? money(r.gross) : 'Sem arquivo'], ['Recebido líquido', FIN_REPORTS.receivables ? money(r.net) : 'Sem arquivo'], ['Mensalidades vencidas', FIN_REPORTS.open ? money(finAlertRows().reduce((s, d) => s + d.alertAmount, 0)) : 'Sem arquivo']); }
-      else if (seesFinance()) rows.push(['Entradas no mês', money(monthTotals(CUR_MONTH).inn)], ['Receita prevista', money(expectedMonthly())], ['Inadimplência', money(DELINQ.reduce((s, d) => s + d.amount, 0))]);
+      else if (seesFinance()) rows.push(['Dados financeiros', 'Aguardando importação do Tecnofit']);
       return download(`apollo-resumo-${CUR_MONTH}.csv`, csv(rows));
     }
     /* calendário */
@@ -75,15 +74,16 @@ document.addEventListener('click', async e => {
     case 'booking-archive': {
       e.stopPropagation();
       if (!(await confirmBox({ title: 'Arquivar agendamento?', text: 'Ele deixará de aparecer na lista principal, mas continua acessível na visão de arquivados.', ok: 'Arquivar', danger: true }))) return;
-      BOOKINGS.find(b => b.id === id).archived = true; closeDialog(); render(); return toast('Agendamento arquivado.');
+      try { await liveWrite('tryouts', { archived_at: new Date().toISOString() }, id); closeDialog(); await liveReload(); toast('Agendamento arquivado.'); }
+      catch (error) { toast(error.message, true); } return;
     }
-    case 'booking-unarchive': e.stopPropagation(); BOOKINGS.find(b => b.id === id).archived = false; closeDialog(); render(); return toast('Agendamento restaurado.');
-    case 'booking-delete': if (await confirmBox({ title: 'Excluir agendamento?', text: 'Esta ação remove o agendamento definitivamente. Para apenas tirá-lo da lista, use Arquivar.', ok: 'Excluir', danger: true })) { BOOKINGS = BOOKINGS.filter(b => b.id !== id); $('#dlg').dataset.dirty = '0'; closeDialog(); render(); toast('Agendamento excluído.'); } return;
+    case 'booking-unarchive': e.stopPropagation(); try { await liveWrite('tryouts', { archived_at: null }, id); closeDialog(); await liveReload(); toast('Agendamento restaurado.'); } catch (error) { toast(error.message, true); } return;
+    case 'booking-delete': if (await confirmBox({ title: 'Excluir agendamento?', text: 'Esta ação remove o agendamento definitivamente. Para apenas tirá-lo da lista, use Arquivar.', ok: 'Excluir', danger: true })) { try { await liveDelete('tryouts', id); $('#dlg').dataset.dirty = '0'; closeDialog(); await liveReload(); toast('Agendamento excluído.'); } catch (error) { toast(error.message, true); } } return;
     /* atletas */
     case 'athlete-new': return athleteForm(null);
     case 'athlete-open': return athleteForm(id);
     case 'athlete-save': return saveAthlete(id || null);
-    case 'athlete-delete': if (await confirmBox({ title: 'Excluir atleta?', text: 'O cadastro será removido. Prefira marcar como Inativo para preservar o histórico.', ok: 'Excluir', danger: true })) { ATHLETES = ATHLETES.filter(x => x.id !== id); $('#dlg').dataset.dirty = '0'; closeDialog(); render(); toast('Atleta excluído.'); } return;
+    case 'athlete-delete': if (await confirmBox({ title: 'Excluir atleta?', text: 'O cadastro será removido. Prefira marcar como Inativo para preservar o histórico.', ok: 'Excluir', danger: true })) { try { await liveDelete('athletes', id); $('#dlg').dataset.dirty = '0'; closeDialog(); await liveReload(); toast('Atleta excluído.'); } catch (error) { toast(error.message, true); } } return;
     /* equipes e núcleos */
     case 'team-filter': S.tm.n = el.dataset.n; render(); if (el.closest('.ncard')) document.querySelector('.divider-band')?.scrollIntoView({ behavior: 'smooth' }); return;
     case 'team-open': return teamEditor(id);
@@ -94,8 +94,10 @@ document.addEventListener('click', async e => {
     case 'team-toggle-active': collectTE(); TE.active = !TE.active; if (!TE.active) TE.available = false; drawTeamEditor(); $('#dlg').dataset.dirty = '1'; return toast(TE.active ? 'Equipe será reativada ao salvar.' : 'Equipe será desativada ao salvar: sai da agenda e do assistente.');
     case 'team-delete': {
       const n = ATHLETES.filter(x => x.teamId === TE.id).length, b = BOOKINGS.filter(x => x.teamId === TE.id).length;
-      if (!(await confirmBox({ title: `Excluir ${TE.name}?`, text: `${n ? `<b>${n} atletas e ${b} agendamentos</b> estão vinculados a esta equipe e ficarão sem equipe. ` : ''}Horários e datas indisponíveis também serão removidos. Essa ação não pode ser desfeita — considere desativar.`, ok: 'Excluir equipe', danger: true }))) return;
-      TEAMS = TEAMS.filter(t => t.id !== TE.id); PLANS.forEach(p => { p.teams = p.teams.filter(t => t !== TE.id); }); $('#dlg').dataset.dirty = '0'; closeDialog(); render(); return toast('Equipe excluída.');
+      if (n || b) return toast(`Esta equipe tem ${n} atleta(s) e ${b} agendamento(s). Desative-a para preservar os dados.`, true);
+      if (!(await confirmBox({ title: `Excluir ${TE.name}?`, text: 'A equipe vazia, seus horários e datas indisponíveis serão removidos.', ok: 'Excluir equipe', danger: true }))) return;
+      try { await liveDelete('teams', TE.id); $('#dlg').dataset.dirty = '0'; closeDialog(); await liveReload(); toast('Equipe excluída.'); }
+      catch (error) { toast(error.message, true); } return;
     }
     case 'goto-packages': $('#dlg').dataset.dirty = '0'; closeDialog(); S.pk.n = TE.n; return go('packages');
     case 'nucleus-new': return nucleusForm(null);
@@ -103,45 +105,77 @@ document.addEventListener('click', async e => {
     case 'nucleus-save': return saveNucleus(id || null);
     case 'nucleus-delete': {
       if (TEAMS.some(t => t.n === id)) return toast('Este núcleo tem equipes. Mova ou exclua as equipes antes.', true);
-      if (await confirmBox({ title: 'Excluir núcleo?', text: 'O local será removido do painel e do assistente.', ok: 'Excluir', danger: true })) { NUCLEI.splice(NUCLEI.findIndex(n => n.id === id), 1); closeDialog(); render(); toast('Núcleo excluído.'); }
+      if (await confirmBox({ title: 'Excluir núcleo?', text: 'O local será removido do painel e do assistente.', ok: 'Excluir', danger: true })) { try { await liveDelete('training_locations', id); closeDialog(); await liveReload(); toast('Núcleo excluído.'); } catch (error) { toast(error.message, true); } }
       return;
     }
     /* pacotes */
     case 'pkg-n': S.pk.n = el.dataset.n; return render();
     case 'pkg-open': return packageDrawer(Number(id));
-    case 'pkg-links': return savePackageLinks(Number(id));
+    case 'pkg-links': return toast('Alterações de pacotes aguardam a operação transacional no Supabase.', true);
     case 'pkg-new': return packageNew();
-    case 'pkg-create': return packageCreate();
+    case 'pkg-create': return toast('Criação de pacotes ainda não está conectada ao Supabase.', true);
     case 'pkg-reprice': return packageReprice(Number(id));
     case 'pkg-review': return packageReview(Number(id));
-    case 'pkg-commit': return packageCommit(Number(id), Number(el.dataset.v));
+    case 'pkg-commit': return toast('O reajuste ainda não está conectado ao Supabase. Nenhum valor foi alterado.', true);
     /* chatbot feeder */
     case 'fd-tab': S.fd.tab = el.dataset.tab; return render();
     case 'fd-expand': { const all = feederTeams().map(t => t.id); S.fd.open = S.fd.open.size >= all.length ? new Set() : new Set(all); return render(); }
-    case 'fd-visible': { const t = teamOf(id); t.available = el.checked; FEEDER.history.unshift({ at: ymd(TODAY), who: me().name, what: `${t.name} ${t.available ? 'voltou a aparecer' : 'ocultada'} no assistente` }); render(); return toast(t.available ? `${t.name} passa a ser oferecida pelo assistente.` : `${t.name} não será mais oferecida pelo assistente.`); }
+    case 'fd-visible': {
+      if (!canEdit('feeder')) return;
+      try {
+        await liveWrite('teams', { available_for_booking: el.checked }, id);
+        await liveReload(); toast('Disponibilidade da equipe atualizada no banco.');
+      } catch (error) { el.checked = !el.checked; toast(error.message, true); }
+      return;
+    }
     case 'fd-goto-team': if (!canView('teams')) return toast('Seu perfil não acessa Equipes e núcleos.', true); S.page = 'teams'; render(); return teamEditor(id, el.dataset.tab);
     case 'fd-desc': return feederDescEdit(id);
-    case 'fd-desc-save': { const t = teamOf(id); t.desc = $('#fdDescTxt').value.trim(); FEEDER.history.unshift({ at: ymd(TODAY), who: me().name, what: `Descrição da equipe ${t.name} atualizada` }); closeDialog(); render(); return toast('Descrição salva. Entra no quadro na próxima atualização.'); }
-    case 'fd-sync': FEEDER.lastSync = new Date(NOW.getTime() - 30000); render(); return toast('Quadro do assistente atualizado agora.');
+    case 'fd-desc-save': {
+      if (!canEdit('feeder')) return;
+      try { await liveWrite('teams', { description: $('#fdDescTxt').value.trim() }, id); closeDialog(); await liveReload(); toast('Descrição salva no banco.'); }
+      catch (error) { toast(error.message, true); }
+      return;
+    }
+    case 'fd-sync': return toast('Este quadro é uma prévia local. A sincronização com o Apps Script ainda não foi configurada.', true);
     case 'fd-copy': navigator.clipboard?.writeText(quadroText()).catch(() => { }); return toast('Texto do quadro copiado.');
     case 'fd-rule-add': return feederRuleEdit(el.dataset.g, null);
     case 'fd-rule-edit': return feederRuleEdit(el.dataset.g, Number(el.dataset.i));
-    case 'fd-rule-del': if (await confirmBox({ title: 'Remover regra?', text: esc(FEEDER.rules[el.dataset.g][Number(el.dataset.i)]), ok: 'Remover', danger: true })) { FEEDER.rules[el.dataset.g].splice(Number(el.dataset.i), 1); FEEDER.history.unshift({ at: ymd(TODAY), who: me().name, what: 'Instrução do assistente removida' }); render(); } return;
-    case 'fd-rule-save': { const txt = $('#fdRuleTxt').value.trim(); if (!txt) return; const g = el.dataset.g, i = el.dataset.i; if (i === '') FEEDER.rules[g].push(txt); else FEEDER.rules[g][Number(i)] = txt; FEEDER.history.unshift({ at: ymd(TODAY), who: me().name, what: 'Instruções do assistente alteradas' }); closeDialog(); render(); return toast('Instrução salva.'); }
+    case 'fd-rule-del': return toast('As regras ainda estão no Apps Script; altere-as na integração antes de habilitar esta ação.', true);
+    case 'fd-rule-save': return toast('As regras ainda estão no Apps Script; altere-as na integração antes de habilitar esta ação.', true);
     /* pagamentos */
     case 'pay-open': return payDrawer(id);
     case 'pay-add': return payAddForm();
     case 'pay-add-save': return payAddSave();
-    case 'pay-approve': { const it = COACH_ITEMS.find(i => i.id === id); it.status = 'aprovado'; const cid = it.coach; render(); return payDrawer(cid); }
-    case 'pay-approve-all': COACH_ITEMS.filter(i => i.coach === id && inMonth(i.date, S.pay.month) && i.status === 'pendente').forEach(i => { i.status = 'aprovado'; }); render(); return payDrawer(id);
-    case 'pay-rates': { const c = coachOf(id), r = centsInput($('#pdRate').value), d = centsInput($('#pdDaily').value); if (!(r > 0 && d > 0)) return toast('Valores inválidos.', true); c.rate = r; c.daily = d; render(); payDrawer(id); return toast('Valores do técnico atualizados.'); }
+    case 'pay-approve': {
+      const it = COACH_ITEMS.find(i => i.id === id);
+      if (!it || !canEdit('payments')) return;
+      const { error } = await financeDbClient().from('v2_coach_items').update({ status: 'approved' }).eq('id', id);
+      if (error) return toast(error.message, true);
+      await liveReload(); return payDrawer(it.coach);
+    }
+    case 'pay-approve-all': {
+      if (!canEdit('payments')) return;
+      const ids = COACH_ITEMS.filter(i => i.coach === id && inMonth(i.date, S.pay.month) && i.status === 'pendente').map(i => i.id);
+      if (ids.length) {
+        const { error } = await financeDbClient().from('v2_coach_items').update({ status: 'approved' }).in('id', ids);
+        if (error) return toast(error.message, true);
+      }
+      await liveReload(); return payDrawer(id);
+    }
+    case 'pay-rates': {
+      if (!canEdit('payments')) return;
+      const r = centsInput($('#pdRate').value), d = centsInput($('#pdDaily').value);
+      if (!(r > 0 && d > 0)) return toast('Valores inválidos.', true);
+      const { error } = await financeDbClient().from('v2_coach_rates').upsert({ coach_id: id, hourly_cents: r, daily_cents: d });
+      if (error) return toast(error.message, true);
+      await liveReload(); payDrawer(id); return toast('Valores do técnico atualizados.');
+    }
     case 'pay-mark': {
       const c = coachOf(id), s = coachSummary(id, S.pay.month);
       if (!(await confirmBox({ title: 'Registrar pagamento?', text: `${esc(c.name)} · ${monthLabel(S.pay.month)}<br><b>${money(s.total)}</b> via PIX (${esc(c.pix)}). Uma saída “Folha técnica” será lançada no Financeiro.`, ok: 'Registrar pagamento' }))) return;
-      PAYOUTS[`${id}|${S.pay.month}`] = { paidAt: ymd(TODAY) };
-      LEDGER.push({ id: uid('l'), date: ymd(TODAY), desc: `Pagamento ${c.name} — ${monthLabel(S.pay.month)}`, cat: 'Folha técnica', type: 'out', amount: s.total, source: 'Manual', n: null });
-      FIN_MANUAL.push({ date: ymd(TODAY), desc: `Pagamento ${c.name} — ${monthLabel(S.pay.month)}`, cat: 'Folha técnica', type: 'out', amount: s.total });
-      closeDialog(); render(); return toast('Pagamento registrado e lançado no Financeiro.');
+      const { error } = await financeDbClient().rpc('v2_record_coach_payout', { p_coach: id, p_month: `${S.pay.month}-01` });
+      if (error) return toast(error.message, true);
+      closeDialog(); await liveReload(); return toast('Pagamento registrado e lançado no Financeiro.');
     }
     case 'pay-export': { const key = S.pay.month; return download(`pagamentos-tecnicos-${key}.csv`, csv([['Técnico', 'Data', 'Tipo', 'Descrição', 'Horas', 'Valor (R$)', 'Status'], ...COACH_ITEMS.filter(i => inMonth(i.date, key)).sort((a, b) => a.coach.localeCompare(b.coach) || a.date.localeCompare(b.date)).map(i => [coachOf(i.coach).name, i.date.split('-').reverse().join('/'), i.type, i.desc, i.hours || '', (itemValue(i) / 100).toFixed(2).replace('.', ','), i.status])])); }
     /* financeiro */
@@ -160,19 +194,13 @@ document.addEventListener('click', async e => {
     case 'im-commit': return importCommit();
     case 'fin-goto': S.fin.tab = el.dataset.tab; closeDialog(); return render();
     case 'fin-charge': return chargeMessage(el.dataset.k);
-    case 'fin-settle': {
-      const items = DELINQ.filter(d => (d.athleteId || d.name) === el.dataset.k), a = ATHLETES.find(x => x.id === items[0].athleteId), total = items.reduce((s, i) => s + i.amount, 0);
-      if (!(await confirmBox({ title: 'Registrar pagamento?', text: `${esc(a ? a.name : items[0].name)} · ${items.map(i => i.ref).join(', ')} · <b>${money(total)}</b>. Será lançada uma entrada manual. Dê baixa também no Tecnofit para evitar divergência na próxima importação.`, ok: 'Marcar como pago' }))) return;
-      DELINQ = DELINQ.filter(d => !items.includes(d));
-      LEDGER.push({ id: uid('l'), date: ymd(TODAY), desc: `Mensalidade em atraso — ${a ? a.name : items[0].name}`, cat: 'Mensalidades', type: 'in', amount: total, source: 'Manual', n: a ? teamOf(a.teamId)?.n : null });
-      render(); return toast('Pagamento registrado.');
-    }
+    case 'fin-settle': return toast('A baixa da mensalidade deve ser feita no Tecnofit. Importe Vendas em Aberto novamente para atualizar o alerta.', true);
     /* configurações */
     case 'st-tab': S.st.tab = el.dataset.tab; return render();
     case 'user-open': return userDrawer(id);
     case 'user-new': return userDrawer(null);
     case 'user-save': return saveUser();
-    case 'user-viewas': S.userId = id; closeDialog(); fillViewAs(); render(); return toast(`Agora você vê o painel como ${USERS.find(u => u.id === id).name}.`);
+    case 'user-viewas': return toast('A simulação de acesso foi desativada. Para testar permissões, entre com a conta do usuário.', true);
   }
 });
 
@@ -203,11 +231,11 @@ document.addEventListener('change', e => {
   if (map[t.id]) { map[t.id](); return render(); }
   if (t.dataset.act === 'cal-tests') { S.cal.showTests = t.checked; return render(); }
   const fd = { fdDates: () => { FEEDER.datesCount = Number(t.value); }, fdAhead: () => { FEEDER.minHoursAhead = Number(t.value); }, fdCache: () => { FEEDER.cacheMin = Number(t.value); }, fdAge: () => { FEEDER.includeAge = t.checked; }, fdGender: () => { FEEDER.includeGender = t.checked; }, fdPhone: () => { FEEDER.includeCoachPhone = t.checked; } };
-  if (fd[t.id]) { fd[t.id](); FEEDER.history.unshift({ at: ymd(TODAY), who: me().name, what: 'Parâmetros do quadro alterados' }); render(); toast('Parâmetro do assistente atualizado.'); }
+  if (fd[t.id]) { render(); toast('Os parâmetros do assistente ainda precisam ser conectados ao Apps Script.', true); }
 });
 
 /* ─── Topo ─── */
-$('#viewAs').addEventListener('change', e => { S.userId = e.target.value; render(); toast(`Visualizando como ${me().name} (${me().role}).`); });
+$('#viewAs').addEventListener('change', () => { /* O usuário autenticado não pode trocar de identidade. */ });
 $('#menuBtn').addEventListener('click', () => { const o = $('#sidebar').classList.toggle('open'); $('#menuBtn').setAttribute('aria-expanded', String(o)); });
 $('#themeBtn').addEventListener('click', () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = S.theme; try { localStorage.setItem('apollo-v2-theme', S.theme); } catch { } });
 try { const th = localStorage.getItem('apollo-v2-theme'); if (th) { S.theme = th; document.documentElement.dataset.theme = th; } } catch { }
@@ -217,11 +245,24 @@ const fromHash = () => { const h = location.hash.slice(1); if (PAGES.some(p => p
 window.addEventListener('hashchange', fromHash);
 const _go = go; go = page => { _go(page); history.replaceState(null, '', '#' + page); };
 
-/* ?como=u5 abre o painel já no perfil desse usuário (útil para demonstrações) */
-const asUser = new URLSearchParams(location.search).get('como');
-if (asUser && USERS.some(u => u.id === asUser && u.active)) S.userId = asUser;
-
-fillViewAs();
-render();
-fromHash();
-financeDbInit();
+async function bootstrapPanel() {
+  try {
+    const auth = await apolloRequireArea('panel');
+    if (!auth.ok) {
+      if (auth.error) $('#startup').textContent = `Não foi possível verificar o acesso: ${auth.error}`;
+      return;
+    }
+    await liveLoadPanel();
+    fillViewAs();
+    document.body.classList.add('app-ready');
+    render(); fromHash();
+    if (seesFinance()) {
+      await financeDbInit();
+      try { await financeManualRefresh(); } catch (error) { FIN_DB.error = error.message; }
+      render();
+    }
+  } catch (error) {
+    $('#startup').textContent = `Não foi possível carregar os dados: ${error.message}`;
+  }
+}
+bootstrapPanel();

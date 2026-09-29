@@ -13,11 +13,11 @@ function coachSummary(cid, key) {
 }
 function renderPayments() {
   const key = S.pay.month, rows = COACHES.map(c => ({ c, s: coachSummary(c.id, key) }));
-  const total = rows.reduce((s, r) => s + r.s.total, 0), paid = rows.filter(r => r.s.paid).reduce((s, r) => s + r.s.total, 0);
+  const total = rows.reduce((s, r) => s + r.s.total, 0), paid = rows.filter(r => r.s.paid).reduce((s, r) => s + r.s.paid.amount, 0);
   return `${viewBanner('payments')}
   <div class="page-head"><div><div class="eyebrow">Finanças · equipe técnica</div><h1>Pagamentos de técnicos</h1><p>Horas trabalhadas, dias de competição e extras de cada técnico, com aprovação e registro de pagamento.</p></div>
     <div class="head-actions"><select class="select" id="payMonth" aria-label="Mês de referência" style="width:auto">${monthOptions(key, 3)}</select><button class="btn" data-act="pay-export">${icon('download')} Exportar CSV</button><button class="btn primary" data-act="pay-add" data-edit>${icon('plus')} Lançar competição ou extra</button></div></div>
-  <div class="banner note">${icon('info')}<div><b>Horas de treino são geradas automaticamente</b> a partir dos horários das equipes (treinos realizados, descontando datas indisponíveis) — sem preenchimento manual. Competições e extras são lançados aqui. <span class="src proposta">proposta</span> confirmar presença do técnico pelo Manager App ao final de cada treino.</div></div>
+  <div class="banner note">${icon('info')}<div>Registre aqui as horas efetivamente trabalhadas, competições e extras. Os horários da agenda não comprovam a realização do treino.</div></div>
   <div class="grid g4 mb">${[['Total do mês', money(total), monthLabel(key), 'wallet'], ['Horas de treino', rows.reduce((s, r) => s + r.s.hours, 0).toLocaleString('pt-BR') + ' h', `${money(rows.reduce((s, r) => s + r.s.trV, 0))} em treinos`, 'clock'], ['Dias de competição', rows.reduce((s, r) => s + r.s.compDays, 0), `${money(rows.reduce((s, r) => s + r.s.compV, 0))} em diárias`, 'trophy'], ['A pagar', money(total - paid), `${rows.reduce((s, r) => s + r.s.pending, 0)} lançamentos aguardando aprovação`, 'alert']].map(([l, v, f, i]) => `<div class="kpi"><div class="kpi-label">${l}${icon(i)}</div><div class="kpi-value">${v}</div><div class="kpi-foot">${f}</div></div>`).join('')}</div>
   <section class="panel"><div class="panel-head"><div><h2>Fechamento por técnico</h2><div class="sub">${monthLabel(key)} · valores calculados com a hora-aula e a diária de cada técnico</div></div></div>
   <div class="table-wrap"><table><thead><tr><th>Técnico</th><th class="num">Horas de treino</th><th class="num">Competições</th><th class="num">Extras</th><th class="num">Total</th><th>Situação</th><th></th></tr></thead><tbody>${rows.map(({ c, s }) => `<tr class="rowlink" data-act="pay-open" data-id="${c.id}" tabindex="0">
@@ -56,12 +56,22 @@ function payAddForm() {
   ['paCoach', 'paQty', 'paVal'].forEach(i => $('#' + i).addEventListener('input', prev)); prev();
   $('#dlg')._pa = st;
 }
-function payAddSave() {
+async function payAddSave() {
   const st = $('#dlg')._pa, coach = $('#paCoach').value, desc = $('#paDesc').value.trim(), date = $('#paDate').value, q = Number($('#paQty').value), v = centsInput($('#paVal').value), team = $('#paTeam').value;
-  if (!desc || !date || !(q > 0)) { $('#paErr').textContent = 'Preencha descrição, data e quantidade.'; return; }
-  if (st.type === 'competicao') for (let k = 0; k < Math.ceil(q); k++) COACH_ITEMS.push({ id: uid('p'), coach, date: ymd(addDays(parseYmd(date), k)), type: 'competicao', teamId: team, hours: 0, desc, status: 'pendente', origin: 'Manual' });
-  else COACH_ITEMS.push({ id: uid('p'), coach, date, type: st.type, teamId: team, hours: q, desc, status: 'pendente', origin: 'Manual', ...(st.type === 'extra' && v > 0 ? { amount: v } : {}) });
-  S.pay.month = date.slice(0, 7); closeDialog(); render(); toast('Lançamento registrado — aguardando aprovação.');
+  if (!desc || !date || !(q > 0) || (st.type === 'competicao' && !Number.isInteger(q))) {
+    $('#paErr').textContent = 'Preencha descrição, data e quantidade; a diária de competição deve ser inteira.';
+    return;
+  }
+  const days = st.type === 'competicao' ? Math.ceil(q) : 1;
+  const rows = Array.from({ length: days }, (_, k) => ({ coach_id: coach,
+    team_id: team || null, item_date: st.type === 'competicao' ? ymd(addDays(parseYmd(date), k)) : date,
+    kind: ({ competicao: 'competition', treino: 'training', extra: 'extra' })[st.type],
+    description: desc, hours: st.type === 'competicao' ? 0 : q,
+    amount_cents: st.type === 'extra' && v > 0 ? v : null,
+    created_by: APOLLO_AUTH.user.id }));
+  const { error } = await financeDbClient().from('v2_coach_items').insert(rows);
+  if (error) { $('#paErr').textContent = error.message; return; }
+  S.pay.month = date.slice(0, 7); closeDialog(); await liveReload(); toast('Lançamento registrado — aguardando aprovação.');
 }
 
 /* ═══════════════ FINANCEIRO ═══════════════ */
@@ -261,6 +271,8 @@ function drawUser() {
   });
 }
 function saveUser() {
+  $('#ueErr').textContent = 'Convites e permissões ainda precisam ser conectados ao serviço de autenticação. Nenhuma alteração foi gravada.';
+  return;
   UE.name = $('#ueName').value.trim(); UE.email = $('#ueEmail').value.trim(); UE.active = $('#ueActive').checked;
   if ($('#ueCoach')) UE.coachId = $('#ueCoach').value || null;
   if (!UE.name || !/^\S+@\S+\.\S+$/.test(UE.email)) { $('#ueErr').textContent = 'Informe nome e um e-mail válido.'; return; }
