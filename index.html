@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Apollo · Painel de Gestão v2</title>
+<link rel="icon" href="assets/favicon-32.png">
+<link rel="stylesheet" href="styles.css?v=16">
+</head>
+<body>
+<aside class="sidebar" id="sidebar" aria-label="Navegação principal">
+  <div class="brand">
+    <img src="assets/apollo-logo.svg" alt="Apollo">
+    <small>PAINEL DE GESTÃO</small>
+  </div>
+  <nav class="nav" id="nav"></nav>
+  <div class="side-user" id="sideUser"></div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <button class="icon-btn menu-btn" id="menuBtn" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+      <svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div class="crumbs">Gestão <span aria-hidden="true">/</span> <b id="crumb">Visão geral</b></div>
+    <div class="top-right">
+      <span class="proto-tag">PROTÓTIPO · DADOS FICTÍCIOS</span>
+      <label class="viewas" title="Simule o painel como outro usuário para testar as permissões">
+        <span class="lab">Visualizar como</span>
+        <select id="viewAs" aria-label="Visualizar o painel como"></select>
+      </label>
+      <button class="icon-btn" id="themeBtn" aria-label="Alternar tema claro/escuro">
+        <svg class="i" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </header>
+  <main class="content" id="content" tabindex="-1"></main>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlgTitle"></dialog>
+<dialog id="dlg2" class="sm" aria-labelledby="dlg2Title"></dialog>
+<div id="toast" class="toast hide" role="status" aria-live="polite"></div>
+
+<script src="js/core.js?v=16"></script>
+<script src="js/pages-ops.js?v=16"></script>
+<script src="js/pages-overview-roles.js?v=16"></script>
+<script src="js/pages-config.js?v=16"></script>
+<script src="js/pages-admin.js?v=16"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="js/finance-reports.js?v=18"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/finance-db.js?v=18"></script>
+<script src="js/finance-page.js?v=18"></script>
+<script src="js/main.js?v=18"></script>
+</body>
+</html>
