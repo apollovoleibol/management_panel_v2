@@ -145,7 +145,8 @@ async function liveLoadPanel() {
       IN_EVALUATION: 'Em avaliação', IN_REGISTRATION: 'Em cadastro', TECNOFIT: 'Tecnofit', MISSED: 'Ausente' };
     BOOKINGS = tryouts.map(b => ({
       id: b.id, nome: b.name || '', nomeMenor: b.minor_name || '', whatsapp: b.whatsapp_phone || '',
-      teamId: b.team_id || TEAMS.find(t => t.name === String(b.target_team || '').split(' - ')[0].trim())?.id || null,
+      teamId: b.team_id || TEAMS.find(t => b.target_team === t.name)?.id
+        || TEAMS.find(t => String(b.target_team || '').startsWith(`${t.name} - `))?.id || null,
       date: b.scheduled_at ? b.scheduled_at.slice(0, 16) : '', status: statuses[String(b.status || '').toUpperCase()] || 'Pendente',
       reag: b.reschedule_count || 0, archived: !!b.archived_at, createdAt: (b.created_at || '').slice(0, 10)
     })).filter(b => b.teamId && b.date);

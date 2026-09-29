@@ -106,6 +106,18 @@ returns boolean language sql stable security definer set search_path = '' as $$
   );
 $$;
 
+-- The Manager App still has legacy tryouts with NULL team_id. Its coach view
+-- associates those rows by target_team, so retain that narrow read path.
+create or replace function private.v2_tryout_team_scope(p_team uuid, p_target text)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select private.v2_team_scope(p_team) or exists (
+    select 1 from public.team_coaches tc
+    join public.teams t on t.id = tc.team_id
+    where tc.coach_id = (select auth.uid())
+      and (p_target = t.name or p_target like t.name || ' - %')
+  );
+$$;
+
 -- Used only to display the caller's own rights; the database remains the
 -- authority for every read and write.
 create or replace function public.v2_my_access()
@@ -139,7 +151,7 @@ drop policy if exists authenticated_view_tryouts on public.tryouts;
 drop policy if exists authenticated_select_tryouts on public.tryouts;
 create policy v2_tryouts_select on public.tryouts for select to authenticated using (
   public.is_admin()
-  or (private.v2_can('bookings','view') and private.v2_team_scope(team_id))
+  or (private.v2_can('bookings','view') and private.v2_tryout_team_scope(team_id,target_team))
 );
 drop policy if exists cache_select on public.integrations_cache;
 drop policy if exists authenticated_view_cache on public.integrations_cache;
@@ -184,7 +196,8 @@ grant execute on function public.v2_my_access() to authenticated;
 revoke all on function private.v2_role() from public, anon;
 revoke all on function private.v2_can(text,text) from public, anon;
 revoke all on function private.v2_team_scope(uuid) from public, anon;
+revoke all on function private.v2_tryout_team_scope(uuid,text) from public, anon;
 grant execute on function private.v2_role(), private.v2_can(text,text),
-  private.v2_team_scope(uuid) to authenticated;
+  private.v2_team_scope(uuid), private.v2_tryout_team_scope(uuid,text) to authenticated;
 
 commit;

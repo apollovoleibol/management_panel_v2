@@ -11,21 +11,23 @@ create policy v2_staff_profiles_read on public.profiles for select to authentica
 create policy v2_staff_teams_read on public.teams for select to authenticated
   using ((private.v2_can('teams','view') or private.v2_role() = 'finance') and private.v2_team_scope(id));
 create policy v2_staff_teams_insert on public.teams for insert to authenticated
-  with check (private.v2_can('teams','edit'));
+  with check (private.v2_can('teams','edit') and private.v2_role() <> 'coach');
 create policy v2_staff_teams_update on public.teams for update to authenticated
-  using (private.v2_can('teams','edit')) with check (private.v2_can('teams','edit'));
+  using (private.v2_can('teams','edit') and private.v2_team_scope(id))
+  with check (private.v2_can('teams','edit') and private.v2_team_scope(id));
 create policy v2_staff_team_links_read on public.team_coaches for select to authenticated
   using ((private.v2_can('teams','view') or private.v2_role() = 'finance') and private.v2_team_scope(team_id));
 create policy v2_staff_team_links_insert on public.team_coaches for insert to authenticated
-  with check (private.v2_can('teams','edit'));
+  with check (private.v2_can('teams','edit') and private.v2_role() <> 'coach');
 create policy v2_staff_team_links_delete on public.team_coaches for delete to authenticated
-  using (private.v2_can('teams','edit'));
+  using (private.v2_can('teams','edit') and private.v2_role() <> 'coach');
 create policy v2_staff_athletes_read on public.athletes for select to authenticated
   using (private.v2_can('athletes','view') and private.v2_team_scope(team_id));
 create policy v2_staff_athletes_insert on public.athletes for insert to authenticated
-  with check (private.v2_can('athletes','edit'));
+  with check (private.v2_can('athletes','edit') and private.v2_team_scope(team_id));
 create policy v2_staff_athletes_update on public.athletes for update to authenticated
-  using (private.v2_can('athletes','edit')) with check (private.v2_can('athletes','edit'));
+  using (private.v2_can('athletes','edit') and private.v2_team_scope(team_id))
+  with check (private.v2_can('athletes','edit') and private.v2_team_scope(team_id));
 
 -- Replace the broad v1 tryout read with an explicitly scoped policy. The v1
 -- admin still sees everything; v1 coaches see their own teams.
@@ -33,30 +35,31 @@ drop policy if exists v2_tryouts_select on public.tryouts;
 drop policy if exists "authenticated users can update tryouts" on public.tryouts;
 create policy v2_tryouts_select on public.tryouts for select to authenticated using (
   public.is_admin()
-  or (private.v2_can('bookings','view') and private.v2_team_scope(team_id))
+  or (private.v2_can('bookings','view') and private.v2_tryout_team_scope(team_id,target_team))
 );
 create policy v2_staff_tryouts_insert on public.tryouts for insert to authenticated
-  with check (private.v2_can('bookings','edit'));
+  with check (private.v2_can('bookings','edit') and private.v2_team_scope(team_id));
 create policy v2_staff_tryouts_update on public.tryouts for update to authenticated
-  using (private.v2_can('bookings','edit') or
-    (private.v2_role() = 'coach' and private.v2_team_scope(team_id)))
-  with check (private.v2_can('bookings','edit') or
-    (private.v2_role() = 'coach' and private.v2_team_scope(team_id)));
+  using ((private.v2_can('bookings','edit') and private.v2_tryout_team_scope(team_id,target_team)) or
+    (private.v2_role() = 'coach' and private.v2_tryout_team_scope(team_id,target_team)))
+  with check ((private.v2_can('bookings','edit') and private.v2_tryout_team_scope(team_id,target_team)) or
+    (private.v2_role() = 'coach' and private.v2_tryout_team_scope(team_id,target_team)));
 create policy v2_staff_tryouts_delete on public.tryouts for delete to authenticated
-  using (private.v2_can('bookings','edit'));
+  using (private.v2_can('bookings','edit') and private.v2_tryout_team_scope(team_id,target_team));
 
 create policy v2_staff_locations_insert on public.training_locations for insert to authenticated
-  with check (private.v2_can('teams','edit'));
+  with check (private.v2_can('teams','edit') and private.v2_role() <> 'coach');
 create policy v2_staff_locations_update on public.training_locations for update to authenticated
-  using (private.v2_can('teams','edit')) with check (private.v2_can('teams','edit'));
+  using (private.v2_can('teams','edit') and private.v2_role() <> 'coach')
+  with check (private.v2_can('teams','edit') and private.v2_role() <> 'coach');
 create policy v2_staff_locations_delete on public.training_locations for delete to authenticated
-  using (private.v2_can('teams','edit'));
+  using (private.v2_can('teams','edit') and private.v2_role() <> 'coach');
 create policy v2_staff_unavailable_read on public.team_unavailable_dates for select to authenticated
   using (private.v2_can('teams','view') and private.v2_team_scope(team_id));
 create policy v2_staff_unavailable_insert on public.team_unavailable_dates for insert to authenticated
-  with check (private.v2_can('teams','edit'));
+  with check (private.v2_can('teams','edit') and private.v2_team_scope(team_id));
 create policy v2_staff_unavailable_delete on public.team_unavailable_dates for delete to authenticated
-  using (private.v2_can('teams','edit'));
+  using (private.v2_can('teams','edit') and private.v2_team_scope(team_id));
 create policy v2_staff_logs_read on public.training_logs for select to authenticated
   using (private.v2_can('overview','view') and private.v2_team_scope(team_id));
 create policy v2_staff_attendance_read on public.attendance for select to authenticated
