@@ -8,10 +8,9 @@
 
 ## Primeira publicação: homologação visual
 
-1. Entrar no GitHub com uma conta que possa escrever no novo repositório. Ele foi visto publicamente e está vazio; a branch padrão será criada com o primeiro envio.
-2. Copiar para a raiz do repositório v2 somente `index.html`, `login.html`, `area-do-atleta.html`, `styles.css`, `atleta.css`, `.nojekyll` e as pastas `assets/`, `js/`, `vendor/` desta pasta. Não copiar relatórios Tecnofit, arquivos de Downloads, testes ou documentação interna.
-3. Commitar e enviar à branch escolhida para publicação. No novo repositório, abrir **Settings → Pages → Build and deployment → Deploy from a branch → main → /(root) → Save**. Ajustar `main` se a branch padrão real tiver outro nome.
-4. Abrir a URL mostrada pelo GitHub Pages e testar caminhos relativos, logo, favicon, login demonstrativo, painel e área do atleta. Se o repositório for privado, conferir a elegibilidade de Pages no plano da organização. Um Pages comum pode ser publicamente acessível mesmo com repositório privado.
+1. Os arquivos da v2 e a migração financeira já foram enviados à branch `main` do novo repositório. Nenhum relatório Tecnofit ou arquivo de Downloads foi incluído.
+2. No novo repositório, abrir **Settings → Pages → Build and deployment → Deploy from a branch → main → /(root) → Save**.
+3. Abrir a URL mostrada pelo GitHub Pages e testar caminhos relativos, logo, favicon, login demonstrativo, painel e área do atleta. O repositório é público; o site de homologação também ficará publicamente acessível.
 
 Essa primeira publicação serve apenas para homologar a interface: `login.html` ainda simula usuários, as páginas operacionais usam dados fictícios e as permissões de tela ainda não substituem autorização no Supabase.
 
@@ -25,4 +24,4 @@ Essa primeira publicação serve apenas para homologar a interface: `login.html`
 
 ## Estado verificado em 29/09/2026
 
-O checkout local da v1 aponta para `apollovoleibol/management_panel`, branch `main`, commit `00dc838`. O site da v1 foi aberto com sucesso. A página pública do novo repositório confirmou que `management_panel_v2` está **público e vazio**; o endereço esperado da v2 ainda retorna 404. A sessão do navegador não está autenticada no GitHub. A migração financeira está somente no workspace, sem aplicação no banco. Nenhum dado real foi importado pelo novo painel.
+O checkout local da v1 aponta para `apollovoleibol/management_panel`, branch `main`, commit `00dc838`. O site da v1 foi aberto com sucesso. A branch `main` da v2 recebeu o código e a migração; o endereço esperado da v2 ainda retorna 404 até a ativação do Pages. A migração financeira não foi aplicada no banco. Nenhum dado real foi importado pelo novo painel.
