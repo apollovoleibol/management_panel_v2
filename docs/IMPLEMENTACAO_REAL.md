@@ -1,6 +1,6 @@
 # Implantação do Painel de Gestão v2
 
-Status em 29/09/2026: **em desenvolvimento, não publicar como produto**. A v1 continua no ar e o projeto Supabase compartilhado é `hrakdydodcmllwnkmrkg`.
+Status em 30/09/2026: **site publicado com login Google; validação operacional pendente**. A v1 continua no ar e o projeto Supabase compartilhado é `hrakdydodcmllwnkmrkg`. O cadastro público de novas contas foi desativado; o retorno OAuth `https://apollovoleibol.github.io/management_panel_v2/login.html` foi autorizado; o perfil legado de recepção recebeu o papel Atendimento. Há um administrador ativo sem identidade Google vinculada.
 
 ## Confirmado no banco de produção
 
@@ -15,17 +15,17 @@ Status em 29/09/2026: **em desenvolvimento, não publicar como produto**. A v1 c
 - A leitura de agendamentos da conta `customer` legada foi restaurada com a mesma verificação. A migração 014 foi aplicada após autorização do usuário. A consulta de verificação confirmou quatro tabelas operacionais com RLS ativa, nenhuma leitura anônima de lançamentos de técnicos, nenhuma inserção direta de pagamentos por `authenticated`, a presença da nova política de atualização de agendamentos e a remoção da política antiga de atualização ampla. Ainda falta testar os fluxos com contas de cada perfil.
 - As migrações 017 e 018 foram aplicadas após autorização do usuário. As quatro funções administrativas da 017 existem como `SECURITY DEFINER`, com execução negada a `anon` e concedida a `authenticated`; cada função verifica internamente o papel exigido. A 018 copiou 201 atletas e 16 equipes para tabelas privadas com zero divergências, criou dois gatilhos de sincronização e deixou RLS ativa sem leitura anônima. Os campos financeiros legados permanecem nas tabelas antigas até a adaptação da v1 e do Manager App.
 
-## Ainda necessário antes da publicação
+## Ainda necessário para liberar uso operacional
 
 1. Validar com contas reais as permissões das migrações 012, 013, 014, 015, 017 e 018, além da restrição anônima 016, já aplicadas. O projeto tem políticas adicionais criadas diretamente no SQL Editor; revisar seu efeito combinado antes de mudar a RLS novamente.
 2. Garantir sigilo financeiro no nível do banco para técnicos e `customer`. Hoje eles compartilham o papel PostgreSQL `authenticated` com administradores. Há 199 atletas com plano, 115 com banco e 11 equipes com pacotes legados. RLS por linha não mascara essas colunas. A [sequência de isolamento](ISOLAMENTO_FINANCEIRO_LEGADO.md) exige adaptar a v1 e o Manager App antes de limpar os campos legados.
 3. Implantar e testar o convite de usuários pela Edge Function `v2-invite-user`, a edição de permissões e vínculos por RPC e a operação segura de pacotes. O código local dessas primeiras operações está preparado, mas depende das migrações e da função implantada; não convidar usuários ainda.
 4. Conectar regras e atualização do Chatbot Feeder ao Apps Script. Descrição e disponibilidade da equipe gravam no Supabase, mas o painel ainda não comprova a atualização do prompt do chatbot.
 5. Validar os quatro relatórios Tecnofit em ambiente autenticado e testar importação, cobertura de períodos, alertas e privacidade do portal com contas reais de cada perfil.
-6. Adicionar `https://apollovoleibol.github.io/management_panel_v2/login.html` à lista de Redirect URLs do Supabase Auth após os testes. Manter o Site URL da v1. Então ativar GitHub Pages da v2 e testar login Google, e-mail e recuperação de senha no endereço publicado.
+6. **Configuração concluída:** a URL de retorno da v2 está autorizada, o Site URL da v1 foi mantido, o GitHub Pages da v2 está ativo e o login da v2 aceita somente Google. Ainda falta testar o fluxo completo de OAuth no endereço público com uma conta real autorizada.
 7. Publicar a alteração de login preparada na branch `codex/restrict-legacy-panel-access` do repositório v1, após testar a função `v2_can_use_legacy_panel()` com a conta `customer` já existente. Ela impede que novos responsáveis e perfis da v2 abram o painel antigo pelo endereço da v1.
 
-**Critério de publicação:** não ativar Pages nem convidar atletas antes de corrigir a exposição das colunas `payment_plan` e `payment_bank` a técnicos e ao `customer` legado. Ocultar campos no JavaScript não protege consultas diretas à API. Também verificar permissões com contas reais de administrador, financeiro, técnico e responsável, e conferir que a v1 continua operando.
+**Critério de uso operacional:** não convidar atletas nem tratar os controles visuais como garantia de sigilo financeiro antes de corrigir a exposição das colunas `payment_plan` e `payment_bank` a técnicos e ao `customer` legado. Ocultar campos no JavaScript não protege consultas diretas à API. Também verificar permissões com contas reais de administrador, financeiro, técnico e responsável, e conferir que a v1 continua operando.
 
 ## Chaves
 

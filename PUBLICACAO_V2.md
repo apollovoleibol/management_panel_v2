@@ -1,5 +1,7 @@
 # Publicação paralela do Painel de Gestão v2
 
+> Atualização em 30/09/2026: o GitHub Pages da v2 já está ativo no endereço abaixo e a branch `main` recebeu o login Google. Os passos históricos de primeira publicação nesta página não representam mais o estado atual. A implantação operacional ainda depende de testes de perfis e do isolamento financeiro legado, conforme `docs/IMPLEMENTACAO_REAL.md`.
+
 ## Endereços e repositórios
 
 - V1: `apollovoleibol/management_panel` — site confirmado em `https://apollovoleibol.github.io/management_panel/`; manter repositório, branch, Pages e endereço atuais.

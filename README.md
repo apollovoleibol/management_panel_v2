@@ -1,10 +1,10 @@
-# Painel de Gestão v2 — implantação em andamento
+# Painel de Gestão v2 — acesso Google em implantação
 
-Versão em desenvolvimento do Painel de Gestão Apollo (setembro/2026). O login e parte das operações já foram conectados ao Supabase, mas a implantação ainda não está pronta para uso em produção. As migrações 012, 013, 014, 015, 017 e 018 já foram aplicadas; os controles restantes de acesso e privacidade ainda precisam de validação no projeto compartilhado com a v1. Consulte [o estado da implantação](docs/IMPLEMENTACAO_REAL.md) antes de publicar.
+O endereço da [v2](https://apollovoleibol.github.io/management_panel_v2/) está publicado em paralelo à v1. A branch `main` contém login Google e operações conectadas ao Supabase compartilhado. O cadastro público de novas contas foi desativado, o retorno OAuth da v2 foi autorizado e o perfil legado de recepção recebeu o papel Atendimento. A implantação ainda requer testes com contas reais de cada perfil e o isolamento dos campos financeiros legados das tabelas compartilhadas. Consulte [o estado da implantação](docs/IMPLEMENTACAO_REAL.md) antes de usar o painel para operações sensíveis.
 
 **Como abrir:** use `login.html` com uma conta Supabase autorizada. Para abrir direto numa página após o login, use a âncora: `index.html#bookings`, `#athletes`, `#teams`, `#packages`, `#feeder`, `#payments`, `#finance` ou `#settings`.
 
-**Publicação paralela à v1:** consulte [PUBLICACAO_V2.md](PUBLICACAO_V2.md). A primeira publicação no novo repositório é destinada à homologação visual.
+**Publicação paralela à v1:** consulte [PUBLICACAO_V2.md](PUBLICACAO_V2.md). O endereço da v1 permanece separado.
 
 ## Login único e Área do atleta
 
