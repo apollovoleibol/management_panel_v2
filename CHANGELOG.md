@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## v2.2.2 — 2026-09-30
+
+- Divisória horizontal reduzida à metade e subtítulo Sistema Integrado de Gestão ampliado.
+
 ## v2.2.1 — 2026-09-30
 
 - Logo Apollo centralizada no topo e identidade Huddle centralizada na tela.
