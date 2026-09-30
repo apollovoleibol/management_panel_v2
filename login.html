@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=21">
-<link rel="stylesheet" href="atleta.css?v=2.2.2">
+<link rel="stylesheet" href="atleta.css?v=2.3">
 <style>#logoutBtn[hidden]{display:none}</style>
 </head>
 <body>
@@ -27,10 +27,11 @@
   <section class="login-side">
     <div class="login-card" id="card">
       <button class="btn gbtn" id="googleBtn" type="button">
-        <svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.24c0-.67-.06-1.31-.17-1.93H12v3.65h5.24a4.48 4.48 0 0 1-1.95 2.94v2.44h3.15c1.84-1.7 2.91-4.2 2.91-7.1Z"/><path fill="#34A853" d="M12 21.75c2.63 0 4.83-.87 6.44-2.35l-3.15-2.44c-.87.58-1.98.92-3.29.92-2.53 0-4.68-1.71-5.45-4.01H3.3v2.52A9.75 9.75 0 0 0 12 21.75Z"/><path fill="#FBBC05" d="M6.55 13.87a5.86 5.86 0 0 1 0-3.74V7.61H3.3a9.75 9.75 0 0 0 0 8.78l3.25-2.52Z"/><path fill="#EA4335" d="M12 6.12c1.43 0 2.72.49 3.73 1.47l2.8-2.8A9.38 9.38 0 0 0 12 2.25a9.75 9.75 0 0 0-8.7 5.36l3.25 2.52C7.32 7.83 9.47 6.12 12 6.12Z"/></svg>
-        Entrar com Google
+        <img class="google-icon" src="assets/google-g.png" alt="" aria-hidden="true" width="20" height="20">
+        <span class="google-label">Entrar com Google</span>
+        <span class="google-spinner" aria-hidden="true"></span>
       </button>
-      <button class="btn ghost sm" type="button" id="logoutBtn" hidden>Trocar de conta</button>
+      <button class="btn ghost sm" type="button" id="logoutBtn" hidden>Usar outra conta Google</button>
       <p id="loginMessage" role="status" aria-live="polite"></p>
     </div>
   </section>
@@ -38,8 +39,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/finance-db.js?v=21"></script>
 <script src="js/auth.js?v=21"></script>
-<script src="js/version.js?v=2.2.2"></script>
-<script src="js/login-stars.js?v=2.2"></script>
-<script src="js/login.js?v=2.2"></script>
+<script src="js/version.js?v=2.3"></script>
+<script src="js/login-stars.js?v=2.3"></script>
+<script src="js/login.js?v=2.3"></script>
 </body>
 </html>

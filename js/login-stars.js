@@ -14,7 +14,24 @@
     { speed: .0036, size: .9, opacity: .42, pull: .72 },
     { speed: .0068, size: 1.3, opacity: .65, pull: 1 }
   ];
-  let width = 0, height = 0, stars = [], frame = 0, previous = 0, elapsed = 0;
+  let width = 0, height = 0, stars = [], safeZones = [], frame = 0, previous = 0, elapsed = 0;
+
+  function updateSafeZones() {
+    const root = host.getBoundingClientRect();
+    safeZones = [
+      ['.login-apollo', 12],
+      ['.login-lockup', 26],
+      ['.login-side', 20]
+    ].map(([selector, padding]) => {
+      const rect = host.querySelector(selector).getBoundingClientRect();
+      return {
+        left: rect.left - root.left - padding,
+        top: rect.top - root.top - padding,
+        right: rect.right - root.left + padding,
+        bottom: rect.bottom - root.top + padding
+      };
+    });
+  }
 
   function resize() {
     width = host.clientWidth;
@@ -33,6 +50,7 @@
       offsetX: 0,
       offsetY: 0
     }));
+    updateSafeZones();
     if (reduced.matches || document.hidden) draw(0);
   }
 
@@ -61,8 +79,14 @@
       const distanceToPointer = pointer.active && animate ? Math.hypot(pointer.x - x, pointer.y - y) : Infinity;
       const shrink = Math.min(1, Math.max(0, (distanceToPointer - 7) / 72));
       if (shrink <= 0) continue;
+      let quiet = 1;
+      for (const zone of safeZones) {
+        const dx = Math.max(zone.left - x, 0, x - zone.right);
+        const dy = Math.max(zone.top - y, 0, y - zone.bottom);
+        quiet = Math.min(quiet, .08 + .92 * Math.min(1, Math.hypot(dx, dy) / 90));
+      }
       const twinkle = animate ? .9 + Math.sin(elapsed * (.4 + layer.pull * .4) + star.phase) * .1 : 1;
-      ctx.fillStyle = `rgba(235,241,255,${layer.opacity * twinkle * shrink})`;
+      ctx.fillStyle = `rgba(235,241,255,${layer.opacity * twinkle * shrink * quiet})`;
       ctx.beginPath();
       ctx.arc(x, y, layer.size * shrink, 0, Math.PI * 2);
       ctx.fill();
@@ -94,6 +118,11 @@
   document.addEventListener('visibilitychange', syncMotion);
   reduced.addEventListener('change', syncMotion);
   new ResizeObserver(resize).observe(host);
+  const zoneObserver = new ResizeObserver(updateSafeZones);
+  for (const selector of ['.login-apollo', '.login-lockup', '.login-side']) {
+    zoneObserver.observe(host.querySelector(selector));
+  }
+  document.fonts?.ready.then(updateSafeZones);
   resize();
   syncMotion();
 })();

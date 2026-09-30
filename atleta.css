@@ -23,10 +23,16 @@
 .login-card .btn.ghost{color:#dfe1ec}
 .login-card .btn.ghost:hover{background:#252b4b}
 .login-card .choice button{color:#0f1332;background:#fff;border-color:#e4e5eb}
-.gbtn{width:100%;justify-content:center;min-height:48px;font-size:14px;background:#fff;border-color:#d9dbe4;color:#0f1332;border-radius:12px}
+.gbtn{width:100%;justify-content:center;min-height:48px;font-size:14px;background:#fff;border-color:#747775;color:#1f1f1f;border-radius:12px;font-family:Arial,sans-serif;font-weight:600}
 .gbtn:hover{background:#f4f5f8;border-color:#aeb2c2}
 .gbtn:focus-visible{outline:2px solid #0f1332;outline-offset:3px}
-.gbtn .google-icon{width:19px;height:19px;flex:none}
+.gbtn .google-icon{width:20px;height:20px;flex:none;object-fit:contain}
+.gbtn .google-spinner{display:none;width:16px;height:16px;border:2px solid #d7d9df;border-top-color:#1f1f1f;border-radius:50%;animation:login-spin .8s linear infinite}
+.gbtn.is-loading .google-icon{display:none}
+.gbtn.is-loading .google-spinner{display:block}
+.gbtn:disabled{opacity:1;cursor:progress}
+@keyframes login-spin{to{transform:rotate(360deg)}}
+.login-card #logoutBtn:not([hidden]){display:block;margin:14px auto 0;color:#fff}
 #loginMessage:empty{display:none}
 #loginMessage{margin:14px 0 0;color:#c3c6d9;font-size:12px;line-height:1.4;text-align:center}
 .or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:18px 0}
@@ -194,6 +200,12 @@
   .login-description{font-size:clamp(15px,4vw,18px);white-space:normal}
   .login-description span{display:block}
   .login-divider{width:65px}
+}
+@media (max-height:640px){
+  .login{min-height:640px;overflow-y:auto}
+}
+@media (prefers-reduced-motion:reduce){
+  .gbtn .google-spinner{animation:none;border-color:#747775}
 }
 @media (max-width:760px){
   .ah-top .tagline{display:none}

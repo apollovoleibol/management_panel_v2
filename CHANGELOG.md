@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## v2.3 — 2026-09-30
+
+- Área de menor brilho estelar atrás da marca, do título e do botão de acesso.
+- Ícone Google oficial e feedback de carregamento com prevenção de cliques repetidos.
+- Layout com rolagem em telas baixas e orientação mais clara para contas sem acesso.
+
 ## v2.2.2 — 2026-09-30
 
 - Divisória horizontal reduzida à metade e subtítulo Sistema Integrado de Gestão ampliado.
