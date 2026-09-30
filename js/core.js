@@ -84,7 +84,7 @@ const kpiIcon = name => {
   const tones = { users: 'blue', child: 'violet', check: 'green', x: 'slate', calendar: 'blue',
     clock: 'amber', trophy: 'violet', alert: 'red', wallet: 'blue', money: 'green',
     trend: 'green', target: 'red', refresh: 'violet', layers: 'blue', pin: 'amber',
-    bot: 'violet', chart: 'blue' };
+    bot: 'violet', chart: 'blue', whatsapp: 'green', star: 'amber' };
   return `<span class="kpi-icon tone-${tones[name] || 'blue'}">${icon(name)}</span>`;
 };
 
@@ -396,6 +396,10 @@ const canView = p => perm(p) !== 'none';
 const canEdit = p => !S.previewRole && perm(p) === 'edit';
 
 const METRIC_HELP = {
+  '1ª resposta do assistente': 'Tempo médio da primeira mensagem recebida pelo servidor até a primeira resposta útil preparada pelo assistente. Exclui saudação automática, falhas e o download no aparelho. Amostra: conversas iniciadas nos últimos 30 dias com resposta registrada.',
+  'Tempo até agendar': 'Tempo médio entre a primeira mensagem e a gravação confirmada de um novo agendamento na mesma sessão do chatbot. Exclui reagendamentos, agendamentos anteriores e conversas sem agendamento. Mostra o esforço de conversão, não o tempo até o dia do treino.',
+  'Retorno humano': 'Tempo médio do pedido explícito de atendimento no chatbot até o atendente registrar no Huddle que enviou a primeira resposta no WhatsApp. É uma medição manual em horas corridas. Abrir o WhatsApp não conta como resposta; pedidos pendentes ficam fora da média e aparecem na contagem.',
+  'Satisfação': 'CSAT do assistente: percentual de notas 4 ou 5 entre avaliações opcionais de 1 a 5. Cada sessão aceita uma avaliação após uma resposta útil. A média das notas e o número de respostas aparecem junto ao indicador; sem avaliações, não há percentual.',
   'Recebido bruto': 'Soma dos recebimentos confirmados no relatório Contas a Receber, no mês selecionado. Serve para acompanhar o volume efetivamente recebido.',
   'Taxas': 'Soma das taxas dos recebimentos confirmados no Tecnofit. Ajuda a entender o custo dos meios de pagamento.',
   'Taxas dos recebimentos': 'Soma das taxas registradas em Contas a Receber para recebimentos confirmados.',

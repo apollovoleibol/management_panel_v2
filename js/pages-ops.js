@@ -82,7 +82,7 @@ function renderOverview() {
       <div class="grid g3 mt">${NUCLEI.map(n => { const local = recentBookings.filter(b => teamOf(b.teamId)?.n === n.id); const converted = local.filter(b => b.status === 'Tecnofit').length; const value = local.length ? Math.round(converted / local.length * 100) : 0; return `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n.id)}<b>${local.length ? value + '%' : '—'}</b></div><div class="bar"><span style="width:${value}%;background:var(--brand)"></span></div><div class="hint" style="margin-top:4px">agendamento → matrícula</div></div>`; }).join('')}</div></div>
     </section>
     <div><div class="service-metrics">${svc.map(([l, v, f, i]) => `<div class="service-metric">${kpiIcon(i)}${metricInfo(l)}<span>${l}</span><strong>${v}</strong><small>${f}</small></div>`).join('')}</div>
-      <details class="measurement-gap"><summary>Indicadores ainda sem coleta de dados</summary><p>Primeira resposta do assistente, tempo até agendar e retorno humano dependem de horários de mensagens e transferência para atendimento registrados pelo chatbot. Satisfação depende de uma pesquisa enviada ao atleta ou responsável. O painel não estima esses números a partir da data do treino.</p></details></div>
+      ${serviceMetricsHTML()}</div>
   </div>
 
   <div class="section-title"><h2>Projeções</h2></div>
@@ -188,7 +188,7 @@ function renderBookings() {
   const teams = [...new Set(BOOKINGS.map(b => b.teamId))].filter(id => myTeamIds().includes(id)).map(teamOf).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
   return `${viewBanner('bookings')}${coachScopeBanner()}
   <div class="page-head"><div><div class="eyebrow">Operação · peneiras e aulas experimentais</div><h1>Agendamentos</h1><p>Agendamentos feitos pelo assistente e manualmente. Os próximos 2 dias ficam em destaque.</p></div>
-    <div class="head-actions">${APOLLO_AUTH.access?.role === 'attendance' ? `<button class="btn" data-act="payment-contacts">${icon('whatsapp')} Contatos de mensalidades</button>` : ''}<button class="btn primary" data-act="booking-new" data-edit>${icon('plus')} Novo agendamento</button></div></div>
+    <div class="head-actions">${canUseServiceQueue() ? `<button class="btn" data-act="service-queue">${icon('whatsapp')} Atendimento humano</button>` : ''}${APOLLO_AUTH.access?.role === 'attendance' ? `<button class="btn" data-act="payment-contacts">${icon('whatsapp')} Contatos de mensalidades</button>` : ''}<button class="btn primary" data-act="booking-new" data-edit>${icon('plus')} Novo agendamento</button></div></div>
   <div class="grid g4 mb">${k.map(([id, l, v, w, c, i]) => `<div class="kpi click ${S.bk.kpi === id ? 'on' : ''}"><button class="kpi-activate" data-act="bk-kpi" data-k="${id}" aria-pressed="${S.bk.kpi === id}">${kpiIcon(i)}<span class="kpi-label">${l}</span><span class="kpi-value">${v}</span><span class="kpi-foot">últimas 4 semanas</span></button>${metricInfo(l)}${sparkline(w, c)}</div>`).join('')}</div>
   <section class="panel">
     <div class="toolbar">

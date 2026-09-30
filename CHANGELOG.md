@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## v2.8 — 2026-09-30
+
+- Coleta de primeira resposta do assistente, tempo até gravar novo agendamento, encaminhamento humano e satisfação opcional no chatbot.
+- Visão geral exibe médias, CSAT e tamanhos de amostra reais dos últimos 30 dias; sem reconstruir horários do histórico antigo.
+- Fila de atendimento humano permite abrir WhatsApp e registrar explicitamente a primeira resposta enviada.
+- Migração 022 isola telemetria, usa horários do servidor e restringe gravação automática ao Apps Script.
+
 ## v2.7 — 2026-09-30
 
 - Ícones dos indicadores alinhados à esquerda e coloridos por significado; cartões de equipes com acento lateral e sem linha inferior.

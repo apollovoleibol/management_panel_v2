@@ -60,6 +60,9 @@ document.addEventListener('click', async e => {
   if (el.dataset.need && !canEdit(el.dataset.need)) { e.preventDefault(); return toast('Seu perfil não pode editar ' + PAGES.find(p => p.id === el.dataset.need).label + '.', true); }
   if (el.tagName === 'INPUT' && el.type === 'checkbox' && !a.startsWith('fd-visible') && !a.startsWith('pay-approve')) return;
   switch (a) {
+    case 'service-queue': return openServiceQueue();
+    case 'service-replied': return serviceRecordReply(id);
+    case 'service-refresh': await serviceMetricsLoad(); return render();
     case 'logout': return apolloSignOut();
     case 'close-dialog': return closeDialog();
     case 'try-close': return guardClose();

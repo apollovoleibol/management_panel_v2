@@ -186,6 +186,7 @@ async function liveLoadPanel() {
     FIN_MANUAL.splice(0);
     FEEDER.history = [];
     S.cal.nuclei = new Set(NUCLEI.map(n => n.id));
+    await serviceMetricsLoad();
     LIVE.ready = true;
   } catch (error) { LIVE.error = error.message; throw error; }
   finally { LIVE.loading = false; }
