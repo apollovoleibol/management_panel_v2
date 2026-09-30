@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## v2.6.1 — 2026-09-30
+
+- Corrige o carregamento de arquivos antigos no navegador após a publicação da v2.6.
+
 ## v2.6 — 2026-09-30
 
 - Interface mais leve nas páginas operacionais, indicadores com ícones à esquerda e explicações acessíveis pelo botão de informação.
