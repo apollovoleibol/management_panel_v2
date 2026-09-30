@@ -15,6 +15,26 @@
     { speed: .0068, size: 1.3, opacity: .65, pull: 1 }
   ];
   let width = 0, height = 0, stars = [], safeZones = [], frame = 0, previous = 0, elapsed = 0;
+  let exitStart = 0;
+
+  function startExit() {
+    if (exitStart || reduced.matches) return;
+    exitStart = performance.now();
+    const centerX = width / 2, centerY = height / 2;
+    const travel = Math.max(width, height) * 2;
+    for (const star of stars) {
+      const angle = star.angle + elapsed * star.layer.speed;
+      const x = centerX + Math.cos(angle) * star.radius + star.offsetX;
+      const y = height * 1.04 + Math.sin(angle) * star.radius + star.offsetY;
+      const dx = x - centerX, dy = y - centerY;
+      const length = Math.hypot(dx, dy) || 1;
+      star.exit = {
+        x, y,
+        dx: (dx || Math.cos(star.phase)) / length * travel,
+        dy: (dy || Math.sin(star.phase)) / length * travel
+      };
+    }
+  }
 
   function updateSafeZones() {
     const root = host.getBoundingClientRect();
@@ -42,7 +62,7 @@
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     const radius = Math.hypot(width / 2, height * 1.04) * 1.1;
     const count = Math.min(280, Math.max(150, Math.round(width * height / 4200)));
-    stars = Array.from({ length: count }, (_, index) => ({
+    if (!exitStart) stars = Array.from({ length: count }, (_, index) => ({
       angle: Math.random() * Math.PI * 2,
       radius: Math.sqrt(Math.random()) * radius,
       layer: layers[index % layers.length],
@@ -58,8 +78,20 @@
     ctx.clearRect(0, 0, width, height);
     const animate = !reduced.matches;
     const anchorX = width / 2, anchorY = height * 1.04;
+    const progress = exitStart ? Math.min(1, (performance.now() - exitStart) / 900) : 0;
+    const exitEase = progress < .5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
     for (const star of stars) {
       const { layer } = star;
+      if (exitStart && star.exit) {
+        const x = star.exit.x + star.exit.dx * exitEase;
+        const y = star.exit.y + star.exit.dy * exitEase;
+        if (x < -12 || x > width + 12 || y < -12 || y > height + 12) continue;
+        ctx.fillStyle = `rgba(235,241,255,${layer.opacity})`;
+        ctx.beginPath();
+        ctx.arc(x, y, layer.size, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
       const angle = star.angle + (animate ? elapsed * layer.speed : 0);
       const orbitX = anchorX + Math.cos(angle) * star.radius;
       const orbitY = anchorY + Math.sin(angle) * star.radius;
@@ -116,6 +148,7 @@
   }, { passive: true });
   host.addEventListener('pointerleave', () => { pointer.active = false; });
   document.addEventListener('visibilitychange', syncMotion);
+  window.addEventListener('huddle:access-granted', startExit);
   reduced.addEventListener('change', syncMotion);
   new ResizeObserver(resize).observe(host);
   const zoneObserver = new ResizeObserver(updateSafeZones);

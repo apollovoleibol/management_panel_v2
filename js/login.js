@@ -5,20 +5,34 @@ const googleBtn = document.getElementById('googleBtn');
 const googleLabel = googleBtn.querySelector('.google-label');
 const loginClient = financeDbClient();
 const loginRedirect = new URL('login.html', location.href).href;
+const loginRoot = document.querySelector('.login');
 let loginPending = false;
+let navigating = false;
 document.getElementById('loginVersion').textContent = APOLLO_VERSION;
 
 function loginStatus(message, isError = false) {
   loginMessage.textContent = message;
   loginMessage.style.color = isError ? '#ff9b94' : '';
 }
+function navigateWithTransition(target) {
+  if (navigating) return;
+  navigating = true;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    location.replace(target);
+    return;
+  }
+  loginRoot.classList.remove('access-denied');
+  loginRoot.classList.add('access-granted');
+  window.dispatchEvent(new Event('huddle:access-granted'));
+  setTimeout(() => location.replace(target), 950);
+}
 function loginChoice() {
   const name = APOLLO_AUTH.user?.user_metadata?.full_name || APOLLO_AUTH.user?.email || 'você';
   loginCard.innerHTML = `<div class="eyebrow">Escolha sua área</div><h2>Olá, ${name.replace(/[&<>"']/g, '')}</h2>
     <div class="choice"><button id="panelChoice">Painel de Gestão</button><button id="athleteChoice">Área do atleta</button></div>
     <button class="btn ghost mt" id="logoutChoice">Sair</button>`;
-  document.getElementById('panelChoice').onclick = () => location.replace('index.html');
-  document.getElementById('athleteChoice').onclick = () => location.replace('area-do-atleta.html');
+  document.getElementById('panelChoice').onclick = () => navigateWithTransition('index.html');
+  document.getElementById('athleteChoice').onclick = () => navigateWithTransition('area-do-atleta.html');
   document.getElementById('logoutChoice').onclick = apolloSignOut;
 }
 async function loginRoute() {
@@ -28,10 +42,11 @@ async function loginRoute() {
     return;
   }
   switch (apolloRoute(access)) {
-    case 'panel': location.replace('index.html'); break;
-    case 'athlete': location.replace('area-do-atleta.html'); break;
+    case 'panel': navigateWithTransition('index.html'); break;
+    case 'athlete': navigateWithTransition('area-do-atleta.html'); break;
     case 'choice': loginChoice(); break;
     default:
+      loginRoot.classList.add('access-denied');
       loginStatus('Esta conta Google ainda não tem acesso ao Huddle. Peça à administração para ativar seu perfil ou vínculo de atleta. Depois, entre novamente.', true);
       document.getElementById('logoutBtn').hidden = false;
   }
@@ -46,6 +61,7 @@ function setGooglePending(pending) {
 }
 googleBtn.addEventListener('click', async () => {
   if (loginPending) return;
+  loginRoot.classList.remove('access-denied');
   setGooglePending(true);
   loginStatus('');
   const timeout = setTimeout(() => {

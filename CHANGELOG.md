@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## v2.4 — 2026-09-30
+
+- Transição de acesso autorizado: estrelas saem da tela com aceleração suave; brilho vermelho e conteúdo se dissipam antes da navegação.
+- Contas sem permissão recebem um fundo vermelho mais intenso, mantendo a orientação para solicitar acesso.
+- Movimento reduzido respeitado com navegação imediata.
+
 ## v2.3 — 2026-09-30
 
 - Área de menor brilho estelar atrás da marca, do título e do botão de acesso.
