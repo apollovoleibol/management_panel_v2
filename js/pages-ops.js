@@ -58,12 +58,10 @@ function renderOverview() {
     ['Resultado do mês', '—', 'Aguardando dados financeiros', 'Financeiro', 'trend'],
   ];
   const svc = [
-    ['1ª resposta do assistente', '—', 'Medição ainda indisponível', 'Assistente', 'bot'],
-    ['Tempo até agendar', '—', 'Medição ainda indisponível', 'Assistente', 'clock'],
-    ['Retorno humano', '—', 'Medição ainda indisponível', 'Assistente', 'whatsapp'],
-    ['Comparecimento', pct(showed, past.length), `${showed} de ${past.length} testes realizados`, 'Supabase', 'check'],
-    ['Reagendamentos', pct(BOOKINGS.filter(b => b.reag > 0).length, BOOKINGS.length), 'dos agendamentos no período', 'Supabase', 'refresh'],
-    ['Satisfação', '—', 'Pesquisa ainda não implantada', 'Proposta', 'star'],
+    ['Comparecimento', pct(showed, past.length), `${showed} de ${past.length} testes passados`, 'check'],
+    ['Reagendamentos', pct(BOOKINGS.filter(b => b.reag > 0).length, BOOKINGS.length), 'do total de agendamentos', 'refresh'],
+    ['Conversão em matrícula', pct(enrolled.length, recentBookings.length, 1), 'agendamentos dos últimos 30 dias', 'target'],
+    ['Aguardando avaliação', past.filter(b => ['Agendado','Pendente','Em avaliação'].includes(b.status)).length, 'testes passados sem conclusão', 'clock'],
   ];
 
   return `
@@ -72,7 +70,7 @@ function renderOverview() {
 
   ${importedFinance ? `<div class="banner note">${icon('info')}<span>Indicadores financeiros dos relatórios importados; indicadores operacionais do Supabase.</span></div>` : ''}
   ${fin ? `<div class="section-title" style="margin-top:0"><h2>Financeiro</h2></div>
-  <div class="grid g5">${kpis.map(([l, v, f, s, i]) => `<div class="kpi"><div class="kpi-label">${l}${icon(i)}</div><div class="kpi-value">${v}</div><div class="kpi-foot">${f}</div><div class="kpi-foot" style="margin-top:6px">${srcTag(s)}</div></div>`).join('')}</div>` : opsKpisHTML()}
+  <div class="grid g5">${kpis.map(kpiCard).join('')}</div>` : opsKpisHTML()}
 
   <div class="section-title"><h2>Agenda da semana</h2></div>
   ${weekCalendarHTML()}
@@ -83,7 +81,8 @@ function renderOverview() {
       <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}<br>${srcTag(s)}</span><div class="funnel-bar"><span style="width:${recentBookings.length ? v / recentBookings.length * 100 : 0}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
       <div class="grid g3 mt">${NUCLEI.map(n => { const local = recentBookings.filter(b => teamOf(b.teamId)?.n === n.id); const converted = local.filter(b => b.status === 'Tecnofit').length; const value = local.length ? Math.round(converted / local.length * 100) : 0; return `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n.id)}<b>${local.length ? value + '%' : '—'}</b></div><div class="bar"><span style="width:${value}%;background:var(--brand)"></span></div><div class="hint" style="margin-top:4px">agendamento → matrícula</div></div>`; }).join('')}</div></div>
     </section>
-    <div class="grid g2">${svc.map(([l, v, f, s, i]) => `<div class="kpi"><div class="kpi-label">${l}${icon(i)}</div><div class="kpi-value" style="font-size:22px">${v}</div><div class="kpi-foot">${f}</div><div class="kpi-foot" style="margin-top:4px">${srcTag(s)}</div></div>`).join('')}</div>
+    <div><div class="service-metrics">${svc.map(([l, v, f, i]) => `<div class="service-metric"><div class="kpi-icon">${icon(i)}</div>${metricInfo(l)}<span>${l}</span><strong>${v}</strong><small>${f}</small></div>`).join('')}</div>
+      <details class="measurement-gap"><summary>Indicadores ainda sem coleta de dados</summary><p>Primeira resposta do assistente, tempo até agendar e retorno humano dependem de horários de mensagens e transferência para atendimento registrados pelo chatbot. Satisfação depende de uma pesquisa enviada ao atleta ou responsável. O painel não estima esses números a partir da data do treino.</p></details></div>
   </div>
 
   <div class="section-title"><h2>Projeções</h2></div>
@@ -186,7 +185,7 @@ function renderBookings() {
   return `${viewBanner('bookings')}${coachScopeBanner()}
   <div class="page-head"><div><div class="eyebrow">Operação · peneiras e aulas experimentais</div><h1>Agendamentos</h1><p>Agendamentos feitos pelo assistente e manualmente. Os próximos 2 dias ficam em destaque.</p></div>
     <div class="head-actions"><button class="btn primary" data-act="booking-new" data-edit>${icon('plus')} Novo agendamento</button></div></div>
-  <div class="grid g4 mb">${k.map(([id, l, v, w, c, i]) => `<button class="kpi click ${S.bk.kpi === id ? 'on' : ''}" data-act="bk-kpi" data-k="${id}" aria-pressed="${S.bk.kpi === id}"><span class="kpi-label">${l}${icon(i)}</span><span class="kpi-value">${v}</span><span class="kpi-foot">últimas 4 semanas</span>${sparkline(w, c)}</button>`).join('')}</div>
+  <div class="grid g4 mb">${k.map(([id, l, v, w, c, i]) => `<div class="kpi click ${S.bk.kpi === id ? 'on' : ''}"><button class="kpi-activate" data-act="bk-kpi" data-k="${id}" aria-pressed="${S.bk.kpi === id}"><span class="kpi-icon">${icon(i)}</span><span class="kpi-label">${l}</span><span class="kpi-value">${v}</span><span class="kpi-foot">últimas 4 semanas</span></button>${metricInfo(l)}${sparkline(w, c)}</div>`).join('')}</div>
   <section class="panel">
     <div class="toolbar">
       <div class="search">${icon('search')}<input class="input" id="bkQ" type="search" placeholder="Buscar por nome ou WhatsApp..." value="${esc(S.bk.q)}" aria-label="Buscar agendamento"></div>
@@ -217,7 +216,7 @@ function bookingsTable() {
   const row = b => {
     const t = teamOf(b.teamId), minor = !!b.nomeMenor;
     return `<tr class="rowlink ${in48(b) ? 'soon' : ''}" data-act="booking-open" data-id="${b.id}" tabindex="0">
-      <td><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(b.nome)}</span><div><strong>${esc(b.nomeMenor || b.nome)}</strong>${minor ? `<small>Resp.: ${esc(b.nome)}</small>` : `<small>${fmtPhone(b.whatsapp)}</small>`}</div></div></td>
+      <td><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(b.nome)}</span><div><strong>${esc(b.nomeMenor || b.nome)}</strong>${minor ? `<small>${bookingGuardianDuplicated(b) ? 'Responsável não identificado · conferir cadastro' : 'Resp.: ' + esc(b.nome)}</small>` : `<small>${fmtPhone(b.whatsapp)}</small>`}</div></div></td>
       <td><div class="cell-actions"><button class="btn sq" data-act="${b.archived ? 'booking-unarchive' : 'booking-archive'}" data-id="${b.id}" data-edit title="${b.archived ? 'Restaurar' : 'Arquivar'}" aria-label="${b.archived ? 'Restaurar' : 'Arquivar'} agendamento">${icon(b.archived ? 'unarchive' : 'archive')}</button><button class="btn sq wa" data-act="booking-wa" data-id="${b.id}" title="Contatar via WhatsApp" aria-label="Contatar via WhatsApp">${icon('whatsapp')}</button></div></td>
       <td><div style="display:flex;align-items:center;gap:8px;white-space:nowrap">${fmtDT(b.date)}${b.reag ? `<span class="reag" title="${b.reag} reagendamento(s)">${b.reag}</span>` : ''}${in48(b) ? '<span class="tag st-ok nodot">em 48h</span>' : ''}</div></td>
       <td><strong style="font-size:13px">${esc(t.name)}</strong><div class="hint">${esc(nucleusOf(t.n).venue)}</div></td>
@@ -229,9 +228,11 @@ function bookingsTable() {
     <div class="panel-foot"><span>${list.length} agendamento${list.length > 1 ? 's' : ''}${S.bk.archived ? ' arquivados' : ''}</span><span>Clique em uma linha para ver detalhes, conversa e ações.</span></div>`;
 }
 
+const bookingGuardianDuplicated = b => !!b?.nomeMenor && b.nome.trim().localeCompare(b.nomeMenor.trim(), 'pt-BR', { sensitivity: 'base' }) === 0;
 function openBooking(id) {
   const b = BOOKINGS.find(x => x.id === id), t = teamOf(b.teamId), n = nucleusOf(t.n), ed = canEdit('bookings');
-  openDialog(dHead('Agendamento', esc(b.nomeMenor || b.nome), b.nomeMenor ? 'Responsável: ' + esc(b.nome) : '') + `<div class="d-body">
+  openDialog(dHead('Agendamento', esc(b.nomeMenor || b.nome), b.nomeMenor ? (bookingGuardianDuplicated(b) ? 'Responsável não identificado' : 'Responsável: ' + esc(b.nome)) : '') + `<div class="d-body">
+    ${bookingGuardianDuplicated(b) ? `<div class="banner note">${icon('alert')}<span>O nome do responsável foi gravado igual ao do atleta. Confirme o responsável pelo WhatsApp antes de corrigir o cadastro.</span></div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${stTag(b.status)}${b.reag ? `<span class="tag st-em-cadastro nodot">${b.reag} reagendamento(s)</span>` : ''}${b.archived ? '<span class="tag nodot">Arquivado</span>' : ''}</div>
     <div class="kv"><div><small>Data e hora</small><strong>${fmtDT(b.date)}</strong></div><div><small>WhatsApp</small><strong>${fmtPhone(b.whatsapp)}</strong></div><div><small>Equipe</small><strong>${esc(t.name)}</strong></div><div><small>Local</small><strong>${esc(n.venue)}</strong><div class="hint">${esc(n.address)}</div></div></div>
     <div class="grid g2" style="gap:8px">
@@ -287,6 +288,7 @@ async function saveBooking(id) {
   $('#fbWppErr').classList.toggle('hide', !wpp || wpp.length >= 10);
   if (!st.team || !nome || !wpp || !st.date || (minor && !menor)) { $('#fbErr').textContent = 'Preencha todos os campos obrigatórios.'; return false; }
   if (wpp.length < 10) { $('#fbErr').textContent = 'Número de WhatsApp inválido.'; return false; }
+  if (minor && nome.localeCompare(menor, 'pt-BR', { sensitivity: 'base' }) === 0) { $('#fbErr').textContent = 'Informe o nome do responsável; ele deve ser diferente do nome do atleta menor.'; return false; }
   const statuses = { 'Pendente': 'PENDING', 'Agendado': 'CONFIRMED', 'Em avaliação': 'IN_EVALUATION',
     'Em cadastro': 'IN_REGISTRATION', 'Tecnofit': 'TECNOFIT', 'Ausente': 'MISSED', 'Cancelado': 'CANCELLED' };
   const before = id ? BOOKINGS.find(x => x.id === id) : null;
@@ -303,12 +305,13 @@ async function saveBooking(id) {
 function waMessage(id) {
   const b = BOOKINGS.find(x => x.id === id), t = teamOf(b.teamId), n = nucleusOf(t.n), d = parseLocal(b.date);
   const tomorrow = ymd(d) === ymd(addDays(TODAY, 1)), hh = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const greeting = bookingGuardianDuplicated(b) ? 'Olá!' : `Olá, ${b.nome}!`;
   const text = tomorrow
-    ? `Olá, ${b.nome}! Estou passando pra te lembrar que o seu agendamento está marcado para amanhã, às ${hh}. O endereço é ${n.address}. Até breve! 👋`
-    : `Olá, ${b.nome}, tudo bem? Espero que sim! O seu agendamento para fazer parte da nossa equipe está marcado para o dia ${fmtDate(d)}, às ${hh}. Relembro que o endereço é ${n.address}. Te aguardamos! Até breve 👋`;
+    ? `${greeting} Estou passando pra te lembrar que o seu agendamento está marcado para amanhã, às ${hh}. O endereço é ${n.address}. Até breve! 👋`
+    : `${greeting} Tudo bem? O seu agendamento para fazer parte da nossa equipe está marcado para o dia ${fmtDate(d)}, às ${hh}. Relembro que o endereço é ${n.address}. Te aguardamos! Até breve 👋`;
   const num = '55' + digits(b.whatsapp);
   const d2 = $('#dlg2');
-  d2.innerHTML = `<div class="d-head"><div><div class="eyebrow">${tomorrow ? 'Lembrete — o teste é amanhã' : 'Confirmação do agendamento'}</div><h2 id="dlg2Title">Mensagem para ${esc(b.nome)}</h2></div></div>
+  d2.innerHTML = `<div class="d-head"><div><div class="eyebrow">${tomorrow ? 'Lembrete — o teste é amanhã' : 'Confirmação do agendamento'}</div><h2 id="dlg2Title">Mensagem para ${bookingGuardianDuplicated(b) ? 'o contato cadastrado' : esc(b.nome)}</h2></div></div>
     <div class="d-body"><textarea class="input" id="waText" rows="6">${esc(text)}</textarea><p class="hint">A mensagem é copiada e o WhatsApp abre no número ${fmtPhone(b.whatsapp)}. Você ainda pode editar o texto antes de enviar.</p></div>
     <div class="d-foot"><button class="btn" data-r="close">Fechar</button><button class="btn" data-r="copy">${icon('copy')} Copiar</button><a class="btn wa" data-r="open" href="https://wa.me/${num}" target="_blank" rel="noopener">${icon('whatsapp')} Copiar e abrir WhatsApp</a></div>`;
   d2.onclick = e => { const r = e.target.closest('[data-r]'); if (!r) return; const txt = $('#waText').value; if (r.dataset.r !== 'close') { navigator.clipboard?.writeText(txt).catch(() => { }); toast('Mensagem copiada.'); } if (r.dataset.r === 'open') r.href = `https://wa.me/${num}?text=${encodeURIComponent(txt)}`; if (r.dataset.r !== 'copy') d2.close(); };

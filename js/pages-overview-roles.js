@@ -3,7 +3,7 @@
 
 const coachScopeBanner = () => isCoach() ? `<div class="banner note">${icon('users')}<span>Mostrando apenas as suas equipes: <b>${myTeamIds().map(id => esc(teamOf(id).name)).join(', ') || 'nenhuma equipe vinculada'}</b>.</span></div>` : '';
 const presencePct = list => { let p = 0, t = 0; list.forEach(s => Object.values(s.att).forEach(v => { t++; if (v === 'present') p++; })); return t ? Math.round(p / t * 100) : null; };
-const kpiCard = ([l, v, f, s, i, extra = '']) => `<div class="kpi"><div class="kpi-label">${l}${icon(i)}</div><div class="kpi-value">${v}</div><div class="kpi-foot">${f}</div>${s ? `<div class="kpi-foot" style="margin-top:6px">${srcTag(s)}</div>` : ''}${extra}</div>`;
+const kpiCard = ([l, v, f, s, i, extra = '']) => `<div class="kpi"><div class="kpi-icon">${icon(i)}</div>${metricInfo(l)}<div class="kpi-label">${l}</div><div class="kpi-value">${v}</div><div class="kpi-foot">${f}</div>${s ? `<div class="kpi-foot" style="margin-top:6px">${srcTag(s)}</div>` : ''}${extra}</div>`;
 
 /* Perfis sem acesso financeiro (coordenação, atendimento): indicadores operacionais */
 function opsKpisHTML() {

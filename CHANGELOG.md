@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## v2.6 — 2026-09-30
+
+- Interface mais leve nas páginas operacionais, indicadores com ícones à esquerda e explicações acessíveis pelo botão de informação.
+- Resumo financeiro visual com composição bruto/taxas/líquido, evolução mensal sem preencher meses não importados, faixas de atraso e detalhes de conciliação sob demanda.
+- Cobertura das importações apresentada por mês; instruções de exportação recolhíveis.
+- Orientação contextual por página no cabeçalho e prévia dos perfis de acesso para administradores, em modo somente leitura.
+- Indicadores de atendimento calculáveis substituem cartões sem eventos disponíveis; métricas que dependem de instrumentação são identificadas.
+- Agendamentos de menores com nomes duplicados são sinalizados; novos salvamentos exigem responsável diferente do atleta.
+
 ## v2.5 — 2026-09-30
 
 - Skeletons responsivos no carregamento inicial do Painel de Gestão e da Área do Atleta, sem exibir dados antes da autorização.

@@ -4,7 +4,10 @@ const origin = 'https://apollovoleibol.github.io';
 const redirectTo = `${origin}/management_panel_v2/login.html`;
 const pages = new Set(['overview', 'bookings', 'athletes', 'teams', 'packages', 'feeder', 'payments', 'finance', 'settings']);
 const financePages = new Set(['packages', 'payments', 'finance']);
-const staffRoles = new Set(['admin', 'finance', 'coordination', 'attendance', 'coach']);
+// Administrator access is assigned to an existing active user by the reviewed
+// v2_admin_set_staff RPC. Invitations cannot create a legacy customer with
+// unintended v1 access while the old panel is still being isolated.
+const staffRoles = new Set(['finance', 'coordination', 'attendance', 'coach']);
 const portalRoles = new Set(['guardian', 'athlete']);
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': origin,
@@ -30,8 +33,9 @@ Deno.serve(async request => {
   });
   const { data: userData, error: userError } = await caller.auth.getUser(token);
   if (userError || !userData.user) return json(401, { error: 'Invalid session' });
-  const { data: isAdmin, error: accessError } = await caller.rpc('is_admin');
-  if (accessError || isAdmin !== true) return json(403, { error: 'Administrator required' });
+  const { data: access, error: accessError } = await caller.rpc('v2_my_access');
+  if (accessError || access?.role !== 'admin' || access?.pages?.settings?.edit !== true)
+    return json(403, { error: 'Huddle administrator required' });
   let input: Record<string, unknown>;
   try { input = await request.json(); } catch { return json(400, { error: 'Invalid JSON' }); }
   const email = String(input.email || '').trim().toLowerCase();
@@ -70,7 +74,7 @@ Deno.serve(async request => {
   });
   if (inviteError || !invited.user) return json(400, { error: inviteError?.message || 'Invitation failed' });
   const userId = invited.user.id;
-  const legacyRole = role === 'admin' ? 'admin' : role === 'coach' ? 'coach' : 'customer';
+  const legacyRole = role === 'coach' ? 'coach' : 'customer';
   const { error: profileError } = await admin.from('profiles').upsert({
     id: userId, full_name: fullName, email, role: legacyRole, is_active: true
   }, { onConflict: 'id' });

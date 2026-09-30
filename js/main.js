@@ -12,18 +12,26 @@ function renderNav() {
   });
   $('#nav').innerHTML = html;
   const u = me();
-  $('#sideUser').innerHTML = `<span class="avatar">${initials(u.name)}</span><div style="min-width:0"><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></div>${apolloHasAthleteAccess() ? `<a class="lock" href="area-do-atleta.html" title="Ir para a Área do atleta" style="margin-left:auto;color:var(--nav-muted)">${icon('users')}</a>` : ''}<button class="icon-btn" data-act="logout" title="Sair" aria-label="Sair" style="margin-left:auto;color:var(--nav-muted)">${icon('logout')}</button>`;
+  $('#sideUser').innerHTML = `<span class="avatar">${initials(u.name)}</span><div style="min-width:0"><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></div>${!S.previewRole && apolloHasAthleteAccess() ? `<a class="lock" href="area-do-atleta.html" title="Ir para a Área do atleta" style="margin-left:auto;color:var(--nav-muted)">${icon('users')}</a>` : ''}<button class="icon-btn" data-act="logout" title="Sair" aria-label="Sair" style="margin-left:auto;color:var(--nav-muted)">${icon('logout')}</button>`;
   $('#crumb').textContent = PAGES.find(p => p.id === S.page).label;
 }
 function render() {
   if (!canView(S.page)) S.page = (PAGES.find(p => canView(p.id)) || PAGES[0]).id;
   renderNav();
-  $('#content').innerHTML = RENDER[S.page]() + `<footer class="foot"><span>Apollo · Painel de Gestão v2</span><span>Dados sincronizados com o Supabase</span></footer>`;
+  $('#content').innerHTML = `${S.previewRole ? `<div class="preview-banner">${icon('eye')} Prévia do perfil <b>${esc(S.previewRole)}</b> · somente leitura. Dados e permissões reais continuam vinculados à sua conta.</div>` : ''}${RENDER[S.page]()}<footer class="foot"><span>Apollo · Painel de Gestão v2</span><span>Dados sincronizados com o Supabase</span></footer>`;
   if (!canEdit(S.page)) $$('#content [data-edit]').forEach(b => { b.classList.add('locked'); b.setAttribute('aria-disabled', 'true'); b.title = 'Somente visualização para o seu perfil'; });
+  guideSync();
 }
 function go(page) { S.page = page; closeSidebar(); render(); window.scrollTo(0, 0); $('#content').focus({ preventScroll: true }); }
 function closeSidebar() { $('#sidebar').classList.remove('open'); $('#menuBtn').setAttribute('aria-expanded', 'false'); }
-function fillViewAs() { $('#viewAs').innerHTML = USERS.filter(u => u.active).map(u => `<option value="${u.id}" ${u.id === S.userId ? 'selected' : ''}>${esc(u.name)} · ${esc(u.role)}</option>`).join(''); }
+function fillViewAs() {
+  const allowed = APOLLO_AUTH.access?.role === 'admin';
+  const label = $('#viewAs').closest('.viewas');
+  label.hidden = !allowed;
+  if (!allowed) return;
+  $('#viewAs').innerHTML = `<option value="">Minha conta</option>${Object.keys(ROLE_PRESETS).filter(role => role !== 'Administrador').map(role => `<option value="${esc(role)}">${esc(role)}</option>`).join('')}`;
+  $('#viewAs').value = S.previewRole;
+}
 async function guardClose() {
   const d = $('#dlg');
   if (d.dataset.dirty !== '1') return closeDialog();
@@ -41,6 +49,13 @@ document.addEventListener('click', async e => {
   const el = e.target.closest('[data-act]');
   if (!el || el.matches('input[type=checkbox][data-act="cal-tests"]')) return;
   const a = el.dataset.act, id = el.dataset.id;
+  if (a === 'metric-info') {
+    const dialog = $('#dlg2');
+    dialog.innerHTML = `<div class="d-head"><div><div class="eyebrow">Entenda o indicador</div><h2 id="dlg2Title">${esc(el.dataset.label)}</h2></div></div><div class="d-body"><p>${esc(el.dataset.info)}</p></div><div class="d-foot"><button class="btn" type="button" id="metricInfoClose">Entendi</button></div>`;
+    dialog.querySelector('#metricInfoClose').onclick = () => dialog.close();
+    dialog.showModal(); return;
+  }
+  if (S.previewRole && PREVIEW_WRITE_ACTIONS.has(a)) return toast('A prévia permite apenas consultar. Volte para Minha conta para alterar dados.', true);
   if (el.hasAttribute('data-edit') && !canEdit(pageOfAction(el))) { e.preventDefault(); e.stopPropagation(); return toast('Seu perfil tem acesso somente de visualização nesta página.', true); }
   if (el.dataset.need && !canEdit(el.dataset.need)) { e.preventDefault(); return toast('Seu perfil não pode editar ' + PAGES.find(p => p.id === el.dataset.need).label + '.', true); }
   if (el.tagName === 'INPUT' && el.type === 'checkbox' && !a.startsWith('fd-visible') && !a.startsWith('pay-approve')) return;
@@ -230,7 +245,14 @@ document.addEventListener('change', e => {
 });
 
 /* ─── Topo ─── */
-$('#viewAs').addEventListener('change', () => { /* O usuário autenticado não pode trocar de identidade. */ });
+const PREVIEW_WRITE_ACTIONS = new Set(['booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
+$('#viewAs').addEventListener('change', event => {
+  if (APOLLO_AUTH.access?.role !== 'admin') return;
+  S.previewRole = event.target.value in ROLE_PRESETS && event.target.value !== 'Administrador' ? event.target.value : '';
+  closeDialog();
+  if (!canView(S.page)) S.page = 'overview';
+  render(); history.replaceState(null, '', '#' + S.page);
+});
 $('#menuBtn').addEventListener('click', () => { const o = $('#sidebar').classList.toggle('open'); $('#menuBtn').setAttribute('aria-expanded', String(o)); });
 $('#themeBtn').addEventListener('click', () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = S.theme; try { localStorage.setItem('apollo-v2-theme', S.theme); } catch { } });
 try { const th = localStorage.getItem('apollo-v2-theme'); if (th) { S.theme = th; document.documentElement.dataset.theme = th; } } catch { }

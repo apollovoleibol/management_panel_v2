@@ -354,7 +354,7 @@ let FEEDER = {
 
 /* ─── Estado de navegação ─── */
 const S = {
-  page: 'overview', userId: 'u1', theme: 'light',
+  page: 'overview', userId: 'u1', previewRole: '', theme: 'light',
   cal: { cursor: TODAY, nuclei: new Set(NUCLEI.map(n => n.id)), showTests: true },
   bk: { q: '', status: '', team: '', archived: false, sort: { col: 'data', dir: 'asc' }, kpi: '' },
   at: { q: '', status: '', team: '', n: '' },
@@ -365,7 +365,12 @@ const S = {
   fin: { tab: 'summary', type: 'all', q: '', month: `${TODAY.getFullYear()}-${pad(TODAY.getMonth() + 1)}` },
   st: { tab: 'users' },
 };
-const me = () => USERS.find(u => u.id === S.userId);
+const me = () => {
+  if (!S.previewRole) return USERS.find(u => u.id === S.userId);
+  const coach = USERS.find(u => u.role === 'Técnico' && u.coachId);
+  return { id: 'preview', name: `Prévia · ${S.previewRole}`, role: S.previewRole,
+    perms: ROLE_PRESETS[S.previewRole], coachId: S.previewRole === 'Técnico' ? coach?.coachId : null };
+};
 /* Dados financeiros: somente perfis Administrador e Financeiro, mesmo para visualização */
 const FIN_ROLES = ['Administrador', 'Financeiro'];
 const FIN_PAGES = ['packages', 'payments', 'finance'];
@@ -380,7 +385,31 @@ const perm = (p, u = me()) => (FIN_PAGES.includes(p) && !seesFinance(u)) ? 'none
 const maskPlan = str => seesFinance() ? str : String(str || '').replace(/\s*-\s*R\$.*$/, '');
 const planText = p => seesFinance() ? planLabel(p) : `${p.days}x por semana`;
 const canView = p => perm(p) !== 'none';
-const canEdit = p => perm(p) === 'edit';
+const canEdit = p => !S.previewRole && perm(p) === 'edit';
+
+const METRIC_HELP = {
+  'Recebido bruto': 'Soma dos recebimentos confirmados no relatório Contas a Receber, no mês selecionado. Serve para acompanhar o volume efetivamente recebido.',
+  'Taxas': 'Soma das taxas dos recebimentos confirmados no Tecnofit. Ajuda a entender o custo dos meios de pagamento.',
+  'Taxas dos recebimentos': 'Soma das taxas registradas em Contas a Receber para recebimentos confirmados.',
+  'Recebido líquido': 'Recebido bruto menos as taxas do relatório Contas a Receber; não inclui despesas operacionais.',
+  'Mensalidades vencidas': 'Soma das parcelas de mensalidade com vencimento anterior a hoje e saldo positivo em Vendas em Aberto. Depende da última importação.',
+  'Em atraso': 'Parcelas de mensalidade vencidas e ainda abertas na última fotografia de Vendas em Aberto.',
+  'Em aberto no mês': 'Parcelas abertas com vencimento no mês selecionado, inclusive as ainda dentro do prazo.',
+  'A vencer': 'Parcelas abertas com vencimento a partir de hoje na última fotografia de Vendas em Aberto.',
+  'Fluxo analítico': 'Total de entradas agregado no Fluxo de Caixa Analítico. Pode divergir de Contas a Receber por competência e composição.',
+  'Comparecimento': 'Testes realizados com status posterior a Agendado ou Pendente, divididos pelos testes passados não cancelados.',
+  'Reagendamentos': 'Agendamentos com pelo menos uma remarcação, divididos pelo total de agendamentos carregados.',
+  'Conversão em matrícula': 'Agendamentos criados nos últimos 30 dias com status Tecnofit, divididos pelos agendamentos desse período.',
+  'Aguardando avaliação': 'Testes passados ainda com status Agendado, Pendente ou Em avaliação. O técnico ou atendimento precisa concluir o acompanhamento.',
+  'Atletas ativos': 'Atletas marcados como ativos no cadastro do Supabase.',
+  'Presença média': 'Presenças registradas divididas pelo total de chamadas com status informado nos últimos 30 dias.',
+  'Treinos na semana': 'Horários das equipes ativas nesta semana, excluindo datas indisponíveis.',
+  'Agendados': 'Agendamentos ativos com status Agendado nas equipes visíveis para seu perfil.',
+  'Reagendados': 'Agendamentos ativos que tiveram pelo menos uma mudança de data.',
+  'Ausentes': 'Agendamentos ativos marcados como Ausente.',
+  'Cancelados': 'Agendamentos ativos marcados como Cancelado.'
+};
+const metricInfo = (label, help = METRIC_HELP[label]) => help ? `<button class="metric-info" type="button" data-act="metric-info" data-label="${esc(label)}" data-info="${esc(help)}" aria-label="Como é calculado: ${esc(label)}">${icon('info')}</button>` : '';
 
 /* ─── Componentes visuais ─── */
 function toast(msg, err = false) {
@@ -436,10 +465,17 @@ function lineChart({ labels, series, height = 230, fmt = v => v, yMax }) {
   labels.forEach((l, i) => { g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${l}</text>`; });
   series.forEach(s => {
     const pts = s.values.map((v, i) => v == null ? null : [x(i), y(v)]);
-    const seg = pts.filter(Boolean);
-    if (s.area) g += `<path d="M${seg[0][0]} ${y(0)} ${seg.map(p => 'L' + p[0] + ' ' + p[1]).join(' ')} L${seg.at(-1)[0]} ${y(0)}Z" fill="${s.color}" opacity=".1"/>`;
-    g += `<path d="${seg.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.4" ${s.dash ? 'stroke-dasharray="6 5"' : ''} stroke-linecap="round" stroke-linejoin="round"/>`;
-    seg.forEach(p => { g += `<circle cx="${p[0]}" cy="${p[1]}" r="3.2" fill="var(--surface)" stroke="${s.color}" stroke-width="2"/>`; });
+    const segments = [];
+    pts.forEach((point, index) => {
+      if (!point) return;
+      if (!segments.length || pts[index - 1] === null) segments.push([]);
+      segments.at(-1).push(point);
+    });
+    segments.forEach(seg => {
+      if (s.area) g += `<path d="M${seg[0][0]} ${y(0)} ${seg.map(p => 'L' + p[0] + ' ' + p[1]).join(' ')} L${seg.at(-1)[0]} ${y(0)}Z" fill="${s.color}" opacity=".1"/>`;
+      g += `<path d="${seg.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.4" ${s.dash ? 'stroke-dasharray="6 5"' : ''} stroke-linecap="round" stroke-linejoin="round"/>`;
+      seg.forEach(p => { g += `<circle cx="${p[0]}" cy="${p[1]}" r="3.2" fill="var(--surface)" stroke="${s.color}" stroke-width="2"/>`; });
+    });
   });
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
 }

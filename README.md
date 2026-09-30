@@ -37,6 +37,8 @@ O endereço da [v2](https://apollovoleibol.github.io/management_panel_v2/) está
 | `js/finance-reports.js` | Leitura local dos quatro formatos exportados pelo Tecnofit e regras de atraso |
 | `js/finance-page.js` | Nova área Financeiro: resumo, recebimentos, extrato, fluxo, alertas, lançamentos e orientações de upload |
 | `js/main.js` | Navegação, controle de visualização/edição e eventos |
+| `js/onboarding.js` | Orientação contextual para cada página |
+| `huddle-ui.css` | Hierarquia visual mais leve e visualizações financeiras |
 
 ## Decisões do protótipo
 
@@ -55,4 +57,5 @@ O endereço da [v2](https://apollovoleibol.github.io/management_panel_v2/) está
 - **Tecnofit por upload individual:** a guia **Importações** tem um cartão por relatório: `Contas a Receber (Incluir colunas ocultas).xlsx`, `Relatório de Vendas em Aberto.xls` (HTML exportado como XLS), `Relatório de Fluxo de Caixa Analítico.xls` (HTML exportado como XLS) e extrato `.csv`. O navegador lê e trata um arquivo por vez. Após conferir o intervalo usado no Tecnofit, uma chamada autenticada grava somente registros normalizados e metadados no Supabase. A função de banco substitui atomicamente os meses reimportados; Vendas em Aberto substitui a fotografia anterior. O histórico mostra a última importação, meses cobertos e lacunas nos últimos 12 meses. A [migração financeira](supabase/migrations/012_tecnofit_finance_imports.sql) já está no Supabase principal, mas o acesso depende das migrações seguintes. [Levantamento técnico](docs/INTEGRACAO_TECNOFIT_2026-09-29.md).
 - **Alertas:** só entram mensalidades com saldo aberto positivo e vencimento anterior ao dia atual; status de cliente “Bloqueado” e “Não recebido” em Contas a Receber não são usados como prova de atraso. Quando há vários vencimentos na mesma linha exportada, ela é exibida agrupada para conferência. O relatório não traz responsáveis legais, portanto nenhum contato automático é disparado.
 - **Pagamentos de técnicos:** as horas de treino são geradas a partir dos horários das equipes, descontando as datas indisponíveis. Competições (diárias) e extras são lançados manualmente. O fluxo segue aprovação → pagamento → saída registrada no Financeiro.
-- Métricas marcadas como `PROPOSTA` (retorno humano, satisfação) dependem de dados que ainda não são coletados.
+- Primeira resposta do assistente, tempo até agendar, retorno humano e satisfação aguardam eventos com horário e pesquisa de satisfação. A visão geral mostra indicadores calculáveis e explica quais medições ainda dependem de instrumentação.
+- Um administrador pode pré-visualizar perfis em modo somente leitura. A promoção de uma conta ativa a Administrador do Huddle depende da migração `020_v2_admin_promotion.sql`; essa mudança não altera o papel legado usado pela v1. Convites novos não oferecem o perfil Administrador enquanto o acesso da v1 ainda está sendo isolado.

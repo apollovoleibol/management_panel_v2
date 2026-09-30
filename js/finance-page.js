@@ -4,7 +4,7 @@
 const FIN_MANUAL = [];
 const finSum = (rows, field) => rows.reduce((total, row) => total + (row[field] || 0), 0);
 function finKpi(label, value, note, iconName) {
-  return `<div class="kpi"><div class="kpi-label">${label}${icon(iconName)}</div><div class="kpi-value">${value}</div><div class="kpi-foot">${note}</div></div>`;
+  return `<div class="kpi"><div class="kpi-icon">${icon(iconName)}</div>${metricInfo(label)}<div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-foot">${note}</div></div>`;
 }
 function finNeed(type) { return FIN_REPORTS[type] ? '' : `<span class="tag nodot st-warn">Aguardando ${finReportNames[type]}</span>`; }
 function finGuide() {
@@ -26,7 +26,7 @@ function finSummaryHtml(key, summary) {
   const manual = FIN_MANUAL.filter(r => r.date.slice(0, 7) === key);
   const manualIn = finSum(manual.filter(r => r.type === 'in'), 'amount');
   const manualOut = finSum(manual.filter(r => r.type === 'out'), 'amount');
-  const difference = summary.flow && FIN_REPORTS.receivables ? summary.flow.total - finSum(summary.received, 'gross') : null;
+  const difference = summary.flow && FIN_REPORTS.receivables ? summary.flow.total - summary.gross : null;
   return `<div class="grid g3 mb">
     ${finKpi('Recebido bruto', FIN_REPORTS.receivables ? money(summary.gross) : '—', `${summary.paid.length} recebimento(s) confirmados`, 'money')}
     ${finKpi('Taxas dos recebimentos', FIN_REPORTS.receivables ? money(summary.fees) : '—', 'Tecnofit · contas a receber', 'wallet')}
@@ -53,6 +53,43 @@ function finSummaryHtml(key, summary) {
     </div></section>
   </div>
   ${FIN_REPORTS.open ? `<section class="panel"><div class="panel-head"><div><h2>Alertas de pagamento</h2><div class="sub">Saldo em aberto com vencimento anterior a hoje</div></div><button class="btn sm" data-act="fin-tab" data-tab="alerts">Ver todos</button></div><div class="panel-pad">${alerts.length ? alerts.slice(0, 4).map(r => `<div class="stat-line"><span><strong>${esc(r.name)}</strong><small class="muted"> · venc. ${finDateLabel(r.due)} · ${r.days} dias</small></span><b>${money(r.alertAmount)}</b></div>`).join('') : '<p class="muted">Nenhuma venda vencida no arquivo importado.</p>'}</div></section>` : `<div class="banner note">${icon('alert')}<span>Importe <b>Vendas em Aberto</b> para ativar os alertas. As outras três exportações não informam o vencimento das mensalidades.</span></div>`}`;
+}
+function finVisualSummaryHtml(key, summary) {
+  const alerts = finAlertRows();
+  const overdue = finSum(alerts, 'alertAmount');
+  const upcoming = finOpenInstallments().filter(row => row.date >= ymd(TODAY));
+  const months = [...Array(6)].map((_, i) => {
+    const [year, month] = key.split('-').map(Number);
+    return new Date(year, month - 6 + i, 1);
+  });
+  const labels = months.map(date => MON[date.getMonth()]);
+  const covered = (type, month) => FIN_DB.coverage.some(row => row.report_type === type && row.period.slice(0, 7) === month);
+  const gross = months.map(date => { const month = monthKey(date); return covered('receivables', month) ? finSummary(month).gross / 100 : null; });
+  const flow = months.map(date => { const month = monthKey(date); return covered('flow', month) ? (finSummary(month).flow?.total || 0) / 100 : null; });
+  const trend = gross.some(value => value !== null) || flow.some(value => value !== null);
+  const aging = [
+    ['1–30 dias', alerts.filter(row => row.days <= 30)],
+    ['31–60 dias', alerts.filter(row => row.days > 30 && row.days <= 60)],
+    ['61+ dias', alerts.filter(row => row.days > 60)]
+  ].map(([label, rows]) => ({ label, count: rows.length, amount: finSum(rows, 'alertAmount') }));
+  const difference = summary.flow && FIN_REPORTS.receivables ? summary.flow.total - summary.gross : null;
+  const manual = FIN_MANUAL.filter(row => row.date.slice(0, 7) === key);
+  const manualIn = finSum(manual.filter(row => row.type === 'in'), 'amount');
+  const manualOut = finSum(manual.filter(row => row.type === 'out'), 'amount');
+  return `<div class="fin-summary-body">
+    <div class="fin-hero"><div><div class="eyebrow">Disponível após taxas · ${monthLabel(key)}</div><div class="fin-main-value">${FIN_REPORTS.receivables ? money(summary.net) : '—'} ${metricInfo('Recebido líquido')}</div><p>${FIN_REPORTS.receivables ? `${summary.paid.length} recebimento(s) confirmados no último relatório importado.` : 'Importe Contas a Receber para mostrar os recebimentos.'}</p></div>
+      <div class="fin-equation"><div><span>Recebido bruto</span><strong>${FIN_REPORTS.receivables ? money(summary.gross) : '—'}</strong></div><b>−</b><div><span>Taxas</span><strong>${FIN_REPORTS.receivables ? money(summary.fees) : '—'}</strong></div><b>=</b><div><span>Líquido</span><strong>${FIN_REPORTS.receivables ? money(summary.net) : '—'}</strong></div></div></div>
+    <div class="fin-submetrics"><div><span>Em aberto no mês ${metricInfo('Em aberto no mês')}</span><strong>${FIN_REPORTS.open ? money(summary.openAmount) : '—'}</strong></div><div><span>Mensalidades vencidas ${metricInfo('Em atraso')}</span><strong>${FIN_REPORTS.open ? money(overdue) : '—'}</strong><small>${FIN_REPORTS.open ? `${alerts.length} parcela(s) na última fotografia` : 'Aguardando Vendas em Aberto'}</small></div><div><span>A vencer ${metricInfo('A vencer')}</span><strong>${FIN_REPORTS.open ? money(finSum(upcoming, 'amount')) : '—'}</strong></div></div>
+    <div class="fin-visuals"><section class="fin-visual fin-trend"><h2>Evolução dos recebimentos</h2><div class="hint">Últimos seis meses até ${monthLabel(key)}; meses sem importação ficam sem ponto.</div>
+      ${trend ? `<div class="legend"><span><i style="background:var(--ok)"></i>Contas a Receber · bruto</span><span><i style="background:var(--info)"></i>Fluxo de Caixa · entradas</span></div>${lineChart({ labels, series: [{ values: gross, color: 'var(--ok)', area: true }, { values: flow, color: 'var(--info)' }], fmt: value => 'R$ ' + Math.round(value).toLocaleString('pt-BR') })}` : '<p class="muted small">Importe meses anteriores para visualizar a tendência.</p>'}
+      <p class="hint">As fontes têm definições diferentes; a distância entre as linhas não representa perda automaticamente.</p></section>
+      <section class="fin-visual fin-aging"><h2>Atrasos por faixa ${metricInfo('Em atraso')}</h2><div class="hint">Mensalidades vencidas de todos os períodos presentes em Vendas em Aberto.</div>
+      ${FIN_REPORTS.open ? aging.map(row => `<div class="fin-aging-row"><span>${row.label}</span><div class="fin-aging-track"><span style="width:${overdue ? Math.max(2, row.amount / overdue * 100) : 0}%"></span></div><strong>${money(row.amount)}</strong></div>`).join('') + `<p class="hint">${alerts.length} parcela(s) vencida(s); importe nova fotografia para atualizar.</p>` : '<p class="muted small">Importe Vendas em Aberto para ativar esta análise.</p>'}</section></div>
+    <div class="fin-footnotes"><details><summary>Conferência entre relatórios</summary><div class="stat-line"><span>Contas a Receber · bruto confirmado</span><b>${FIN_REPORTS.receivables ? money(summary.gross) : '—'}</b></div><div class="stat-line"><span>Aguardando confirmação</span><b>${FIN_REPORTS.receivables ? summary.pendingConfirmation.length + ' linha(s)' : '—'}</b></div><div class="stat-line"><span>Fluxo de Caixa · entradas</span><b>${summary.flow ? money(summary.flow.total) : '—'}</b></div><div class="stat-line"><span>Diferença a investigar</span><b>${difference === null ? '—' : money(difference)}</b></div><p class="hint">O fluxo pode ter valores e datas de competência diferentes. Nenhuma diferença é lançada automaticamente.</p></details>
+      <details><summary>Conta Digital e lançamentos</summary><div class="stat-line"><span>Depósitos PIX</span><b>${FIN_REPORTS.statement ? money(summary.bankDeposits) : '—'}</b></div><div class="stat-line"><span>Tarifas no extrato</span><b>${FIN_REPORTS.statement ? money(summary.bankFees) : '—'}</b></div><div class="stat-line"><span>Transferências</span><b>${FIN_REPORTS.statement ? money(summary.bankTransfers) : '—'}</b></div><div class="stat-line"><span>Entradas manuais</span><b>${money(manualIn)}</b></div><div class="stat-line"><span>Saídas manuais</span><b>${money(manualOut)}</b></div><p class="hint">Depósitos do extrato servem para conferência; não são somados novamente aos recebimentos.</p></details></div>
+    <div class="fin-alert-preview"><div class="panel-head" style="padding:0 0 12px;border:0"><div><h2>Mensalidades que pedem atenção</h2><div class="sub">Última fotografia de Vendas em Aberto</div></div><button class="btn sm" data-act="fin-tab" data-tab="alerts">Ver alertas</button></div>
+      ${FIN_REPORTS.open ? (alerts.length ? alerts.slice(0, 4).map(row => `<div class="stat-line"><span><b>${esc(row.name)}</b><small class="muted"> · ${row.days} dias de atraso</small></span><strong>${money(row.alertAmount)}</strong></div>`).join('') : '<p class="muted small">Nenhuma mensalidade vencida no relatório importado.</p>') : '<p class="muted small">Importe Vendas em Aberto para mostrar alertas.</p>'}</div>
+  </div>`;
 }
 function finReceiptsHtml(summary) {
   if (!FIN_REPORTS.receivables) return emptyState('Sem Contas a Receber', 'Importe o XLSX com todas as páginas e colunas ocultas.');
@@ -91,13 +128,13 @@ function finCoverageCard(type, name) {
   const history = FIN_HISTORY.filter(h => h.type === type);
   const latest = history[0];
   const covered = new Set(FIN_DB.coverage.filter(c => c.report_type === type).map(c => c.period.slice(0, 7)));
-  const recent = lastMonths(12).map(monthKey).reverse();
+  const recent = lastMonths(12).map(monthKey);
   const missing = recent.filter(month => !covered.has(month));
   const label = latest ? new Date(latest.at).toLocaleString('pt-BR') : 'Nunca importado';
   return `<section class="panel fin-import-card"><div class="panel-pad"><div class="stat-line"><span><strong>${name}</strong><br><small class="muted">Última importação: ${label}</small></span><button class="btn sm primary" data-act="fin-import" data-report="${type}" data-edit ${FIN_DB.canImport ? '' : 'disabled'}>${icon('upload')} Importar</button></div>
-    <p class="small">${latest ? `Último filtro declarado: <b>${finDateLabel(latest.start)} a ${finDateLabel(latest.end)}</b> · ${latest.count} registro(s).` : 'Nenhum período coberto no banco.'}</p>
-    <div class="hint">Meses cobertos nos últimos 12 meses: ${recent.filter(m => covered.has(m)).map(monthLabel).join(', ') || 'nenhum'}.</div>
-    <div class="hint">${missing.length ? `<b>Sem importação:</b> ${missing.map(monthLabel).join(', ')}.` : 'Todos os últimos 12 meses têm importação registrada.'}</div>
+    <div class="fin-coverage" role="img" aria-label="${recent.filter(m => covered.has(m)).length} de 12 meses com importação registrada, do mais antigo ao mais recente">${recent.map((month, index) => `<i class="${covered.has(month) ? 'on' : ''} ${index === recent.length - 1 ? 'current' : ''}" title="${monthLabel(month)}: ${covered.has(month) ? 'importado' : 'sem importação'}"></i>`).join('')}</div>
+    <div class="hint"><b>${recent.length - missing.length} de 12 meses cobertos</b> · ${latest ? `Filtro mais recente: ${finDateLabel(latest.start)} a ${finDateLabel(latest.end)} · ${latest.count} registros` : 'Nenhuma importação registrada'}</div>
+    ${missing.length ? `<details class="small mt"><summary>Ver ${missing.length} mês(es) sem importação</summary><p class="hint">${missing.map(monthLabel).join(' · ')}</p></details>` : '<div class="hint">Todos os últimos 12 meses têm importação registrada.</div>'}
   </div></section>`;
 }
 function finImportsHtml() {
@@ -106,13 +143,13 @@ function finImportsHtml() {
     ${account ? `<div class="banner note">${icon('check')}<span>Conectado como <b>${esc(account)}</b> · ${FIN_DB.canImport ? 'visualização e importação' : 'somente visualização'}. <button class="btn sm" data-act="fin-db-refresh">Atualizar dados</button></span></div>` : `<div class="banner warn">${icon('alert')}<span>Esta conta precisa ser autorizada na tabela finance_access para consultar ou importar relatórios.</span></div>`}
     ${FIN_DB.error ? `<p class="err mt" role="alert">${esc(FIN_DB.error)}</p>` : ''}</div>
     <div class="panel-pad"><div class="grid g2">${Object.entries(finReportNames).map(([type, name]) => finCoverageCard(type, name)).join('')}</div></div>
-    <div class="panel-pad"><h3>Onde exportar e qual período usar</h3></div>${finGuide()}
+    <details class="fin-export-guide"><summary>Onde exportar, formato e período de cada relatório</summary>${finGuide()}</details>
     <div class="panel-pad"><h3>Histórico de importações</h3>${FIN_HISTORY.length ? FIN_HISTORY.map(h => `<div class="stat-line"><span>${esc(finReportNames[h.type])} · ${finDateLabel(h.start)} a ${finDateLabel(h.end)}</span><small>${h.count} linhas · ${new Date(h.at).toLocaleString('pt-BR')}</small></div>`).join('') : '<p class="muted">Nenhuma importação registrada no banco.</p>'}</div>`;
 }
 function renderFinanceV3() {
   const key = S.fin.month, summary = finSummary(key), alerts = finAlertRows();
   const tabs = [['summary', 'Resumo'], ['receipts', 'Recebimentos'], ['statement', 'Extrato'], ['flow', 'Fluxo de caixa'], ['alerts', `Alertas ${FIN_REPORTS.open ? `(${alerts.length})` : ''}`], ['manual', 'Lançamentos'], ['imports', 'Importações']];
-  const content = { summary: () => finSummaryHtml(key, summary), receipts: () => finReceiptsHtml(summary), statement: () => finStatementHtml(summary), flow: () => finFlowHtml(key, summary), alerts: finAlertsHtml, manual: () => finManualHtml(key), imports: finImportsHtml };
+  const content = { summary: () => finVisualSummaryHtml(key, summary), receipts: () => finReceiptsHtml(summary), statement: () => finStatementHtml(summary), flow: () => finFlowHtml(key, summary), alerts: finAlertsHtml, manual: () => finManualHtml(key), imports: finImportsHtml };
   if (!content[S.fin.tab]) S.fin.tab = 'summary';
   return `${viewBanner('finance')}<div class="page-head"><div><div class="eyebrow">Finanças · Tecnofit</div><h1>Financeiro</h1><p>Recebimentos, movimentações, fluxo de caixa e alertas de mensalidades com origem explícita.</p></div><div class="head-actions"><select class="select" id="finMonth" aria-label="Mês" style="width:auto">${monthOptions(key, 12)}</select><button class="btn" data-act="fin-tab" data-tab="imports">Importações</button><button class="btn primary" data-act="finance-manual-new" data-edit>${icon('plus')} Lançamento manual</button></div></div>
   ${finHasImports() ? `<div class="banner note">${icon('info')}<span>Dados financeiros carregados do banco. ${!FIN_REPORTS.open ? 'Alertas aguardam Vendas em Aberto.' : `${alerts.length} mensalidade(s) vencida(s) na última fotografia.`}</span></div>` : `<div class="banner note">${icon('info')}<span><b>Comece pelas exportações do Tecnofit.</b> Abra “Importações” para enviar cada relatório e conferir os meses cobertos.</span></div>`}

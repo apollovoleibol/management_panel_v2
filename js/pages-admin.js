@@ -253,11 +253,12 @@ function drawUser() {
       <td><input type="checkbox" data-perm="${p.id}" data-k="edit" ${v === 'edit' ? 'checked' : ''} ${locked ? 'disabled' : ''} aria-label="Editar ${esc(p.label)}"></td>
       <td>${locked ? `<span class="muted small">${icon('lock', 'i" style="width:13px;height:13px;vertical-align:-2px')} Só Administrador e Financeiro</span>` : v === 'edit' ? '<span class="tag st-ok nodot">Consulta e altera</span>' : v === 'view' ? '<span class="tag st-info nodot">Só consulta</span>' : '<span class="muted small">Oculta no menu</span>'}</td></tr>`;
   };
-  openDialog(dHead(u.isNew ? 'Convidar usuário' : 'Usuário do painel', u.isNew ? 'Novo acesso' : esc(u.name), u.isNew ? 'A pessoa recebe um convite por e-mail para entrar com Google ou senha.' : esc(u.email)) + `<div class="d-body"><fieldset class="plain" ${ro ? 'disabled' : ''}>
+  openDialog(dHead(u.isNew ? 'Convidar usuário' : 'Usuário do painel', u.isNew ? 'Novo acesso' : esc(u.name), u.isNew ? 'A pessoa recebe um convite por e-mail para entrar com Google.' : esc(u.email)) + `<div class="d-body"><fieldset class="plain" ${ro ? 'disabled' : ''}>
     <div class="row2"><div class="field"><label for="ueName">Nome *</label><input class="input" id="ueName" value="${esc(u.name)}" ${u.isNew ? '' : 'readonly'}></div><div class="field"><label for="ueEmail">E-mail *</label><input class="input" type="email" id="ueEmail" value="${esc(u.email)}" ${u.isNew ? '' : 'readonly'}></div></div>
-    <div class="row2"><div class="field"><label for="ueRole">Perfil</label><select class="select" id="ueRole">${Object.keys(ROLE_PRESETS).filter(r => u.isNew || (u.legacyRole === 'admin' ? r === 'Administrador' : r !== 'Administrador')).map(r => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select><span class="hint">${presetDiff(u) ? 'Permissões ajustadas manualmente a partir do perfil.' : 'Preenche as permissões abaixo; você ainda pode ajustá-las.'}</span></div>
+    <div class="row2"><div class="field"><label for="ueRole">Perfil</label><select class="select" id="ueRole">${Object.keys(ROLE_PRESETS).filter(r => (u.isNew || u.unassigned) && r === 'Administrador' ? false : u.legacyRole === 'admin' || (u.id === S.userId && u.role === 'Administrador') ? r === 'Administrador' : true).map(r => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select><span class="hint">${presetDiff(u) ? 'Permissões ajustadas manualmente a partir do perfil.' : 'Preenche as permissões abaixo; você ainda pode ajustá-las.'} ${u.isNew ? 'Para conceder Administração, promova depois uma conta ativa já cadastrada no painel.' : ''}</span></div>
       <div class="field"><label>Acesso</label><label class="check" style="height:40px"><span class="toggle"><input type="checkbox" id="ueActive" ${u.active ? 'checked' : ''} ${u.id === S.userId && u.role === 'Administrador' ? 'disabled' : ''}><span></span></span> ${u.active ? 'Ativo — pode entrar no painel' : 'Inativo — acesso bloqueado'}</label></div></div>
     ${u.role === 'Técnico' ? `<div class="hint">${coachTeams ? 'Equipes vinculadas: ' + coachTeams + '.' : 'Vincule este técnico às equipes na página Equipes e núcleos.'}</div>` : ''}
+    ${u.role === 'Administrador' && u.legacyRole !== 'admin' ? `<div class="banner note">${icon('shield')}<span>Este perfil concede administração completa do Huddle v2, inclusive dados financeiros e gestão de usuários. O painel v1 mantém as permissões atuais desta pessoa.</span></div>` : ''}
     ${finOk ? '' : `<div class="banner view">${icon('lock')}<span class="small">Dados financeiros (Pacotes e mensalidades, Pagamentos e Financeiro) só podem ser acessados, mesmo em visualização, pelos perfis <b>Administrador</b> e <b>Financeiro</b>. Para este perfil, valores de mensalidade e dados bancários também ficam ocultos nas demais páginas.</span></div>`}
     <h3 class="mt">Permissões por página</h3><p class="hint" style="margin:2px 0 8px">${c.e} com edição · ${c.v} somente visualização · ${PAGES.length - c.e - c.v} sem acesso</p>
     <div class="table-wrap" style="margin:0 -24px"><table class="perm-table"><thead><tr><th>Página</th><th>Visualizar</th><th>Editar</th><th>Resultado</th></tr></thead><tbody>${PAGES.map(row).join('')}</tbody></table></div>
@@ -276,9 +277,15 @@ async function saveUser() {
   if (!UE.name || !/^\S+@\S+\.\S+$/.test(UE.email)) { $('#ueErr').textContent = 'Informe nome e um e-mail válido.'; return; }
   if (!FIN_ROLES.includes(UE.role)) FIN_PAGES.forEach(p => { UE.perms[p] = 'none'; });
   const role = { Administrador: 'admin', Financeiro: 'finance', 'Coordenação técnica': 'coordination', Atendimento: 'attendance', 'Técnico': 'coach' }[UE.role];
+  if (UE.isNew && role === 'admin') { $('#ueErr').textContent = 'Convide primeiro a pessoa e depois promova a conta ativa.'; return; }
   const button = $('#dlg [data-act="user-save"]'); button.disabled = true;
   $('#ueErr').textContent = '';
   try {
+    const previousRole = UE.isNew ? '' : USERS.find(user => user.id === UE.id)?.role;
+    if (role === 'admin' && previousRole !== 'Administrador') {
+      const confirmed = await confirmBox({ title: 'Promover a Administrador?', text: `${esc(UE.name)} terá acesso integral ao Huddle v2, inclusive finanças, configurações e gestão de usuários. O painel v1 não recebe esta promoção.`, ok: 'Promover' });
+      if (!confirmed) { button.disabled = false; return; }
+    }
     if (UE.isNew) {
       const { error } = await financeDbClient().functions.invoke('v2-invite-user', {
         body: { email: UE.email, fullName: UE.name, role, permissions: UE.perms }
