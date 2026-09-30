@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## v2.7 — 2026-09-30
+
+- Ícones dos indicadores alinhados à esquerda e coloridos por significado; cartões de equipes com acento lateral e sem linha inferior.
+- Agenda distingue dias fechados para novos testes de treinos realmente cancelados. Técnicos de equipes vinculadas podem sinalizar e restaurar treinos.
+- Alertas de mensalidades oferecem WhatsApp quando o código Tecnofit está vinculado ao atleta. Para menores, é obrigatório o contato do responsável. Atendimento recebe uma lista restrita sem valores.
+- Cobertura dos relatórios separa meses completos (verde), parciais (amarelo) e não importados. O período de exportação deve ser informado explicitamente.
+
 ## v2.6.1 — 2026-09-30
 
 - Corrige o carregamento de arquivos antigos no navegador após a publicação da v2.6.

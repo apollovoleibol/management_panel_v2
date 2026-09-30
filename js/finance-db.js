@@ -88,7 +88,7 @@ async function financeDbRefresh() {
     ]);
     FIN_DB.coverage = coverage;
     FIN_HISTORY.length = 0;
-    history.forEach(h => FIN_HISTORY.push({ type: h.report_type, start: h.period_start, end: h.period_end, count: h.row_count, at: h.imported_at }));
+    history.forEach(h => FIN_HISTORY.push({ id: h.id, type: h.report_type, start: h.period_start, end: h.period_end, count: h.row_count, at: h.imported_at }));
     for (const type of Object.keys(FIN_REPORTS)) {
       const data = rows.filter(r => r.report_type === type).map(r => r.data);
       FIN_REPORTS[type] = coverage.some(c => c.report_type === type) ? { type, data, count: data.length, at: history.find(h => h.report_type === type)?.imported_at } : null;

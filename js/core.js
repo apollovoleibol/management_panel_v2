@@ -80,6 +80,13 @@ const ICONS = {
   star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z',
 };
 const icon = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n] || ICONS.info}"/></svg>`;
+const kpiIcon = name => {
+  const tones = { users: 'blue', child: 'violet', check: 'green', x: 'slate', calendar: 'blue',
+    clock: 'amber', trophy: 'violet', alert: 'red', wallet: 'blue', money: 'green',
+    trend: 'green', target: 'red', refresh: 'violet', layers: 'blue', pin: 'amber',
+    bot: 'violet', chart: 'blue' };
+  return `<span class="kpi-icon tone-${tones[name] || 'blue'}">${icon(name)}</span>`;
+};
 
 /* ─── Dados de demonstração ─── */
 const NUCLEI = [
@@ -106,6 +113,7 @@ let TEAMS = [
   { id: 't7', name: 'Iniciação Misto', category: 'escolinha', desc: 'Primeiro contato com o voleibol para crianças de 8 a 12 anos.', ageMin: 8, ageMax: 12, gender: 'Misto', n: 'norte', coach: 'c3', available: true, active: true, schedule: [{ day: 2, start: '16:00', end: '17:30' }, { day: 5, start: '16:00', end: '17:30' }], blocked: [] },
   { id: 't8', name: 'Master Misto', category: 'adulto', desc: '', ageMin: 35, ageMax: null, gender: 'Misto', n: 'norte', coach: null, available: false, active: true, schedule: [{ day: 0, start: '09:00', end: '11:00' }], blocked: [] },
 ];
+TEAMS.forEach(team => { team.cancelled = []; });
 /* datas indisponíveis de exemplo (relativas à semana atual) */
 (() => {
   const ws = startOfWeek(TODAY);
@@ -221,7 +229,7 @@ let SESSIONS = [];
   for (let d = addDays(TODAY, -35); d <= TODAY; d = addDays(d, 1)) {
     TEAMS.filter(t => t.active && t.coach).forEach(t => t.schedule.filter(s => s.day === d.getDay()).forEach(s => {
       const key = ymd(d);
-      if (t.blocked.includes(key) || (key === ymd(TODAY) && toMin(s.end) > NOW.getHours() * 60 + NOW.getMinutes())) return;
+      if (t.cancelled.includes(key) || (key === ymd(TODAY) && toMin(s.end) > NOW.getHours() * 60 + NOW.getMinutes())) return;
       const recorded = rnd() > .08, att = {};
       if (recorded) ATHLETES.filter(a => a.active && a.teamId === t.id).forEach(a => { const r = rnd(); att[a.id] = r < rate[a.id] ? 'present' : r < rate[a.id] + .06 ? 'excused' : 'absent'; });
       SESSIONS.push({ teamId: t.id, date: key, start: s.start, hours: hoursBetween(s.start, s.end), recorded, att });
@@ -282,7 +290,7 @@ let PAYOUTS = {}; // chave `${coachId}|${yyyy-mm}` → {paidAt}
     const last = new Date(m0.getFullYear(), m0.getMonth() + 1, 0);
     for (let d = new Date(m0); d <= last && d <= TODAY; d = addDays(d, 1)) {
       TEAMS.filter(t => t.coach).forEach(t => t.schedule.filter(s => s.day === d.getDay()).forEach(s => {
-        if (t.blocked.includes(ymd(d))) return;
+        if (t.cancelled.includes(ymd(d))) return;
         if (ymd(d) === ymd(TODAY) && toMin(s.end) > NOW.getHours() * 60 + NOW.getMinutes()) return;
         COACH_ITEMS.push({ id: uid('p'), coach: t.coach, date: ymd(d), type: 'treino', teamId: t.id, hours: hoursBetween(s.start, s.end), desc: `Treino ${t.name}`, status: k ? 'aprovado' : (parseYmd(ymd(d)) < addDays(TODAY, -3) ? 'aprovado' : 'pendente'), origin: 'Agenda' });
       }));
@@ -403,7 +411,7 @@ const METRIC_HELP = {
   'Aguardando avaliação': 'Testes passados ainda com status Agendado, Pendente ou Em avaliação. O técnico ou atendimento precisa concluir o acompanhamento.',
   'Atletas ativos': 'Atletas marcados como ativos no cadastro do Supabase.',
   'Presença média': 'Presenças registradas divididas pelo total de chamadas com status informado nos últimos 30 dias.',
-  'Treinos na semana': 'Horários das equipes ativas nesta semana, excluindo datas indisponíveis.',
+  'Treinos na semana': 'Horários das equipes ativas nesta semana, excluindo apenas treinos explicitamente cancelados.',
   'Atletas ativos em 90 dias': 'Projeção simples: soma o ritmo médio de crescimento observado nos últimos cinco intervalos mensais aos atletas ativos hoje. Não considera saídas futuras ou sazonalidade.',
   'Novas matrículas por mês (média)': 'Variação média dos atletas ativos nos últimos cinco intervalos mensais. É uma aproximação, não a contagem individual de matrículas.',
   'Testes agendados (30 dias)': 'Agendamentos criados nos últimos 30 dias e disponíveis no Supabase.',
@@ -451,7 +459,8 @@ function confirmBox({ title, text, ok = 'Confirmar', cancel = 'Cancelar', danger
   });
 }
 const dHead = (eyebrow, title, sub = '') => `<div class="d-head"><div><div class="eyebrow">${eyebrow}</div><h2 id="dlgTitle">${title}</h2>${sub ? `<p>${sub}</p>` : ''}</div><button class="x" data-act="close-dialog" aria-label="Fechar">${icon('x')}</button></div>`;
-const nTag = (id, prefix = 'Núcleo ') => { const n = nucleusOf(id); return `<span class="tag ${NCLASS(id)}">${prefix}${esc(n ? n.name : '—')}</span>`; };
+const nucleusLabel = (name, prefix = 'Núcleo ') => prefix && String(name || '').toLocaleLowerCase('pt-BR').startsWith(prefix.trim().toLocaleLowerCase('pt-BR')) ? String(name) : prefix + String(name || '—');
+const nTag = (id, prefix = 'Núcleo ') => { const n = nucleusOf(id); return `<span class="tag ${NCLASS(id)}">${esc(nucleusLabel(n?.name, prefix))}</span>`; };
 const stTag = s => `<span class="tag ${stClass(s)}">${esc(s || 'Pendente')}</span>`;
 const srcTag = s => `<span class="src ${s === 'Tecnofit' ? 'tecnofit' : s === 'Assistente' ? 'bot' : s === 'Proposta' ? 'proposta' : ''}">${esc(s)}</span>`;
 const emptyState = (title, text, action = '') => `<div class="empty">${icon('search')}<h3>${title}</h3><p class="small">${text}</p>${action}</div>`;

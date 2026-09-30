@@ -74,6 +74,20 @@ document.addEventListener('click', async e => {
     case 'cal-nav': S.cal.cursor = addDays(S.cal.cursor, 7 * Number(el.dataset.dir)); return render();
     case 'cal-nucleus': { const n = el.dataset.n; S.cal.nuclei.has(n) ? S.cal.nuclei.delete(n) : S.cal.nuclei.add(n); return render(); }
     case 'cal-event': return openCalEvent(el.dataset.team, el.dataset.date);
+    case 'training-toggle': {
+      const team = teamOf(el.dataset.team), date = el.dataset.date;
+      if (!team || !canManageTraining(team)) return toast('Seu perfil não pode alterar este treino.', true);
+      const cancel = !team.cancelled?.includes(date);
+      const tests = BOOKINGS.filter(b => b.teamId === team.id && b.date.slice(0, 10) === date && !b.archived && b.status !== 'Cancelado').length;
+      if (cancel && !(await confirmBox({ title: 'Sinalizar que não haverá treino?', text: `${esc(team.name)} · ${fmtDate(parseYmd(date))}.${tests ? ` Há ${tests} teste(s) marcado(s) que precisarão ser reagendados.` : ''} Esta alteração não muda as datas indisponíveis para novos testes.`, ok: 'Sinalizar sem treino' }))) return;
+      try {
+        const { error } = await financeDbClient().rpc('v2_set_training_cancellation', { p_team: team.id, p_date: date, p_cancel: cancel });
+        if (error) throw error;
+        closeDialog(); await liveReload();
+        toast(cancel ? 'Treino marcado como não realizado.' : 'Treino restaurado na agenda.');
+      } catch (error) { toast(`Não foi possível alterar o treino: ${error.message}`, true); }
+      return;
+    }
     case 'goto-team': closeDialog(); S.page = 'teams'; render(); return teamEditor(id);
     /* agendamentos */
     case 'bk-kpi': S.bk.kpi = S.bk.kpi === el.dataset.k ? '' : el.dataset.k; if (S.bk.kpi) S.bk.status = ''; return render();
@@ -195,6 +209,9 @@ document.addEventListener('click', async e => {
     case 'pay-export': { const key = S.pay.month; return download(`pagamentos-tecnicos-${key}.csv`, csv([['Técnico', 'Data', 'Tipo', 'Descrição', 'Horas', 'Valor (R$)', 'Status'], ...COACH_ITEMS.filter(i => inMonth(i.date, key)).sort((a, b) => a.coach.localeCompare(b.coach) || a.date.localeCompare(b.date)).map(i => [coachOf(i.coach).name, i.date.split('-').reverse().join('/'), i.type, i.desc, i.hours || '', (itemValue(i) / 100).toFixed(2).replace('.', ','), i.status])])); }
     /* financeiro */
     case 'fin-tab': S.fin.tab = el.dataset.tab; return render();
+    case 'payment-contacts': return openPaymentContacts();
+    case 'fin-link-athlete': return finLinkAthleteForm(el.dataset.client, el.dataset.name);
+    case 'fin-link-save': return finLinkAthleteSave(el.dataset.client);
     case 'fin-import': return financeImportWizard(el.dataset.report);
     case 'finance-import-commit': return financeImportCommit();
     case 'fin-db-refresh': return financeDbRefresh().catch(e => toast(e.message, true));

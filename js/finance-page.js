@@ -4,9 +4,23 @@
 const FIN_MANUAL = [];
 const finSum = (rows, field) => rows.reduce((total, row) => total + (row[field] || 0), 0);
 function finKpi(label, value, note, iconName) {
-  return `<div class="kpi"><div class="kpi-icon">${icon(iconName)}</div>${metricInfo(label)}<div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-foot">${note}</div></div>`;
+  return `<div class="kpi">${kpiIcon(iconName)}${metricInfo(label)}<div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-foot">${note}</div></div>`;
 }
 function finNeed(type) { return FIN_REPORTS[type] ? '' : `<span class="tag nodot st-warn">Aguardando ${finReportNames[type]}</span>`; }
+function finWhatsappHref(phone) {
+  const number = digits(phone || '');
+  const national = number.length === 12 || number.length === 13 ? number.slice(2) : number;
+  return (national.length === 10 || national.length === 11) && (number === national || number === `55${national}`)
+    ? `https://wa.me/55${national}` : '';
+}
+function finContactFor(row) {
+  const athlete = ATHLETES.find(a => a.active && String(a.tecnofitClientId || '') === String(row.clientId));
+  if (!athlete) return null;
+  const birth = athlete.birth ? parseYmd(athlete.birth) : null;
+  const minor = birth ? birth > new Date(TODAY.getFullYear() - 18, TODAY.getMonth(), TODAY.getDate()) : isMinorTeam(teamOf(athlete.teamId));
+  return { athlete, minor, name: minor ? athlete.parentName : athlete.name,
+    phone: minor ? athlete.parentPhone : athlete.phone };
+}
 function finGuide() {
   const items = [
     ['Contas a Receber', 'Gerencial → Gestão Financeira → Contas a receber', 'Filtre o mês desejado; Exportar → Todas as páginas (incluir colunas ocultas)', '.xlsx', 'Recebimentos brutos, taxas, líquido e confirmação.'],
@@ -116,9 +130,51 @@ function finAlertsHtml() {
   const dates = FIN_REPORTS.open.data.flatMap(r => r.dueDates).sort();
   return `<div class="panel-pad"><div class="grid g3">${finKpi('Atletas com atraso', String(clients.size), `${alerts.length} registro(s)`, 'users')}${finKpi('Saldo vencido', money(finSum(alerts, 'alertAmount')), 'Total em aberto vencido', 'alert')}${finKpi('A vencer', money(finSum(upcoming, 'amount')), `${upcoming.length} parcela(s) no prazo`, 'clock')}</div>
   <p class="hint mt">Vencimentos presentes no arquivo: ${finDateLabel(dates[0])} a ${finDateLabel(dates.at(-1))}. Este intervalo mostra as linhas encontradas; não comprova que períodos anteriores foram incluídos no filtro de exportação.</p>
-  <div class="banner note mt">${icon('info')}<span class="small">O status “Bloqueado” do cliente não define atraso. A regra é <b>vencimento anterior a hoje + saldo em aberto positivo</b>. Se uma linha tiver vários vencimentos, ela aparece agrupada e sinalizada para conferência. Para menores, o contato deve ser com o responsável autorizado; o relatório não fornece esse vínculo.</span></div>
+  <div class="banner note mt">${icon('info')}<span class="small">O status “Bloqueado” do cliente não define atraso. A regra é <b>vencimento anterior a hoje + saldo em aberto positivo</b>. O WhatsApp só aparece após vincular o código Tecnofit ao cadastro do atleta. Para menores, exige telefone do responsável.</span></div>
   ${review.length ? `<div class="banner warn mt">${icon('alert')}<span>${review.length} linha(s) têm vencimentos e valores que não puderam ser associados. Elas não entram nos totais de alerta; confira o arquivo original antes de agir.</span></div>` : ''}</div>
-  <div class="table-wrap"><table><thead><tr><th>Atleta / cliente</th><th>Mensalidade</th><th>Vencimento</th><th class="num">Dias</th><th class="num">Saldo vencido</th><th>Alerta</th></tr></thead><tbody>${alerts.map(r => `<tr><td><strong>${esc(r.name)}</strong><div class="hint">Cód. Tecnofit ${esc(r.clientId)}</div></td><td>${esc(r.item)}</td><td>${r.dueDates.map(finDateLabel).join(' · ')}</td><td class="num">${r.days}</td><td class="num"><strong>${money(r.alertAmount)}</strong></td><td><span class="tag ${r.days > 60 ? 'st-bad' : r.days > 30 ? 'st-warn' : 'st-info'}">${r.days > 60 ? 'Prioritário' : r.days > 30 ? 'Acompanhar' : 'Recente'}</span>${r.dueDates.length > 1 ? '<div class="hint">Vencimentos agrupados</div>' : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhuma mensalidade vencida no arquivo.</td></tr>'}</tbody></table></div>`;
+  <div class="table-wrap"><table><thead><tr><th>Atleta / cliente</th><th>Mensalidade</th><th>Vencimento</th><th class="num">Dias</th><th class="num">Saldo vencido</th><th>Alerta</th><th>Contato</th></tr></thead><tbody>${alerts.map(r => {
+    const contact = finContactFor(r), href = contact?.name && finWhatsappHref(contact.phone);
+    return `<tr><td><strong>${esc(contact?.athlete.name || r.name)}</strong><div class="hint">Cód. Tecnofit ${esc(r.clientId)}${contact && contact.athlete.name !== r.name ? ` · Relatório: ${esc(r.name)}` : ''}</div></td><td>${esc(r.item)}</td><td>${r.dueDates.map(finDateLabel).join(' · ')}</td><td class="num">${r.days}</td><td class="num"><strong>${money(r.alertAmount)}</strong></td><td><span class="tag ${r.days > 60 ? 'st-bad' : r.days > 30 ? 'st-warn' : 'st-info'}">${r.days > 60 ? 'Prioritário' : r.days > 30 ? 'Acompanhar' : 'Recente'}</span>${r.dueDates.length > 1 ? '<div class="hint">Vencimentos agrupados</div>' : ''}</td><td>${href ? `<a class="btn sm wa" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Abrir WhatsApp de ${esc(contact.name)}">${icon('whatsapp')} WhatsApp</a><div class="hint">${contact.minor ? 'Responsável: ' : ''}${esc(contact.name)} · ${esc(fmtPhone(contact.phone))}</div>` : contact ? `<span class="hint">${contact.minor ? 'Cadastre nome e WhatsApp do responsável' : 'Cadastre o WhatsApp do atleta'}</span>` : `<button class="btn sm" data-act="fin-link-athlete" data-client="${esc(r.clientId)}" data-name="${esc(r.name)}" data-edit>Vincular atleta</button>`}</td></tr>`;
+  }).join('') || '<tr><td colspan="7" class="muted">Nenhuma mensalidade vencida no arquivo.</td></tr>'}</tbody></table></div>`;
+}
+function finLinkAthleteForm(clientId, reportName) {
+  if (!canEdit('finance')) return;
+  const normalized = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const athletes = ATHLETES.filter(a => a.active).sort((a, b) =>
+    Number(normalized(b.name) === normalized(reportName)) - Number(normalized(a.name) === normalized(reportName))
+    || a.name.localeCompare(b.name, 'pt-BR'));
+  openDialog(dHead('Vincular código Tecnofit', esc(reportName), `Código ${esc(clientId)}`) +
+    `<div class="d-body"><p class="small">Confira o cadastro antes de vincular. Nomes parecidos não são associados automaticamente. Para menores, confirme também o WhatsApp do responsável no cadastro.</p>
+    <div class="field"><label for="finLinkAthlete">Atleta da Apollo</label><select class="select" id="finLinkAthlete"><option value="">Selecione o atleta correto</option>${athletes.map(a => `<option value="${esc(a.id)}">${esc(a.name)} · ${esc(teamOf(a.teamId)?.name || 'sem equipe')}${a.tecnofitClientId ? ` · já vinculado a ${esc(a.tecnofitClientId)}` : ''}</option>`).join('')}</select></div>
+    <div class="err" id="finLinkError" role="alert"></div></div><div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="fin-link-save" data-client="${esc(clientId)}" data-edit>Confirmar vínculo</button></div>`, 'drawer');
+}
+async function finLinkAthleteSave(clientId) {
+  if (!canEdit('finance')) return;
+  const athleteId = $('#finLinkAthlete')?.value, athlete = ATHLETES.find(a => a.id === athleteId);
+  if (!athlete) { $('#finLinkError').textContent = 'Selecione um atleta.'; return; }
+  if (athlete.tecnofitClientId && String(athlete.tecnofitClientId) !== String(clientId)) {
+    $('#finLinkError').textContent = 'Este atleta já está vinculado a outro código Tecnofit. Confira antes de alterar.'; return;
+  }
+  try {
+    const { error } = await financeDbClient().rpc('v2_link_tecnofit_client', { p_athlete: athleteId, p_client_id: clientId });
+    if (error) throw error;
+    closeDialog(); await liveReload(); toast('Código Tecnofit vinculado ao atleta.');
+  } catch (error) { $('#finLinkError').textContent = `Não foi possível vincular: ${error.message}`; }
+}
+async function openPaymentContacts() {
+  if (S.previewRole || !['admin','attendance','finance'].includes(APOLLO_AUTH.access?.role)) return;
+  openDialog(dHead('Acompanhamento de mensalidades', 'Contatos com pagamento pendente', 'Somente atletas vinculados pelo código Tecnofit; sem valores financeiros') +
+    '<div class="d-body" id="paymentContacts"><p class="muted">Carregando contatos autorizados…</p></div><div class="d-foot"><button class="btn" data-act="close-dialog">Fechar</button></div>', 'drawer wide');
+  try {
+    const { data, error } = await financeDbClient().rpc('v2_payment_contact_queue');
+    if (error) throw error;
+    const target = $('#paymentContacts');
+    if (!target) return;
+    target.innerHTML = data?.length ? `<div class="contact-list">${data.map(row => {
+      const href = finWhatsappHref(row.phone);
+      return `<div class="contact-row"><div><strong>${esc(row.athleteName)}</strong><div class="hint">${row.isGuardian ? 'Responsável: ' : 'Atleta: '}${esc(row.contactName || 'não informado')} · vencimento desde ${finDateLabel(row.firstDue)}</div></div>${href && row.contactName ? `<a class="btn sm wa" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Abrir WhatsApp de ${esc(row.contactName)}">${icon('whatsapp')} WhatsApp</a>` : '<span class="hint">Contato não cadastrado</span>'}</div>`;
+    }).join('')}</div>` : '<p class="muted">Nenhum atleta com mensalidade vencida e código Tecnofit vinculado.</p>';
+  } catch (error) { if ($('#paymentContacts')) $('#paymentContacts').textContent = `Não foi possível carregar os contatos: ${error.message}`; }
 }
 function finManualHtml(key) {
   const rows = FIN_MANUAL.filter(r => r.date.slice(0, 7) === key).sort((a, b) => b.date.localeCompare(a.date));
@@ -127,15 +183,27 @@ function finManualHtml(key) {
 function finCoverageCard(type, name) {
   const history = FIN_HISTORY.filter(h => h.type === type);
   const latest = history[0];
-  const covered = new Set(FIN_DB.coverage.filter(c => c.report_type === type).map(c => c.period.slice(0, 7)));
   const recent = lastMonths(12).map(monthKey);
-  const missing = recent.filter(month => !covered.has(month));
+  const states = recent.map(month => finCoverageState(type, month));
+  const missing = recent.filter((_, index) => states[index] === 'missing');
+  const partial = recent.filter((_, index) => states[index] === 'partial');
+  const complete = states.filter(state => state === 'complete').length;
   const label = latest ? new Date(latest.at).toLocaleString('pt-BR') : 'Nunca importado';
   return `<section class="panel fin-import-card"><div class="panel-pad"><div class="stat-line"><span><strong>${name}</strong><br><small class="muted">Última importação: ${label}</small></span><button class="btn sm primary" data-act="fin-import" data-report="${type}" data-edit ${FIN_DB.canImport ? '' : 'disabled'}>${icon('upload')} Importar</button></div>
-    <div class="fin-coverage" role="img" aria-label="${recent.filter(m => covered.has(m)).length} de 12 meses com importação registrada, do mais antigo ao mais recente">${recent.map((month, index) => `<i class="${covered.has(month) ? 'on' : ''} ${index === recent.length - 1 ? 'current' : ''}" title="${monthLabel(month)}: ${covered.has(month) ? 'importado' : 'sem importação'}"></i>`).join('')}</div>
-    <div class="hint"><b>${recent.length - missing.length} de 12 meses cobertos</b> · ${latest ? `Filtro mais recente: ${finDateLabel(latest.start)} a ${finDateLabel(latest.end)} · ${latest.count} registros` : 'Nenhuma importação registrada'}</div>
-    ${missing.length ? `<details class="small mt"><summary>Ver ${missing.length} mês(es) sem importação</summary><p class="hint">${missing.map(monthLabel).join(' · ')}</p></details>` : '<div class="hint">Todos os últimos 12 meses têm importação registrada.</div>'}
+    <div class="fin-coverage" role="img" aria-label="${complete} meses completos, ${partial.length} parciais e ${missing.length} sem importação, do mais antigo ao mais recente">${recent.map((month, index) => `<i class="${states[index] === 'complete' ? 'on' : states[index]} ${index === recent.length - 1 ? 'current' : ''}" title="${monthLabel(month)}: ${{complete:'mês completo',partial:'período parcial',missing:'sem importação'}[states[index]]}"></i>`).join('')}</div>
+    <div class="fin-coverage-legend"><span><i style="background:var(--ok)"></i> Mês completo</span><span><i style="background:var(--warn)"></i> Parcial</span><span><i style="background:var(--surface-3)"></i> Sem importação</span></div>
+    <div class="hint"><b>${complete} de 12 meses completos</b>${partial.length ? ` · ${partial.length} parcial(is): ${partial.map(monthLabel).join(', ')}` : ''} · ${latest ? `Filtro mais recente: ${finDateLabel(latest.start)} a ${finDateLabel(latest.end)} · ${latest.count} registros` : 'Nenhuma importação registrada'}</div>
+    ${missing.length ? `<details class="small mt"><summary>Ver ${missing.length} mês(es) sem importação</summary><p class="hint">${missing.map(monthLabel).join(' · ')}</p></details>` : '<div class="hint">Todos os últimos 12 meses têm ao menos uma importação parcial.</div>'}
   </div></section>`;
+}
+function finCoverageState(type, month) {
+  const row = FIN_DB.coverage.find(c => c.report_type === type && c.period.slice(0, 7) === month);
+  if (!row) return 'missing';
+  const source = FIN_HISTORY.find(h => h.id === row.import_id);
+  if (!source) return 'partial';
+  const [year, mon] = month.split('-').map(Number);
+  const lastDay = new Date(year, mon, 0).getDate();
+  return source.start <= `${month}-01` && source.end >= `${month}-${pad(lastDay)}` ? 'complete' : 'partial';
 }
 function finImportsHtml() {
   const account = FIN_DB.authorized ? FIN_DB.session?.user?.email : '';

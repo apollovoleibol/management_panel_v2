@@ -62,7 +62,7 @@ async function liveLoadPanel() {
       ? 'id,team_id,full_name,birth_date,phone,parent_phone,parent_email,is_active,joined_at,left_at,created_at,position,jersey_number'
       : 'id,team_id,full_name,birth_date,email,cpf,rg,phone,parent_name,parent_phone,parent_email,address,is_active,joined_at,left_at,created_at,position,jersey_number';
     const teamColumns = finance ? '*' : 'id,name,category,gender,training_days,training_time,gym_location,is_active,training_schedule,location_id,description,age_min,age_max,available_for_booking';
-    const [locations, teams, links, athletes, tryouts, coaches, unavailable, logs, attendance, competitions, staff, portalLinks] = await Promise.all([
+    const [locations, teams, links, athletes, tryouts, coaches, unavailable, cancellations, logs, attendance, competitions, staff, portalLinks] = await Promise.all([
       liveAll('training_locations', 'id,name,venue,address,phone,notes,is_active'),
       liveAll('teams', teamColumns),
       liveAll('team_coaches', 'team_id,coach_id,is_head'),
@@ -70,6 +70,7 @@ async function liveLoadPanel() {
       liveAll('tryouts', 'id,name,minor_name,whatsapp_phone,scheduled_at,target_team,team_id,status,reschedule_count,archived_at,created_at'),
       isAdmin ? liveAll('profiles', 'id,full_name,email,phone,role,is_active') : liveAll('profiles', 'id,full_name,email,phone,role,is_active'),
       liveAll('team_unavailable_dates', 'team_id,date'),
+      liveAll('v2_training_cancellations', 'team_id,training_date'),
       liveAll('training_logs', 'id,team_id,coach_id,started_at,ended_at,duration_minutes'),
       liveAll('attendance', 'log_id,athlete_id,status'),
       liveAll('competitions', 'id,team_id,name,scheduled_at,venue_name,status'),
@@ -111,13 +112,15 @@ async function liveLoadPanel() {
       .map(c => ({ id: c.id, name: c.full_name, phone: c.phone || '', rate: 0, daily: 0, pix: '' })));
     const blocked = new Map();
     unavailable.forEach(u => blocked.set(u.team_id, [...(blocked.get(u.team_id) || []), u.date]));
+    const cancelled = new Map();
+    cancellations.forEach(u => cancelled.set(u.team_id, [...(cancelled.get(u.team_id) || []), u.training_date]));
     TEAMS = teams.map(t => ({
       id: t.id, name: t.name, category: t.category || '', desc: t.description || '',
       ageMin: t.age_min ?? '', ageMax: t.age_max ?? null, gender: t.gender || 'Misto',
       n: t.location_id || locations.find(n => n.name === t.gym_location)?.id || null,
       coach: links.find(x => x.team_id === t.id && x.is_head)?.coach_id || links.find(x => x.team_id === t.id)?.coach_id || null,
       available: t.available_for_booking !== false, active: t.is_active !== false,
-      schedule: liveTeamSchedule(t.training_schedule), blocked: blocked.get(t.id) || []
+      schedule: liveTeamSchedule(t.training_schedule), blocked: blocked.get(t.id) || [], cancelled: cancelled.get(t.id) || []
     }));
     const planMap = new Map();
     let planNumber = 1;

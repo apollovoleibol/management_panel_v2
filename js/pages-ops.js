@@ -81,7 +81,7 @@ function renderOverview() {
       <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}<br>${srcTag(s)}</span><div class="funnel-bar"><span style="width:${recentBookings.length ? v / recentBookings.length * 100 : 0}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
       <div class="grid g3 mt">${NUCLEI.map(n => { const local = recentBookings.filter(b => teamOf(b.teamId)?.n === n.id); const converted = local.filter(b => b.status === 'Tecnofit').length; const value = local.length ? Math.round(converted / local.length * 100) : 0; return `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n.id)}<b>${local.length ? value + '%' : '—'}</b></div><div class="bar"><span style="width:${value}%;background:var(--brand)"></span></div><div class="hint" style="margin-top:4px">agendamento → matrícula</div></div>`; }).join('')}</div></div>
     </section>
-    <div><div class="service-metrics">${svc.map(([l, v, f, i]) => `<div class="service-metric"><div class="kpi-icon">${icon(i)}</div>${metricInfo(l)}<span>${l}</span><strong>${v}</strong><small>${f}</small></div>`).join('')}</div>
+    <div><div class="service-metrics">${svc.map(([l, v, f, i]) => `<div class="service-metric">${kpiIcon(i)}${metricInfo(l)}<span>${l}</span><strong>${v}</strong><small>${f}</small></div>`).join('')}</div>
       <details class="measurement-gap"><summary>Indicadores ainda sem coleta de dados</summary><p>Primeira resposta do assistente, tempo até agendar e retorno humano dependem de horários de mensagens e transferência para atendimento registrados pelo chatbot. Satisfação depende de uma pesquisa enviada ao atleta ou responsável. O painel não estima esses números a partir da data do treino.</p></details></div>
   </div>
 
@@ -113,7 +113,7 @@ function weekCalendarHTML() {
   let total = 0;
   const cols = days.map(d => {
     const key = ymd(d);
-    const mine = myTeamIds(); const evs = TEAMS.filter(t => t.active && S.cal.nuclei.has(t.n) && mine.includes(t.id)).flatMap(t => t.schedule.filter(s => s.day === d.getDay()).map(s => ({ t, s, blocked: t.blocked.includes(key), tests: BOOKINGS.filter(b => b.teamId === t.id && b.date.slice(0, 10) === key && b.status !== 'Cancelado' && !b.archived) })))
+    const mine = myTeamIds(); const evs = TEAMS.filter(t => t.active && S.cal.nuclei.has(t.n) && mine.includes(t.id)).flatMap(t => t.schedule.filter(s => s.day === d.getDay()).map(s => ({ t, s, testBlocked: t.blocked.includes(key), cancelled: t.cancelled?.includes(key), tests: BOOKINGS.filter(b => b.teamId === t.id && b.date.slice(0, 10) === key && b.status !== 'Cancelado' && !b.archived) })))
       .sort((a, b) => toMin(a.s.start) - toMin(b.s.start));
     // faixas por grupo de treinos sobrepostos (eventos isolados ocupam a largura toda)
     let lanes = [], cluster = [], clusterEnd = -1;
@@ -124,16 +124,16 @@ function weekCalendarHTML() {
       lanes[i] = toMin(e.s.end); e.lane = i; cluster.push(e); clusterEnd = Math.max(clusterEnd, toMin(e.s.end));
     });
     closeCluster();
-    total += evs.filter(e => !e.blocked).length;
+    total += evs.filter(e => !e.cancelled).length;
     const isToday = key === ymd(TODAY);
     const html = evs.map(e => {
       const top = (toMin(e.s.start) - H0 * 60) / 60 * PH, h = (toMin(e.s.end) - toMin(e.s.start)) / 60 * PH - 3;
       const c = coachOf(e.t.coach);
-      return `<button class="ev ${e.blocked ? 'blocked' : NCLASS(e.t.n)}" style="top:${top}px;height:${h}px;left:calc(${e.lane / e.L * 100}% + 3px);width:calc(${100 / e.L}% - 6px)" data-act="cal-event" data-team="${e.t.id}" data-date="${key}" aria-label="${esc(e.t.name)}, ${e.s.start} às ${e.s.end}${e.blocked ? ', sem treino' : ''}">
-        <strong>${esc(e.t.name)}</strong><span>${e.s.start}–${e.s.end}${e.blocked ? ' · sem treino' : ''}</span>${h > 50 ? `<span>${c ? esc(c.name) : 'Sem técnico'}</span>` : ''}${S.cal.showTests && e.tests.length && !e.blocked ? `<span class="tests">${icon('target')} ${e.tests.length} teste${e.tests.length > 1 ? 's' : ''}</span>` : ''}</button>`;
+      return `<button class="ev ${e.cancelled ? 'blocked' : NCLASS(e.t.n)} ${e.testBlocked && !e.cancelled ? 'test-unavailable' : ''}" style="top:${top}px;height:${h}px;left:calc(${e.lane / e.L * 100}% + 3px);width:calc(${100 / e.L}% - 6px)" data-act="cal-event" data-team="${e.t.id}" data-date="${key}" aria-label="${esc(e.t.name)}, ${e.s.start} às ${e.s.end}${e.cancelled ? ', treino cancelado' : e.testBlocked ? ', testes indisponíveis' : ''}">
+        <strong>${esc(e.t.name)}</strong><span>${e.s.start}–${e.s.end}${e.cancelled ? ' · sem treino' : e.testBlocked ? ' · sem novos testes' : ''}</span>${h > 50 ? `<span>${c ? esc(c.name) : 'Sem técnico'}</span>` : ''}${S.cal.showTests && e.tests.length ? `<span class="tests">${icon('target')} ${e.tests.length} teste${e.tests.length > 1 ? 's' : ''}</span>` : ''}</button>`;
     }).join('');
     const nowLine = isToday && NOW.getHours() >= H0 && NOW.getHours() < H1 ? `<div class="now-line" style="top:${((NOW.getHours() - H0) * 60 + NOW.getMinutes()) / 60 * PH}px"></div>` : '';
-    return { head: `<div class="cal-head ${isToday ? 'today' : ''}"><div class="dname">${DOW[d.getDay()]}</div><div class="dnum">${d.getDate()}</div><span class="dcount">${evs.filter(e => !e.blocked).length} treinos</span></div>`, col: `<div class="cal-col ${isToday ? 'today' : ''}" style="height:${(H1 - H0) * PH}px">${html}${nowLine}</div>` };
+    return { head: `<div class="cal-head ${isToday ? 'today' : ''}"><div class="dname">${DOW[d.getDay()]}</div><div class="dnum">${d.getDate()}</div><span class="dcount">${evs.filter(e => !e.cancelled).length} treinos</span></div>`, col: `<div class="cal-col ${isToday ? 'today' : ''}" style="height:${(H1 - H0) * PH}px">${html}${nowLine}</div>` };
   });
   const gutter = [...Array(H1 - H0)].map((_, i) => i ? `<span style="top:${i * PH}px">${pad(H0 + i)}:00</span>` : '').join('');
   return `<section class="panel">
@@ -143,28 +143,32 @@ function weekCalendarHTML() {
       <button class="btn ghost sq" data-act="cal-nav" data-dir="1" aria-label="Próxima semana">${icon('right')}</button>
       <span class="range">${range}</span>
       <span class="muted small">${total} treinos na semana</span>
-      <div class="chips" style="margin-left:auto">${NUCLEI.filter(n => TEAMS.some(t => t.n === n.id && myTeamIds().includes(t.id))).map(n => `<button class="chip ${S.cal.nuclei.has(n.id) ? '' : 'off'}" data-act="cal-nucleus" data-n="${n.id}" aria-pressed="${S.cal.nuclei.has(n.id)}"><span class="dot" style="background:var(--n-${NCLASS(n.id)},var(--faint))"></span>Núcleo ${esc(n.name)}</button>`).join('')}
+      <div class="chips" style="margin-left:auto">${NUCLEI.filter(n => TEAMS.some(t => t.n === n.id && myTeamIds().includes(t.id))).map(n => `<button class="chip ${S.cal.nuclei.has(n.id) ? '' : 'off'}" data-act="cal-nucleus" data-n="${n.id}" aria-pressed="${S.cal.nuclei.has(n.id)}"><span class="dot" style="background:var(--n-${NCLASS(n.id)},var(--faint))"></span>${esc(nucleusLabel(n.name))}</button>`).join('')}
         <label class="chip" style="cursor:pointer"><input type="checkbox" data-act="cal-tests" ${S.cal.showTests ? 'checked' : ''} style="accent-color:var(--brand);margin:0"> Testes agendados</label></div>
     </div>
     <div class="cal-scroll"><div class="cal">
       <div class="cal-head" style="border-right:1px solid var(--line-2)"></div>${cols.map(c => c.head).join('')}
       <div class="cal-gutter" style="height:${(H1 - H0) * PH}px">${gutter}</div>${cols.map(c => c.col).join('')}
     </div></div>
-    <div class="panel-foot"><span>Treinos gerados a partir dos horários de cada equipe. Datas indisponíveis aparecem riscadas.</span><span>Clique em um treino para ver detalhes e testes marcados.</span></div>
+    <div class="panel-foot"><span>Sem novos testes não cancela o treino; apenas treinos cancelados aparecem riscados.</span><span>Clique em um treino para ver detalhes e testes marcados.</span></div>
   </section>`;
 }
 
 function openCalEvent(tid, date) {
   const t = teamOf(tid), d = parseYmd(date), s = t.schedule.find(x => x.day === d.getDay()), n = nucleusOf(t.n), c = coachOf(t.coach);
-  const blocked = t.blocked.includes(date);
+  const blocked = t.blocked.includes(date), cancelled = t.cancelled?.includes(date);
   const tests = BOOKINGS.filter(b => b.teamId === tid && b.date.slice(0, 10) === date && !b.archived);
   const count = ATHLETES.filter(a => a.active && a.teamId === tid).length;
   openDialog(dHead(`${DOW_FULL[d.getDay()]}, ${d.getDate()} de ${MONTHS[d.getMonth()]}`, esc(t.name), `${s.start} às ${s.end}`) + `<div class="d-body">
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${nTag(t.n)}<span class="tag nodot">${esc(t.category)}</span><span class="tag nodot">${ageRange(t)} · ${genderLabel(t.gender)}</span>${blocked ? '<span class="tag st-cancelado">Data indisponível — sem treino</span>' : ''}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${nTag(t.n)}<span class="tag nodot">${esc(t.category)}</span><span class="tag nodot">${ageRange(t)} · ${genderLabel(t.gender)}</span>${blocked ? '<span class="tag st-warn">Sem novos testes nesta data</span>' : ''}${cancelled ? '<span class="tag st-cancelado">Treino cancelado</span>' : ''}</div>
     <div class="kv"><div><small>Local</small><strong>${esc(n.venue)}</strong><div class="hint">${esc(n.address)}</div></div><div><small>Técnico responsável</small><strong>${c ? esc(c.name) : '—'}</strong></div><div><small>Atletas ativos</small><strong>${count}</strong></div><div><small>Duração</small><strong>${hoursBetween(s.start, s.end).toLocaleString('pt-BR')} h</strong></div></div>
     <h3>Testes marcados neste treino</h3>
     ${tests.length ? `<ul class="list" style="margin:6px -24px 0">${tests.map(b => `<li><span class="time-pill">${b.date.slice(11)}</span><div style="flex:1;min-width:0"><strong>${esc(b.nomeMenor || b.nome)}</strong><div class="hint">${b.nomeMenor ? (bookingGuardianDuplicated(b) ? 'Responsável não identificado' : 'Resp.: ' + esc(b.nome)) : fmtPhone(b.whatsapp)}</div></div>${stTag(b.status)}</li>`).join('')}</ul>` : '<p class="muted small">Nenhum teste marcado para esta data.</p>'}
-  </div><div class="d-foot"><button class="btn left" data-act="goto-team" data-id="${tid}">${icon('pin')} Abrir equipe</button>${!blocked && parseYmd(date) >= TODAY ? `<button class="btn primary" data-act="booking-new" data-team="${tid}" data-date="${date}" data-need="bookings">${icon('plus')} Agendar teste neste treino</button>` : ''}</div>`, 'drawer');
+  </div><div class="d-foot"><button class="btn left" data-act="goto-team" data-id="${tid}">${icon('pin')} Abrir equipe</button>${canManageTraining(t) && parseYmd(date) >= TODAY ? `<button class="btn ${cancelled ? '' : 'danger'}" data-act="training-toggle" data-team="${tid}" data-date="${date}">${cancelled ? 'Restaurar treino' : 'Sinalizar sem treino'}</button>` : ''}${!blocked && !cancelled && parseYmd(date) >= TODAY ? `<button class="btn primary" data-act="booking-new" data-team="${tid}" data-date="${date}" data-need="bookings">${icon('plus')} Agendar teste neste treino</button>` : ''}</div>`, 'drawer');
+}
+function canManageTraining(team) {
+  const role = APOLLO_AUTH.access?.role;
+  return !S.previewRole && (role === 'admin' || (role === 'coordination' && canEdit('teams')) || (role === 'coach' && LIVE.teamCoachIds.get(team.id)?.includes(S.userId)));
 }
 
 /* ═══════════════ AGENDAMENTOS ═══════════════ */
@@ -184,8 +188,8 @@ function renderBookings() {
   const teams = [...new Set(BOOKINGS.map(b => b.teamId))].filter(id => myTeamIds().includes(id)).map(teamOf).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
   return `${viewBanner('bookings')}${coachScopeBanner()}
   <div class="page-head"><div><div class="eyebrow">Operação · peneiras e aulas experimentais</div><h1>Agendamentos</h1><p>Agendamentos feitos pelo assistente e manualmente. Os próximos 2 dias ficam em destaque.</p></div>
-    <div class="head-actions"><button class="btn primary" data-act="booking-new" data-edit>${icon('plus')} Novo agendamento</button></div></div>
-  <div class="grid g4 mb">${k.map(([id, l, v, w, c, i]) => `<div class="kpi click ${S.bk.kpi === id ? 'on' : ''}"><button class="kpi-activate" data-act="bk-kpi" data-k="${id}" aria-pressed="${S.bk.kpi === id}"><span class="kpi-icon">${icon(i)}</span><span class="kpi-label">${l}</span><span class="kpi-value">${v}</span><span class="kpi-foot">últimas 4 semanas</span></button>${metricInfo(l)}${sparkline(w, c)}</div>`).join('')}</div>
+    <div class="head-actions">${APOLLO_AUTH.access?.role === 'attendance' ? `<button class="btn" data-act="payment-contacts">${icon('whatsapp')} Contatos de mensalidades</button>` : ''}<button class="btn primary" data-act="booking-new" data-edit>${icon('plus')} Novo agendamento</button></div></div>
+  <div class="grid g4 mb">${k.map(([id, l, v, w, c, i]) => `<div class="kpi click ${S.bk.kpi === id ? 'on' : ''}"><button class="kpi-activate" data-act="bk-kpi" data-k="${id}" aria-pressed="${S.bk.kpi === id}">${kpiIcon(i)}<span class="kpi-label">${l}</span><span class="kpi-value">${v}</span><span class="kpi-foot">últimas 4 semanas</span></button>${metricInfo(l)}${sparkline(w, c)}</div>`).join('')}</div>
   <section class="panel">
     <div class="toolbar">
       <div class="search">${icon('search')}<input class="input" id="bkQ" type="search" placeholder="Buscar por nome ou WhatsApp..." value="${esc(S.bk.q)}" aria-label="Buscar agendamento"></div>
@@ -258,7 +262,7 @@ function bookingForm(id, preset = {}) {
     body.querySelector('#fbNomeLbl').textContent = minor ? 'Nome do responsável *' : 'Nome do atleta *';
     body.querySelector('#fbMenorBox').classList.toggle('hide', !minor);
     body.querySelector('#fbDate').value = st.date ? fmtDT(st.date) : '';
-    body.querySelector('#fbCal').innerHTML = t ? miniCal({ id: 'fbMcal', month: st.month, selected: st.date.slice(0, 10), isEnabled: d => d >= TODAY && t.schedule.some(s => s.day === d.getDay()) && !t.blocked.includes(ymd(d)), cls: d => t.blocked.includes(ymd(d)) && t.schedule.some(s => s.day === d.getDay()) ? 'block' : t.schedule.some(s => s.day === d.getDay()) && d >= TODAY ? 'train' : '' }) + `<div class="hint" style="margin-top:6px">Dias em verde: treinos de ${esc(t.name)} (${t.schedule.map(schedText).join(', ')}). O horário é preenchido automaticamente.</div>` : '<div class="preview muted small">Selecione a equipe para ver os dias de treino disponíveis.</div>';
+    body.querySelector('#fbCal').innerHTML = t ? miniCal({ id: 'fbMcal', month: st.month, selected: st.date.slice(0, 10), isEnabled: d => d >= TODAY && t.schedule.some(s => s.day === d.getDay()) && !t.blocked.includes(ymd(d)) && !t.cancelled?.includes(ymd(d)), cls: d => (t.blocked.includes(ymd(d)) || t.cancelled?.includes(ymd(d))) && t.schedule.some(s => s.day === d.getDay()) ? 'block' : t.schedule.some(s => s.day === d.getDay()) && d >= TODAY ? 'train' : '' }) + `<div class="hint" style="margin-top:6px">Dias em verde: treinos de ${esc(t.name)} (${t.schedule.map(schedText).join(', ')}). O horário é preenchido automaticamente.</div>` : '<div class="preview muted small">Selecione a equipe para ver os dias de treino disponíveis.</div>';
   };
   openDialog(dHead(id ? 'Editar agendamento' : 'Novo agendamento', id ? esc(b.nomeMenor || b.nome) : 'Agendar teste', id ? '' : 'O agendamento é criado com status Agendado e aparece para o técnico no Manager.') + `<form id="bkForm" class="d-body" novalidate><div id="bkFormBody">
     <div class="field"><label for="fbTeam">Equipe / Local *</label><select class="select" id="fbTeam" required><option value="">Selecione uma equipe...</option>${NUCLEI.map(n => `<optgroup label="Núcleo ${esc(n.name)}">${teams.filter(t => t.n === n.id).map(t => `<option value="${t.id}" ${st.team === t.id ? 'selected' : ''}>${esc(t.name)} — ${esc(n.venue)}</option>`).join('')}</optgroup>`).join('')}</select></div>
@@ -292,6 +296,9 @@ async function saveBooking(id) {
   const statuses = { 'Pendente': 'PENDING', 'Agendado': 'CONFIRMED', 'Em avaliação': 'IN_EVALUATION',
     'Em cadastro': 'IN_REGISTRATION', 'Tecnofit': 'TECNOFIT', 'Ausente': 'MISSED', 'Cancelado': 'CANCELLED' };
   const before = id ? BOOKINGS.find(x => x.id === id) : null;
+  if ((!before || before.date !== st.date) && (t.blocked.includes(st.date.slice(0, 10)) || t.cancelled?.includes(st.date.slice(0, 10)))) {
+    $('#fbErr').textContent = 'Esta data não aceita novos testes. Escolha outro treino.'; return false;
+  }
   const payload = { name: nome, minor_name: minor ? menor : null, whatsapp_phone: wpp,
     scheduled_at: st.date, target_team: t.name, target_location: nucleusOf(t.n)?.venue || '', team_id: t.id,
     status: id ? statuses[$('#fbStatus').value] : 'CONFIRMED' };
@@ -331,7 +338,7 @@ function renderAthletes() {
   return `${viewBanner('athletes')}${coachScopeBanner()}
   <div class="page-head"><div><div class="eyebrow">Operação · cadastros</div><h1>Gestão de atletas</h1><p>Gerencie cadastros, planos e status dos atletas das equipes.</p></div>
     <div class="head-actions"><button class="btn primary" data-act="athlete-new" data-edit>${icon('plus')} Novo atleta</button></div></div>
-  <div class="grid g4 mb">${[['Atletas cadastrados', pool.length, 'users'], ['Ativos', act, 'check'], ['Inativos', pool.length - act, 'x'], ['Menores de idade', minors, 'child']].map(([l, v, i]) => `<div class="kpi"><div class="kpi-label">${l}${icon(i)}</div><div class="kpi-value">${v}</div></div>`).join('')}</div>
+  <div class="grid g4 mb">${[['Atletas cadastrados', pool.length, 'users'], ['Ativos', act, 'check'], ['Inativos', pool.length - act, 'x'], ['Menores de idade', minors, 'child']].map(([l, v, i]) => `<div class="kpi">${kpiIcon(i)}<div class="kpi-label">${l}</div><div class="kpi-value">${v}</div></div>`).join('')}</div>
   <section class="panel">
     <div class="toolbar">
       <div class="search">${icon('search')}<input class="input" id="atQ" type="search" placeholder="Buscar por nome, CPF ou telefone..." value="${esc(S.at.q)}" aria-label="Buscar atleta"></div>

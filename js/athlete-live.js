@@ -22,7 +22,7 @@ function portalSchedule(team, days = 28) {
   for (let i = 0; i < days; i++) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    schedule.filter(s => Number(s.day) === date.getDay() && !PORTAL.blocked.some(b => b.team_id === team.id && b.date === dateStr))
+    schedule.filter(s => Number(s.day) === date.getDay() && !PORTAL.blocked.some(b => b.team_id === team.id && b.training_date === dateStr))
       .forEach(s => { if (`${dateStr}T${s.end}` > `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`) out.push({ date: dateStr, start: s.start, end: s.end }); });
   }
   return out;
@@ -43,7 +43,7 @@ async function portalLoad() {
     portalRead('attendance', 'athlete_id,status,created_at'),
     portalRead('competitions', 'id,team_id,name,scheduled_at,venue_name,status'),
     portalRead('v2_portal_notices', 'id,athlete_id,kind,subject_date,value,created_at'),
-    portalRead('team_unavailable_dates', 'team_id,date'),
+    portalRead('v2_training_cancellations', 'team_id,training_date'),
     financeDbClient().rpc('v2_my_invoices').then(({ data, error }) => { if (error) throw error; return data || []; })
   ]);
   PORTAL.athletes = athletes.filter(a => ids.includes(a.id) && a.is_active);

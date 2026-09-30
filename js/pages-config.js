@@ -10,10 +10,10 @@ function renderTeams() {
   const card = t => {
     const c = coachOf(t.coach), w = teamWarnings(t), ath = ATHLETES.filter(a => a.active && a.teamId === t.id).length;
     return `<button class="panel tcard ${NCLASS(t.n)}" data-act="team-open" data-id="${t.id}">
-      <div class="top"><div><h3>${esc(t.name)}</h3><div class="hint">${esc(t.category)} · ${ageRange(t)} · ${genderLabel(t.gender)}</div></div>${t.available && t.active ? `<span class="tag st-ok nodot" title="O assistente oferece esta equipe">${icon('bot', 'i" style="width:13px;height:13px')} No assistente</span>` : `<span class="tag nodot">${t.active ? 'Fora do assistente' : 'Inativa'}</span>`}</div>
+      <div class="top"><div><h3>${esc(t.name)}</h3><div class="hint">${esc(t.category)} · ${ageRange(t)} · ${genderLabel(t.gender)}</div></div>${t.available && t.active ? `<span class="tag st-ok nodot" title="O assistente oferece esta equipe">${icon('bot')} No assistente</span>` : `<span class="tag nodot">${t.active ? 'Fora do assistente' : 'Inativa'}</span>`}</div>
       <div class="sched">${t.schedule.map(s => `<span>${schedText(s)}</span>`).join('') || '<span>Sem horários</span>'}</div>
       <div class="stat-line" style="padding:0;border:0;font-size:12px"><span class="muted">${c ? esc(c.name) : 'Sem técnico'} · ${ath} atletas · ${plansOfTeam(t.id).length} pacotes</span></div>
-      ${w.length ? `<div class="chips">${w.map(x => `<span class="tag st-warn nodot">${icon('alert', 'i" style="width:12px;height:12px')} ${x}</span>`).join('')}</div>` : ''}</button>`;
+      ${w.length ? `<div class="chips">${w.map(x => `<span class="tag st-warn nodot">${icon('alert')} ${x}</span>`).join('')}</div>` : ''}</button>`;
   };
   return `${viewBanner('teams')}
   <div class="page-head"><div><div class="eyebrow">Operação · estrutura</div><h1>Equipes e núcleos</h1><p>Os núcleos são os locais de treino; cada equipe pertence a um núcleo. Estas informações alimentam a agenda, o cadastro de atletas e o assistente.</p></div>
@@ -66,7 +66,7 @@ function teamEditor(id, tab = 'dados', preN = null) {
 }
 function drawTeamEditor() {
   const t = TE, ro = !canEdit('teams'), isNew = !!t.isNew;
-  const tabs = [['dados', 'Dados'], ['horarios', 'Horários'], ['pacotes', 'Pacotes'], ['datas', 'Datas indisponíveis']];
+  const tabs = [['dados', 'Dados'], ['horarios', 'Horários'], ['pacotes', 'Pacotes'], ['datas', 'Sem novos testes']];
   const nPlans = PLANS.filter(p => p.n === t.n);
   let body = '';
   if (t.tab === 'dados') body = `
@@ -89,10 +89,10 @@ function drawTeamEditor() {
     ${warn.length ? `<div class="banner warn">${icon('alert')}<span>${warn.map(p => p.days + 'x').join(', ')} por semana excede os ${t.schedule.length} treino(s) semanais desta equipe.</span></div>` : ''}
     ${canView('packages') ? `<button type="button" class="btn sm" data-act="goto-packages">${icon('layers')} Gerenciar pacotes e reajustes</button>` : '<p class="hint">Valores e reajustes dos pacotes são geridos pelos perfis Administrador e Financeiro.</p>'}`;
   }
-  if (t.tab === 'datas') body = `<p class="muted small" style="margin-top:0">Clique em um dia de treino para marcá-lo como indisponível (feriado, competição, quadra ocupada). O assistente deixa de oferecer a data e a agenda mostra o treino riscado.</p>
+  if (t.tab === 'datas') body = `<p class="muted small" style="margin-top:0">Marque os dias em que o assistente não deve oferecer novos testes de ingresso. O treino continua acontecendo. Para indicar que não haverá treino, abra a data na agenda semanal.</p>
     <div id="teCal">${miniCal({ id: 'teMcal', month: t.month, isEnabled: d => t.schedule.some(s => s.day === d.getDay()) && d >= TODAY, cls: d => t.blocked.includes(ymd(d)) ? 'block' : t.schedule.some(s => s.day === d.getDay()) ? 'train' : '' })}</div>
-    <div class="legend mt"><span><i style="background:var(--ok-soft);border:1px solid var(--ok)"></i>Treino previsto</span><span><i style="background:var(--brand-soft);border:1px solid var(--brand)"></i>Indisponível</span></div>
-    ${t.blocked.length ? `<div class="mt small"><b>Datas bloqueadas:</b> ${t.blocked.sort().map(d => parseYmd(d)).map(fmtDate).join(', ')}</div>` : ''}`;
+    <div class="legend mt"><span><i style="background:var(--ok-soft);border:1px solid var(--ok)"></i>Treino previsto</span><span><i style="background:var(--brand-soft);border:1px solid var(--brand)"></i>Sem novos testes</span></div>
+    ${t.blocked.length ? `<div class="mt small"><b>Datas sem novos testes:</b> ${t.blocked.sort().map(d => parseYmd(d)).map(fmtDate).join(', ')}</div>` : ''}`;
   openDialog(dHead(isNew ? 'Nova equipe' : 'Equipe · Núcleo ' + esc(nucleusOf(t.n).name), isNew ? 'Cadastrar equipe' : esc(t.name) + (t.active ? '' : ' <span class="tag nodot">Inativa</span>')) +
     `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${t.tab === k}" class="${t.tab === k ? 'on' : ''}" data-act="te-tab" data-tab="${k}">${l}</button>`).join('')}</div>
     <form class="d-body" id="teForm" novalidate><fieldset class="plain" ${ro ? 'disabled' : ''}>${ro ? `<div class="banner view">${icon('eye')}<span>Modo visualização — alterações bloqueadas para o seu perfil.</span></div>` : ''}${body}<div class="err" id="teErr" role="alert"></div></fieldset></form>
@@ -169,7 +169,7 @@ function renderPackages() {
   return `${viewBanner('packages')}
   <div class="page-head"><div><div class="eyebrow">Oferta & organização</div><h1>Pacotes e mensalidades</h1><p>Pacotes por núcleo, vinculados às equipes. Reajustes mostram o impacto antes da confirmação.</p></div>
     <div class="head-actions"><button class="btn primary" data-act="pkg-new" data-edit>${icon('plus')} Criar pacote</button></div></div>
-  <div class="grid g4 mb">${[['Pacotes disponíveis', PLANS.length, `Em ${NUCLEI.length} núcleos`, 'layers'], ['Equipes com pacote', new Set(PLANS.flatMap(p => p.teams)).size, 'Oferta organizada por local', 'pin'], ['Atletas nos pacotes', members, 'Somente cadastros ativos', 'users'], ['Valor mensal previsto', money(sum), 'Estimativa de tabela · não é recebido', 'trend']].map(([l, v, s, i]) => `<div class="kpi"><div class="kpi-label">${l}${icon(i)}</div><div class="kpi-value">${v}</div><div class="kpi-foot">${s}</div></div>`).join('')}</div>
+  <div class="grid g4 mb">${[['Pacotes disponíveis', PLANS.length, `Em ${NUCLEI.length} núcleos`, 'layers'], ['Equipes com pacote', new Set(PLANS.flatMap(p => p.teams)).size, 'Oferta organizada por local', 'pin'], ['Atletas nos pacotes', members, 'Somente cadastros ativos', 'users'], ['Valor mensal previsto', money(sum), 'Estimativa de tabela · não é recebido', 'trend']].map(([l, v, s, i]) => kpiCard([l, v, s, '', i])).join('')}</div>
   <section class="panel">
     <div class="tabs">${[{ id: 'all', name: 'Todos os núcleos' }, ...NUCLEI].map(n => `<button class="${S.pk.n === n.id ? 'on' : ''}" data-act="pkg-n" data-n="${n.id}">${esc(n.name)} <span class="pill">${n.id === 'all' ? PLANS.length : PLANS.filter(p => p.n === n.id).length}</span></button>`).join('')}</div>
     <div class="toolbar"><div class="search">${icon('search')}<input class="input" id="pkQ" type="search" placeholder="Buscar pacote ou equipe..." value="${esc(S.pk.q)}" aria-label="Buscar pacote"></div>
@@ -258,7 +258,7 @@ function packageCommit(id, v) {
 function nextDatesFor(t, n = FEEDER.datesCount) {
   const out = []; let d = new Date(TODAY);
   for (let k = 0; k < 90 && out.length < n; k++, d = addDays(d, 1)) {
-    const s = t.schedule.find(x => x.day === d.getDay()); if (!s || t.blocked.includes(ymd(d))) continue;
+    const s = t.schedule.find(x => x.day === d.getDay()); if (!s || t.blocked.includes(ymd(d)) || t.cancelled?.includes(ymd(d))) continue;
     const at = new Date(d); const [h, m] = s.start.split(':').map(Number); at.setHours(h, m);
     if ((at - NOW) / 36e5 < FEEDER.minHoursAhead) continue;
     const hd = x => x.replace(':', 'h').replace(/^0(\d)/, '$1').replace(/h00$/, 'h');
@@ -328,10 +328,10 @@ function renderFeeder() {
   <div class="page-head"><div><div class="eyebrow">Assistente de IA · agendamentos</div><h1>Chatbot Feeder</h1><p>Veja exatamente quais dados alimentam o assistente de agendamentos, de onde cada um vem, e corrija na origem.</p></div>
     <div class="head-actions"><button class="btn" data-act="fd-sync" data-edit>${icon('refresh')} Atualizar quadro agora</button></div></div>
   <div class="grid g4 mb">
-    <div class="kpi"><div class="kpi-label">Equipes visíveis${icon('bot')}</div><div class="kpi-value">${vis.length} <span class="muted" style="font-size:14px;font-weight:500">de ${TEAMS.length}</span></div><div class="kpi-foot">ativas e disponíveis para agendamento</div></div>
-    <div class="kpi"><div class="kpi-label">Avisos de dados${icon('alert')}</div><div class="kpi-value" style="color:${warns ? 'var(--warn)' : 'var(--ok)'}">${warns}</div><div class="kpi-foot">campos vazios em equipes visíveis</div></div>
-    <div class="kpi"><div class="kpi-label">Sincronização${icon('clock')}</div><div class="kpi-value" style="font-size:18px">Pendente</div><div class="kpi-foot">Prévia local; confirme os dados no chatbot em produção</div></div>
-    <div class="kpi"><div class="kpi-label">Datas oferecidas${icon('calendar')}</div><div class="kpi-value">${vis.reduce((s, t) => s + nextDatesFor(t).length, 0)}</div><div class="kpi-foot">${FEEDER.datesCount} por equipe · antecedência ${FEEDER.minHoursAhead} h</div></div>
+    ${kpiCard(['Equipes visíveis', `${vis.length} <span class="muted" style="font-size:14px;font-weight:500">de ${TEAMS.length}</span>`, 'ativas e disponíveis para agendamento', '', 'bot'])}
+    ${kpiCard(['Avisos de dados', warns, 'campos vazios em equipes visíveis', '', 'alert'])}
+    ${kpiCard(['Sincronização', 'Pendente', 'Prévia local; confirme os dados no chatbot em produção', '', 'clock'])}
+    ${kpiCard(['Datas oferecidas', vis.reduce((s, t) => s + nextDatesFor(t).length, 0), `${FEEDER.datesCount} por equipe · antecedência ${FEEDER.minHoursAhead} h`, '', 'calendar'])}
   </div>
   <section class="panel mb"><div class="panel-head"><div><h2>Fluxo previsto do assistente</h2><div class="sub">A integração com o Apps Script precisa ser validada antes de ativar regras e sincronização</div></div></div>
     <div class="panel-pad"><div class="flow">
