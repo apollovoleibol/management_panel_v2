@@ -6,7 +6,7 @@ O endereço da [v2](https://apollovoleibol.github.io/management_panel_v2/) está
 
 **Publicação paralela à v1:** consulte [PUBLICACAO_V2.md](PUBLICACAO_V2.md). O endereço da v1 permanece separado.
 
-**Versão:** a fonte única do número mostrado no login é `js/version.js` (atualmente v2.0). Em cada mudança relevante publicada, atualize esse número e registre a alteração em `CHANGELOG.md`.
+**Versão:** a fonte única do número mostrado no login é `js/version.js`. Em cada mudança relevante publicada, atualize esse número e registre a alteração em `CHANGELOG.md`.
 
 ## Login único e Área do atleta
 

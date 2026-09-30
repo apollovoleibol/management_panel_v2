@@ -7,7 +7,7 @@ document.getElementById('loginVersion').textContent = APOLLO_VERSION;
 
 function loginStatus(message, isError = false) {
   loginMessage.textContent = message;
-  loginMessage.style.color = isError ? '#ff9b94' : '';
+  loginMessage.style.color = isError ? '#b91c1c' : '';
 }
 function loginChoice() {
   const name = APOLLO_AUTH.user?.user_metadata?.full_name || APOLLO_AUTH.user?.email || 'você';
