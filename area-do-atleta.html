@@ -7,6 +7,7 @@
 <link rel="icon" href="assets/favicon-32.png">
 <link rel="stylesheet" href="styles.css?v=21">
 <link rel="stylesheet" href="atleta.css?v=21">
+<link rel="stylesheet" href="skeleton.css?v=2.5">
 </head>
 <body>
 <header class="ah">
@@ -14,14 +15,14 @@
     <div class="ah-top">
       <img src="assets/apollo-logo.svg" alt="Apollo">
       <span class="tagline">ÁREA DO ATLETA</span>
-      <div class="right" id="topRight"></div>
+      <div class="right" id="topRight"><span class="sk-circle sk-dark sk-athlete-action" aria-hidden="true"></span></div>
     </div>
-    <div class="ah-hello" id="hello"></div>
-    <div class="deps" id="deps"></div>
-    <nav class="atabs" id="tabs" aria-label="Seções da área do atleta"></nav>
+    <div class="ah-hello" id="hello" aria-hidden="true"><span class="sk-line sk-dark" style="width:112px;height:9px"></span><span class="sk-line sk-dark" style="width:220px;height:27px"></span><span class="sk-line sk-dark" style="width:min(360px,80%);height:11px"></span></div>
+    <div class="deps" id="deps" aria-hidden="true"><span class="sk-line sk-dark" style="width:160px;height:34px;border-radius:12px"></span></div>
+    <nav class="atabs" id="tabs" aria-label="Seções da área do atleta"><span class="sk-tab sk-dark" aria-hidden="true"></span><span class="sk-tab sk-dark" aria-hidden="true"></span><span class="sk-tab sk-dark" aria-hidden="true"></span><span class="sk-tab sk-dark" aria-hidden="true"></span></nav>
   </div>
 </header>
-<main class="amain" id="main" tabindex="-1"></main>
+<main class="amain" id="main" tabindex="-1" aria-busy="true"><span class="sr">Carregando área do atleta...</span><div class="sk-athlete-grid" aria-hidden="true"><div class="sk-athlete-stack"><div class="sk-card sk-athlete-hero"><span class="sk-line" style="width:32%;height:10px"></span><span class="sk-line" style="width:62%;height:24px"></span><span class="sk-line" style="width:75%"></span><span class="sk-line" style="width:48%"></span></div><div class="sk-card sk-large"><span class="sk-line" style="width:52%;height:18px"></span><span class="sk-line" style="width:84%"></span><span class="sk-line" style="width:72%"></span></div></div><div class="sk-athlete-stack"><div class="sk-card sk-large"><span class="sk-line" style="width:58%;height:18px"></span><div class="sk-metric-row"><span class="sk-line" style="width:60px;height:33px"></span><span class="sk-line" style="width:60px;height:33px"></span><span class="sk-line" style="width:60px;height:33px"></span></div></div><div class="sk-card sk-large"><span class="sk-line" style="width:64%;height:18px"></span><span class="sk-line" style="width:80%"></span></div></div></div></main>
 
 <dialog id="dlg" aria-labelledby="dlgTitle"></dialog>
 <dialog id="dlg2" class="sm" aria-labelledby="dlg2Title"></dialog>
@@ -30,6 +31,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/finance-db.js?v=21"></script>
 <script src="js/auth.js?v=21"></script>
-<script src="js/athlete-live.js?v=21"></script>
+<script src="js/athlete-live.js?v=2.5"></script>
 </body>
 </html>

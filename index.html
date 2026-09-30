@@ -6,10 +6,26 @@
 <title>Apollo · Painel de Gestão v2</title>
 <link rel="icon" href="assets/favicon-32.png">
 <link rel="stylesheet" href="styles.css?v=21">
-<style>body:not(.app-ready) .sidebar,body:not(.app-ready) .main{display:none}#startup{min-height:100vh;display:grid;place-items:center;padding:24px;font-family:inherit;color:#0f1332}body.app-ready #startup,label.viewas[hidden]{display:none}</style>
+<link rel="stylesheet" href="skeleton.css?v=2.5">
+<style>body:not(.app-ready) .sidebar,body:not(.app-ready) .main{display:none}body.app-ready #startup,label.viewas[hidden]{display:none}</style>
 </head>
 <body>
-<div id="startup" role="status">Carregando dados da Apollo...</div>
+<div id="startup" role="status" aria-busy="true">
+  <span class="sr">Carregando dados da Apollo...</span>
+  <div class="sk-panel-side" aria-hidden="true">
+    <div class="sk-panel-brand"><img src="assets/apollo-logo.svg" alt=""><span class="sk-line sk-dark" style="width:58%;height:9px"></span></div>
+    <div class="sk-panel-nav"><span class="sk-line sk-dark" style="width:35%"></span><span class="sk-line sk-dark"></span><span class="sk-line sk-dark" style="width:84%"></span><span class="sk-line sk-dark" style="width:90%"></span><span class="sk-line sk-dark" style="width:42%;margin-top:20px"></span><span class="sk-line sk-dark" style="width:86%"></span><span class="sk-line sk-dark" style="width:74%"></span></div>
+    <div class="sk-panel-user"><span class="sk-circle sk-dark"></span><span class="sk-line sk-dark" style="width:58%"></span></div>
+  </div>
+  <div class="sk-panel-main" aria-hidden="true">
+    <div class="sk-panel-top"><span class="sk-line" style="width:140px"></span><span class="sk-circle"></span></div>
+    <div class="sk-panel-content">
+      <div class="sk-heading"><span class="sk-line" style="width:120px;height:10px"></span><span class="sk-line" style="width:250px;height:28px"></span><span class="sk-line" style="width:min(480px,80%);height:12px"></span></div>
+      <div class="sk-metrics"><div class="sk-card"><span class="sk-line" style="width:56%"></span><span class="sk-line" style="width:40%;height:30px"></span><span class="sk-line" style="width:74%"></span></div><div class="sk-card"><span class="sk-line" style="width:62%"></span><span class="sk-line" style="width:34%;height:30px"></span><span class="sk-line" style="width:70%"></span></div><div class="sk-card"><span class="sk-line" style="width:50%"></span><span class="sk-line" style="width:46%;height:30px"></span><span class="sk-line" style="width:67%"></span></div></div>
+      <div class="sk-panels"><div class="sk-card sk-large"><span class="sk-line" style="width:38%;height:18px"></span><span class="sk-line" style="width:88%"></span><span class="sk-block"></span></div><div class="sk-card sk-large"><span class="sk-line" style="width:56%;height:18px"></span><span class="sk-line" style="width:78%"></span><span class="sk-block"></span></div></div>
+    </div>
+  </div>
+</div>
 <aside class="sidebar" id="sidebar" aria-label="Navegação principal">
   <div class="brand">
     <img src="assets/apollo-logo.svg" alt="Apollo">
@@ -51,6 +67,6 @@
 <script src="js/auth.js?v=21"></script>
 <script src="js/live-data.js?v=21"></script>
 <script src="js/finance-page.js?v=21"></script>
-<script src="js/main.js?v=21"></script>
+<script src="js/main.js?v=2.5"></script>
 </body>
 </html>

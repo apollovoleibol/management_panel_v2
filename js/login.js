@@ -57,7 +57,7 @@ function setGooglePending(pending) {
   googleBtn.disabled = pending;
   googleBtn.classList.toggle('is-loading', pending);
   googleBtn.setAttribute('aria-busy', String(pending));
-  googleLabel.textContent = pending ? 'Abrindo Google...' : 'Entrar com Google';
+  googleLabel.textContent = pending ? 'Validando acesso...' : 'Entrar com Google';
 }
 googleBtn.addEventListener('click', async () => {
   if (loginPending) return;

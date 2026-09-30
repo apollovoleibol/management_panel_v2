@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## v2.5 — 2026-09-30
+
+- Skeletons responsivos no carregamento inicial do Painel de Gestão e da Área do Atleta, sem exibir dados antes da autorização.
+- O Painel de Gestão aguarda também os dados financeiros antes de mostrar o conteúdo para perfis com permissão.
+- Botão Google passa a informar “Validando acesso...” durante o início do login.
+
 ## v2.4 — 2026-09-30
 
 - Transição de acesso autorizado: estrelas saem da tela com aceleração suave; brilho vermelho e conteúdo se dissipam antes da navegação.

@@ -241,23 +241,30 @@ window.addEventListener('hashchange', fromHash);
 const _go = go; go = page => { _go(page); history.replaceState(null, '', '#' + page); };
 
 async function bootstrapPanel() {
+  const startup = $('#startup');
   try {
     const auth = await apolloRequireArea('panel');
     if (!auth.ok) {
-      if (auth.error) $('#startup').textContent = `Não foi possível verificar o acesso: ${auth.error}`;
+      if (auth.error) {
+        startup.classList.add('load-error');
+        startup.setAttribute('aria-busy', 'false');
+        startup.textContent = `Não foi possível verificar o acesso: ${auth.error}`;
+      }
       return;
     }
     await liveLoadPanel();
     fillViewAs();
-    document.body.classList.add('app-ready');
-    render(); fromHash();
     if (seesFinance()) {
       await financeDbInit();
       try { await financeManualRefresh(); } catch (error) { FIN_DB.error = error.message; }
-      render();
     }
+    document.body.classList.add('app-ready');
+    startup.setAttribute('aria-busy', 'false');
+    render(); fromHash();
   } catch (error) {
-    $('#startup').textContent = `Não foi possível carregar os dados: ${error.message}`;
+    startup.classList.add('load-error');
+    startup.setAttribute('aria-busy', 'false');
+    startup.textContent = `Não foi possível carregar os dados: ${error.message}`;
   }
 }
 bootstrapPanel();

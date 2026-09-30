@@ -39,7 +39,7 @@ function harness(signInWithOAuth, user = null, route = 'unauthorized', reducedMo
     Event: class { constructor(type) { this.type = type; } },
     matchMedia: () => ({ matches: reducedMotion }),
     URL,
-    APOLLO_VERSION: 'v2.4',
+    APOLLO_VERSION: 'v2.5',
     APOLLO_AUTH: { user, googleRequired: false },
     apolloLoadAccess: async () => ({}),
     apolloRoute: () => route,
@@ -60,7 +60,7 @@ test('Google sign-in blocks duplicate clicks and restores the button after failu
   await events.click();
   assert.equal(calls, 1);
   assert.equal(button.disabled, true);
-  assert.equal(label.textContent, 'Abrindo Google...');
+  assert.equal(label.textContent, 'Validando acesso...');
   assert.equal(button.attributes['aria-busy'], 'true');
   resolveOAuth({ error: new Error('OAuth unavailable') });
   await first;

@@ -34,7 +34,7 @@ function portalPendingInvoice(invoice) {
 }
 async function portalLoad() {
   const access = await apolloRequireArea('athlete');
-  if (!access.ok) { if (access.error) portal$('#main').textContent = access.error; return; }
+  if (!access.ok) { if (access.error) portalError(access.error); return; }
   const ids = access.access.athleteIds;
   const [athletes, teams, locations, attendance, competitions, notices, blocked, invoices] = await Promise.all([
     portalRead('athletes', 'id,team_id,full_name,birth_date,position,jersey_number,joined_at,is_active,phone,parent_phone'),
@@ -52,9 +52,29 @@ async function portalLoad() {
   if (!PORTAL.athletes.some(a => a.id === PORTAL.selected)) PORTAL.selected = PORTAL.athletes[0]?.id || null;
   portalRender();
 }
+function portalClearSkeleton() {
+  portal$('#main').setAttribute('aria-busy', 'false');
+  portal$('#hello').removeAttribute('aria-hidden');
+  portal$('#deps').removeAttribute('aria-hidden');
+}
+function portalError(message) {
+  PORTAL.error = message;
+  portalClearSkeleton();
+  for (const selector of ['#hello', '#deps', '#tabs', '#topRight']) portal$(selector).textContent = '';
+  portal$('#main').textContent = `Não foi possível carregar a área do atleta: ${message}`;
+}
 function portalRender() {
+  portalClearSkeleton();
   const athlete = portalCurrent();
-  if (!athlete) { portal$('#main').innerHTML = '<section class="panel panel-pad">Nenhum atleta ativo vinculado a esta conta.</section>'; return; }
+  if (!athlete) {
+    portal$('#hello').textContent = '';
+    portal$('#deps').textContent = '';
+    portal$('#tabs').textContent = '';
+    portal$('#topRight').innerHTML = '<button class="icon-btn" id="portalLogout" title="Sair" aria-label="Sair">Sair</button>';
+    portal$('#portalLogout').onclick = apolloSignOut;
+    portal$('#main').innerHTML = '<section class="panel panel-pad">Nenhum atleta ativo vinculado a esta conta.</section>';
+    return;
+  }
   const team = portalTeam(athlete);
   const name = APOLLO_AUTH.user?.user_metadata?.full_name || APOLLO_AUTH.user?.email || '';
   portal$('#hello').innerHTML = `<div class="eyebrow">${PORTAL.athletes.length > 1 ? 'Família Apollo' : 'Área do atleta'}</div><h1>Olá, ${portalEsc(name.split(' ')[0])}</h1><p>Informações reais do cadastro, dos treinos e dos relatórios importados.</p>`;
@@ -157,4 +177,4 @@ document.addEventListener('click', async event => {
     }
   } catch (error) { alert(`Não foi possível registrar: ${error.message}`); }
 });
-portalLoad().catch(error => { PORTAL.error = error.message; portal$('#main').textContent = `Não foi possível carregar a área do atleta: ${error.message}`; });
+portalLoad().catch(error => portalError(error.message));
