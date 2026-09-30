@@ -1,14 +1,20 @@
 'use strict';
 
-// Decorative star field: bounded canvas resolution, one animation loop, no dependencies.
+// Three orbital layers share an anchor at the lower center of the viewport.
 (() => {
-  const host = document.querySelector('.login-brand');
+  const host = document.querySelector('.login');
   const canvas = host?.querySelector('.login-stars');
   const ctx = canvas?.getContext('2d');
   if (!ctx) return;
+
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const pointer = { x: 0, y: 0, active: false };
-  let width = 0, height = 0, stars = [], frame = 0, previous = 0, time = 0;
+  const layers = [
+    { speed: .0018, size: .6, opacity: .25, pull: .45 },
+    { speed: .0036, size: .9, opacity: .42, pull: .72 },
+    { speed: .0068, size: 1.3, opacity: .65, pull: 1 }
+  ];
+  let width = 0, height = 0, stars = [], frame = 0, previous = 0, elapsed = 0;
 
   function resize() {
     width = host.clientWidth;
@@ -17,11 +23,15 @@
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    const count = Math.min(110, Math.max(32, Math.round(width * height / 9500)));
-    stars = Array.from({ length: count }, () => ({
-      x: Math.random() * width, y: Math.random() * height,
-      phase: Math.random() * Math.PI * 2, depth: .3 + Math.random() * .7,
-      radius: .55 + Math.random() * .85, dx: 0, dy: 0
+    const radius = Math.hypot(width / 2, height * 1.04) * 1.1;
+    const count = Math.min(280, Math.max(150, Math.round(width * height / 4200)));
+    stars = Array.from({ length: count }, (_, index) => ({
+      angle: Math.random() * Math.PI * 2,
+      radius: Math.sqrt(Math.random()) * radius,
+      layer: layers[index % layers.length],
+      phase: Math.random() * Math.PI * 2,
+      offsetX: 0,
+      offsetY: 0
     }));
     if (reduced.matches || document.hidden) draw(0);
   }
@@ -29,47 +39,47 @@
   function draw(delta) {
     ctx.clearRect(0, 0, width, height);
     const animate = !reduced.matches;
-    const ease = 1 - Math.exp(-delta * 5);
+    const anchorX = width / 2, anchorY = height * 1.04;
     for (const star of stars) {
-      const baseX = star.x + (animate ? Math.sin(time * .12 + star.phase) * 9 * star.depth : 0);
-      const baseY = star.y + (animate ? Math.cos(time * .1 + star.phase) * 12 * star.depth : 0);
-      let targetX = 0, targetY = 0, proximity = 0;
+      const { layer } = star;
+      const angle = star.angle + (animate ? elapsed * layer.speed : 0);
+      const orbitX = anchorX + Math.cos(angle) * star.radius;
+      const orbitY = anchorY + Math.sin(angle) * star.radius;
+      let targetX = 0, targetY = 0;
       if (animate && pointer.active) {
-        const vx = baseX - pointer.x, vy = baseY - pointer.y;
-        const distance = Math.hypot(vx, vy);
-        proximity = Math.max(0, 1 - distance / 180);
-        const push = proximity * proximity * 26 * star.depth;
-        targetX = vx / Math.max(distance, 1) * push + (pointer.x / width - .5) * 12 * star.depth;
-        targetY = vy / Math.max(distance, 1) * push + (pointer.y / height - .5) * 12 * star.depth;
+        const distance = Math.hypot(pointer.x - orbitX, pointer.y - orbitY);
+        const influence = Math.max(0, 1 - distance / 240);
+        const attraction = Math.pow(influence, 1.3) * .98 * layer.pull;
+        targetX = (pointer.x - orbitX) * attraction;
+        targetY = (pointer.y - orbitY) * attraction;
       }
-      star.dx = animate ? star.dx + (targetX - star.dx) * ease : 0;
-      star.dy = animate ? star.dy + (targetY - star.dy) * ease : 0;
-      const x = baseX + star.dx, y = baseY + star.dy;
-      const alpha = .22 + star.depth * .28 + (animate ? Math.sin(time * .7 + star.phase) * .09 : 0) + proximity * .28;
-      ctx.fillStyle = `rgba(235,241,255,${alpha})`;
+      const ease = 1 - Math.exp(-delta * (2.5 + layer.pull * 3));
+      star.offsetX = animate ? star.offsetX + (targetX - star.offsetX) * ease : 0;
+      star.offsetY = animate ? star.offsetY + (targetY - star.offsetY) * ease : 0;
+      const x = orbitX + star.offsetX, y = orbitY + star.offsetY;
+      if (x < -12 || x > width + 12 || y < -12 || y > height + 12) continue;
+      const distanceToPointer = pointer.active && animate ? Math.hypot(pointer.x - x, pointer.y - y) : Infinity;
+      const shrink = Math.min(1, Math.max(0, (distanceToPointer - 7) / 72));
+      if (shrink <= 0) continue;
+      const twinkle = animate ? .9 + Math.sin(elapsed * (.4 + layer.pull * .4) + star.phase) * .1 : 1;
+      ctx.fillStyle = `rgba(235,241,255,${layer.opacity * twinkle * shrink})`;
       ctx.beginPath();
-      ctx.arc(x, y, star.radius, 0, Math.PI * 2);
+      ctx.arc(x, y, layer.size * shrink, 0, Math.PI * 2);
       ctx.fill();
-      if (proximity > .25) {
-        ctx.fillStyle = `rgba(235,241,255,${proximity * .07})`;
-        ctx.beginPath();
-        ctx.arc(x, y, star.radius * 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
     }
   }
 
   function tick(now) {
     const delta = previous ? Math.min((now - previous) / 1000, .05) : 0;
     previous = now;
-    time += delta;
+    elapsed += delta;
     draw(delta);
     frame = requestAnimationFrame(tick);
   }
   function syncMotion() {
     cancelAnimationFrame(frame);
     previous = 0;
-    host.classList.toggle('motion-paused', document.hidden);
+    host.querySelector('.login-brand').classList.toggle('motion-paused', document.hidden);
     if (reduced.matches || document.hidden) draw(0);
     else frame = requestAnimationFrame(tick);
   }

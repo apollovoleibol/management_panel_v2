@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## v2.2 — 2026-09-30
+
+- Fonte Chakra Petch com peso mais leve na identidade Huddle e subtítulo em uma linha fora de celulares.
+- Fundo espacial em toda a tela, com camadas de estrelas em órbita do centro inferior.
+- Estrelas atraídas pelo mouse, diminuindo até desaparecerem ao se aproximar do cursor.
+
 ## v2.1 — 2026-09-30
 
 - Identidade Huddle no centro do login e logo Apollo menor no topo.
