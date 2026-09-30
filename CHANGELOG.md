@@ -2,6 +2,11 @@
 
 O número da versão exibido na tela de login é definido em `js/version.js`. A cada mudança relevante publicada, atualize esse arquivo e registre aqui a data e as alterações. Use o próximo número menor para novas funcionalidades e o terceiro número para correções após uma versão publicada.
 
+## v2.0.2 — 2026-09-30
+
+- Remoção da moldura externa do botão Google e redução da largura do botão.
+- Brilho vermelho de fundo maior e deslocado para a direita.
+
 ## v2.0.1 — 2026-09-30
 
 - Alinhamento da marca Apollo + SIG à esquerda, com maior espaçamento entre as letras.
