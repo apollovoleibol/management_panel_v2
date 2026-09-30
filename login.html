@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Apollo · Entrar</title>
+<title>Huddle · Apollo</title>
 <link rel="icon" href="assets/favicon-32.png">
 <link rel="stylesheet" href="styles.css?v=21">
-<link rel="stylesheet" href="atleta.css?v=24">
+<link rel="stylesheet" href="atleta.css?v=2.1">
 <style>#logoutBtn[hidden]{display:none}</style>
 </head>
 <body>
 <div class="login">
   <section class="login-brand">
-    <h1 class="login-product-name">Sistema Integrado de Gestão</h1>
+    <canvas class="login-stars" aria-hidden="true"></canvas>
+    <img class="login-apollo" src="assets/apollo-logo.svg" alt="Apollo">
     <div class="login-lockup">
-      <img src="assets/apollo-logo.svg" alt="Apollo">
+      <h1 class="login-huddle">Huddle</h1>
       <span class="login-divider" aria-hidden="true"></span>
-      <span class="login-sig">SIG</span>
+      <p class="login-description">Sistema Integrado<br>de Gestão</p>
     </div>
     <small class="login-version" id="loginVersion"></small>
   </section>
@@ -34,7 +35,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/finance-db.js?v=21"></script>
 <script src="js/auth.js?v=21"></script>
-<script src="js/version.js?v=2.0.2"></script>
+<script src="js/version.js?v=2.1"></script>
+<script src="js/login-stars.js?v=2.1"></script>
 <script src="js/login.js?v=23"></script>
 </body>
 </html>

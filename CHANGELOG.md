@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## v2.1 — 2026-09-30
+
+- Identidade Huddle no centro do login e logo Apollo menor no topo.
+- Nebulosa vermelha animada e estrelas interativas com resposta suave ao mouse.
+- Animações pausadas em abas ocultas e apresentação estática com movimento reduzido.
+
 O número da versão exibido na tela de login é definido em `js/version.js`. A cada mudança relevante publicada, atualize esse arquivo e registre aqui a data e as alterações. Use o próximo número menor para novas funcionalidades e o terceiro número para correções após uma versão publicada.
 
 ## v2.0.2 — 2026-09-30
