@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## v2.2.1 — 2026-09-30
+
+- Logo Apollo centralizada no topo e identidade Huddle centralizada na tela.
+- Divisória horizontal entre Huddle e Sistema Integrado de Gestão; botão Google próximo de dois terços da altura.
+
 ## v2.2 — 2026-09-30
 
 - Fonte Chakra Petch com peso mais leve na identidade Huddle e subtítulo em uma linha fora de celulares.
