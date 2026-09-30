@@ -3,10 +3,11 @@ const loginCard = document.getElementById('card');
 const loginMessage = document.getElementById('loginMessage');
 const loginClient = financeDbClient();
 const loginRedirect = new URL('login.html', location.href).href;
+document.getElementById('loginVersion').textContent = APOLLO_VERSION;
 
 function loginStatus(message, isError = false) {
   loginMessage.textContent = message;
-  loginMessage.style.color = isError ? '#b91c1c' : '';
+  loginMessage.style.color = isError ? '#ff9b94' : '';
 }
 function loginChoice() {
   const name = APOLLO_AUTH.user?.user_metadata?.full_name || APOLLO_AUTH.user?.email || 'você';

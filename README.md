@@ -6,6 +6,8 @@ O endereço da [v2](https://apollovoleibol.github.io/management_panel_v2/) está
 
 **Publicação paralela à v1:** consulte [PUBLICACAO_V2.md](PUBLICACAO_V2.md). O endereço da v1 permanece separado.
 
+**Versão:** a fonte única do número mostrado no login é `js/version.js` (atualmente v2.0). Em cada mudança relevante publicada, atualize esse número e registre a alteração em `CHANGELOG.md`.
+
 ## Login único e Área do atleta
 
 - `login.html`: a mesma tela para todos, com login Google. A sessão deve ter sido criada por OAuth e a autorização vem da função `v2_my_access()` no Supabase. Depois da autenticação:
