@@ -23,6 +23,7 @@
 .metric-info{position:absolute;right:14px;top:14px;border:0;background:transparent;color:var(--muted);width:27px;height:27px;display:grid;place-items:center;border-radius:50%;cursor:pointer}
 .metric-info:hover,.metric-info:focus-visible{background:var(--surface-3);color:var(--ink)}
 .metric-info .i{width:17px;height:17px}
+.stat-line .metric-info{position:static;display:inline-grid;vertical-align:middle;margin-left:3px}
 .tcard{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none;padding:16px 8px 18px}
 .tcard:hover{border-color:var(--line);background:var(--surface-2)}
 .ncard:not(.add){border:0;border-top:3px solid var(--c);box-shadow:none;border-radius:5px;background:var(--surface-2)}

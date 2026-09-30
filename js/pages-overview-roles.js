@@ -37,7 +37,7 @@ function athletesProjectionHTML() {
       <div class="legend"><span><i style="background:var(--ok)"></i>Atletas ativos</span><span><i class="dash" style="border-color:var(--info)"></i>Projeção</span></div></div>
       <div class="panel-pad">${lineChart({ labels: [...months, ...future].map(m => MON[m.getMonth()]), series: [{ values: [...real, null, null, null], color: 'var(--ok)', area: true }, { values: proj, color: 'var(--info)', dash: true }], fmt: v => Math.round(v) })}</div></section>
     <section class="panel"><div class="panel-head"><div><h2>Próximos 90 dias</h2><div class="sub">Cenário base · sem dados financeiros</div></div></div>
-      <div class="panel-pad">${lines.map(([k, v]) => `<div class="stat-line"><span class="muted">${k}</span><b>${v}</b></div>`).join('')}
+      <div class="panel-pad">${lines.map(([k, v]) => `<div class="stat-line"><span class="muted">${k} ${metricInfo(k)}</span><b>${v}</b></div>`).join('')}
       <div class="banner note mt" style="margin-bottom:0">${icon('shield')}<span class="small">Receitas e demais indicadores financeiros ficam disponíveis apenas para os perfis Administrador e Financeiro.</span></div></div></section>
   </div>`;
 }
