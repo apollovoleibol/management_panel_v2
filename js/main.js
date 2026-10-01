@@ -8,17 +8,19 @@ function renderNav() {
   PAGES.filter(p => canView(p.id)).forEach(p => {
     if (p.group !== group) { group = p.group; html += `<div class="nav-label">${group}</div>`; }
     const badge = p.id === 'bookings' ? BOOKINGS.filter(b => !b.archived && b.status === 'Agendado' && parseLocal(b.date) > NOW && parseLocal(b.date) - NOW <= 48 * 36e5).length : p.id === 'finance' ? (FIN_REPORTS.open ? new Set(finAlertRows().map(r => r.clientId)).size : 0) : 0;
-    html += `<button data-page="${p.id}" class="${S.page === p.id ? 'active' : ''}" ${S.page === p.id ? 'aria-current="page"' : ''}>${icon(p.icon)}${p.label}${!canEdit(p.id) ? `<span class="lock" title="Somente visualização">${icon('eye')}</span>` : badge ? `<span class="count" title="${p.id === 'bookings' ? 'Testes nas próximas 48h' : 'Atletas inadimplentes'}">${badge}</span>` : ''}</button>`;
+    const urgent = p.id === 'finance' && FIN_REPORTS.open && finAlertRows().some(r => r.days > 60);
+    const badgeLabel = p.id === 'bookings' ? `${badge} teste(s) nas próximas 48 horas` : `${badge} atleta(s) com mensalidade vencida${urgent ? ', alguns há mais de 60 dias' : ''}`;
+    html += `<button data-page="${p.id}" class="${S.page === p.id ? 'active' : ''}" ${S.page === p.id ? 'aria-current="page"' : ''}>${icon(p.icon)}${p.label}${!canEdit(p.id) ? `<span class="lock" title="Somente visualização">${icon('eye')}</span>` : badge ? `<span class="count ${urgent ? 'urgent' : ''}" title="${badgeLabel}" aria-label="${badgeLabel}">${badge}</span>` : ''}</button>`;
   });
   $('#nav').innerHTML = html;
   const u = me();
-  $('#sideUser').innerHTML = `<span class="avatar">${initials(u.name)}</span><div style="min-width:0"><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></div>${!S.previewRole && apolloHasAthleteAccess() ? `<a class="lock" href="area-do-atleta.html" title="Ir para a Área do atleta" style="margin-left:auto;color:var(--nav-muted)">${icon('users')}</a>` : ''}<button class="icon-btn" data-act="logout" title="Sair" aria-label="Sair" style="margin-left:auto;color:var(--nav-muted)">${icon('logout')}</button>`;
+  $('#sideUser').innerHTML = `<span class="avatar">${initials(u.name)}</span><div style="min-width:0"><strong>${esc(displayName(u.name))}</strong><small>${esc(u.role)}</small></div>${!S.previewRole && apolloHasAthleteAccess() ? `<a class="lock" href="area-do-atleta.html" title="Ir para a Área do atleta" style="margin-left:auto;color:var(--nav-muted)">${icon('users')}</a>` : ''}<button class="icon-btn" data-act="logout" title="Sair" aria-label="Sair" style="margin-left:auto;color:var(--nav-muted)">${icon('logout')}</button>`;
   $('#crumb').textContent = PAGES.find(p => p.id === S.page).label;
 }
 function render() {
   if (!canView(S.page)) S.page = (PAGES.find(p => canView(p.id)) || PAGES[0]).id;
   renderNav();
-  $('#content').innerHTML = `${S.previewRole ? `<div class="preview-banner">${icon('eye')} Prévia do perfil <b>${esc(S.previewRole)}</b> · somente leitura. Dados e permissões reais continuam vinculados à sua conta.</div>` : ''}${RENDER[S.page]()}<footer class="foot"><span>Apollo · Painel de Gestão v2</span><span>Dados sincronizados com o Supabase</span></footer>`;
+  $('#content').innerHTML = `${S.previewRole ? `<div class="preview-banner">${icon('eye')} Prévia do perfil <b>${esc(S.previewRole)}</b> · somente leitura. Dados e permissões reais continuam vinculados à sua conta.</div>` : ''}${RENDER[S.page]()}<footer class="foot"><span>Apollo · Painel de Gestão v2</span><span>Dados atualizados ao abrir o painel</span></footer>`;
   if (!canEdit(S.page)) $$('#content [data-edit]').forEach(b => { b.classList.add('locked'); b.setAttribute('aria-disabled', 'true'); b.title = 'Somente visualização para o seu perfil'; });
   guideSync();
 }
@@ -77,6 +79,18 @@ document.addEventListener('click', async e => {
     case 'cal-nav': S.cal.cursor = addDays(S.cal.cursor, 7 * Number(el.dataset.dir)); return render();
     case 'cal-nucleus': { const n = el.dataset.n; S.cal.nuclei.has(n) ? S.cal.nuclei.delete(n) : S.cal.nuclei.add(n); return render(); }
     case 'cal-event': return openCalEvent(el.dataset.team, el.dataset.date);
+    case 'cal-day': return openCalDay(el.dataset.date);
+    case 'pending-go': return pendingGo(el.dataset.k);
+    case 'ov-finance': S.fin.tab = el.dataset.tab; S.fin.alertFilter = ''; return go('finance');
+    case 'booking-status': return bookingQuickStatus(id, el.dataset.status);
+    case 'bk-bulk-status': return bookingsBulk('status');
+    case 'bk-bulk-archive': return bookingsBulk('archive');
+    case 'bk-bulk-clear': S.bk.sel.clear(); return bookingsTableRefresh();
+    case 'at-clear': S.at.pending = ''; return render();
+    case 'fin-alert-filter': S.fin.alertFilter = el.dataset.v; return render();
+    case 'fin-series': S.fin.series = el.dataset.v; return render();
+    case 'fin-link-quick': return finLinkQuick(el.dataset.client, el.dataset.athlete);
+    case 'fin-link-exact': return finLinkExactMatches();
     case 'training-toggle': {
       const team = teamOf(el.dataset.team), date = el.dataset.date;
       if (!team || !canManageTraining(team)) return toast('Seu perfil não pode alterar este treino.', true);
@@ -96,7 +110,7 @@ document.addEventListener('click', async e => {
     case 'bk-kpi': S.bk.kpi = S.bk.kpi === el.dataset.k ? '' : el.dataset.k; if (S.bk.kpi) S.bk.status = ''; return render();
     case 'bk-arch': S.bk.archived = el.dataset.v === '1'; return render();
     case 'bk-sort': { const c = el.dataset.col; S.bk.sort = { col: c, dir: S.bk.sort.col === c && S.bk.sort.dir === 'asc' ? 'desc' : 'asc' }; return render(); }
-    case 'bk-clear': Object.assign(S.bk, { q: '', status: '', team: '', kpi: '' }); return render();
+    case 'bk-clear': Object.assign(S.bk, { q: '', status: '', team: '', kpi: '', pending: '' }); S.bk.sel.clear(); return render();
     case 'booking-open': return openBooking(id);
     case 'booking-new': if (S.page !== 'bookings' && el.dataset.team) { S.page = 'bookings'; render(); } return bookingForm(null, { team: el.dataset.team, date: el.dataset.date });
     case 'booking-edit': return bookingForm(id);
@@ -119,7 +133,7 @@ document.addEventListener('click', async e => {
     /* equipes e núcleos */
     case 'team-filter': S.tm.n = el.dataset.n; render(); if (el.closest('.ncard')) document.querySelector('.divider-band')?.scrollIntoView({ behavior: 'smooth' }); return;
     case 'team-open': return teamEditor(id);
-    case 'team-new': return teamEditor(null);
+    case 'team-new': return teamEditor(null, 'dados', el.dataset.n || null);
     case 'te-tab': collectTE(); { const dirty = $('#dlg').dataset.dirty; TE.tab = el.dataset.tab; drawTeamEditor(); $('#dlg').dataset.dirty = dirty; } return;
     case 'te-day': { const d = Number(el.dataset.day); TE.schedule = TE.schedule.some(s => s.day === d) ? TE.schedule.filter(s => s.day !== d) : [...TE.schedule, { day: d, start: TE.schedule[0]?.start || '18:00', end: TE.schedule[0]?.end || '19:30' }]; drawTeamEditor(); $('#dlg').dataset.dirty = '1'; return; }
     case 'team-save': return saveTeam();
@@ -259,13 +273,15 @@ document.addEventListener('change', e => {
   const t = e.target;
   const map = { bkStatus: () => { S.bk.status = t.value; S.bk.kpi = ''; }, bkTeam: () => { S.bk.team = t.value; }, atStatus: () => { S.at.status = t.value; }, atTeam: () => { S.at.team = t.value; }, pkFreq: () => { S.pk.freq = t.value; }, payMonth: () => { S.pay.month = t.value; }, finMonth: () => { S.fin.month = t.value; }, simGender: () => { S.fd.simGender = t.value; } };
   if (map[t.id]) { map[t.id](); return render(); }
+  if (t.dataset.bkSel) { t.checked ? S.bk.sel.add(t.dataset.bkSel) : S.bk.sel.delete(t.dataset.bkSel); return bookingsTableRefresh(); }
+  if ('bkAll' in t.dataset) { bookingsFiltered().forEach(b => t.checked ? S.bk.sel.add(b.id) : S.bk.sel.delete(b.id)); return bookingsTableRefresh(); }
   if (t.dataset.act === 'cal-tests') { S.cal.showTests = t.checked; return render(); }
   const fd = { fdDates: () => { FEEDER.datesCount = Number(t.value); }, fdAhead: () => { FEEDER.minHoursAhead = Number(t.value); }, fdCache: () => { FEEDER.cacheMin = Number(t.value); }, fdAge: () => { FEEDER.includeAge = t.checked; }, fdGender: () => { FEEDER.includeGender = t.checked; }, fdPhone: () => { FEEDER.includeCoachPhone = t.checked; } };
   if (fd[t.id]) { render(); toast('Os parâmetros do assistente ainda precisam ser conectados ao Apps Script.', true); }
 });
 
 /* ─── Topo ─── */
-const PREVIEW_WRITE_ACTIONS = new Set(['booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
+const PREVIEW_WRITE_ACTIONS = new Set(['booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
 $('#viewAs').addEventListener('change', event => {
   if (APOLLO_AUTH.access?.role !== 'admin') return;
   S.previewRole = event.target.value in ROLE_PRESETS && event.target.value !== 'Administrador' ? event.target.value : '';

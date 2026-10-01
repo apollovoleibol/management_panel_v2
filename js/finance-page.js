@@ -91,18 +91,17 @@ function finVisualSummaryHtml(key, summary) {
   const manualIn = finSum(manual.filter(row => row.type === 'in'), 'amount');
   const manualOut = finSum(manual.filter(row => row.type === 'out'), 'amount');
   return `<div class="fin-summary-body">
-    <div class="fin-hero"><div><div class="eyebrow">Disponível após taxas · ${monthLabel(key)}</div><div class="fin-main-value">${FIN_REPORTS.receivables ? money(summary.net) : '—'} ${metricInfo('Recebido líquido')}</div><p>${FIN_REPORTS.receivables ? `${summary.paid.length} recebimento(s) confirmados no último relatório importado.` : 'Importe Contas a Receber para mostrar os recebimentos.'}</p></div>
-      <div class="fin-equation"><div><span>Recebido bruto</span><strong>${FIN_REPORTS.receivables ? money(summary.gross) : '—'}</strong></div><b>−</b><div><span>Taxas</span><strong>${FIN_REPORTS.receivables ? money(summary.fees) : '—'}</strong></div><b>=</b><div><span>Líquido</span><strong>${FIN_REPORTS.receivables ? money(summary.net) : '—'}</strong></div></div></div>
-    <div class="fin-submetrics"><div><span>Em aberto no mês ${metricInfo('Em aberto no mês')}</span><strong>${FIN_REPORTS.open ? money(summary.openAmount) : '—'}</strong></div><div><span>Mensalidades vencidas ${metricInfo('Em atraso')}</span><strong>${FIN_REPORTS.open ? money(overdue) : '—'}</strong><small>${FIN_REPORTS.open ? `${alerts.length} parcela(s) na última fotografia` : 'Aguardando Vendas em Aberto'}</small></div><div><span>A vencer ${metricInfo('A vencer')}</span><strong>${FIN_REPORTS.open ? money(finSum(upcoming, 'amount')) : '—'}</strong></div></div>
-    <div class="fin-visuals"><section class="fin-visual fin-trend"><h2>Evolução dos recebimentos</h2><div class="hint">Últimos seis meses até ${monthLabel(key)}; meses sem importação ficam sem ponto.</div>
-      ${trend ? `<div class="legend"><span><i style="background:var(--ok)"></i>Contas a Receber · bruto</span><span><i style="background:var(--info)"></i>Fluxo de Caixa · entradas</span></div>${lineChart({ labels, series: [{ values: gross, color: 'var(--ok)', area: true }, { values: flow, color: 'var(--info)' }], fmt: value => 'R$ ' + Math.round(value).toLocaleString('pt-BR') })}` : '<p class="muted small">Importe meses anteriores para visualizar a tendência.</p>'}
-      <p class="hint">As fontes têm definições diferentes; a distância entre as linhas não representa perda automaticamente.</p></section>
+    <div class="fin-hero"><div><div class="eyebrow">Disponível após taxas · ${monthLabel(key)}</div><div class="fin-main-value">${FIN_REPORTS.receivables ? money(summary.net) : '—'} ${metricInfo('Recebido líquido')}</div><p>${FIN_REPORTS.receivables ? `${summary.paid.length} recebimento(s) confirmados${FIN_REPORTS.receivables.at ? ` · importado em ${fmtStamp(FIN_REPORTS.receivables.at)}` : ''}.` : 'Importe Contas a Receber para mostrar os recebimentos.'}</p>
+      ${FIN_REPORTS.receivables ? `<div class="fin-breakdown"><span>Bruto <b>${money(summary.gross)}</b></span><span>Taxas <b>− ${money(summary.fees)}</b></span></div>` : ''}</div>
+    <div class="fin-submetrics" ${FIN_REPORTS.open && summary.openAmount === overdue ? 'style="grid-template-columns:repeat(2,minmax(0,1fr))"' : ''}><div><span>Mensalidades vencidas ${metricInfo('Em atraso')}</span><strong style="color:${overdue ? 'var(--brand-ink)' : 'inherit'}">${FIN_REPORTS.open ? money(overdue) : '—'}</strong><small>${FIN_REPORTS.open ? `${new Set(alerts.map(a => a.clientId)).size} atleta(s) · ${alerts.length} parcela(s)` : 'Aguardando Vendas em Aberto'}</small></div><div><span>A vencer ${metricInfo('A vencer')}</span><strong>${FIN_REPORTS.open ? money(finSum(upcoming, 'amount')) : '—'}</strong><small>${FIN_REPORTS.open ? `${upcoming.length} parcela(s) no prazo` : ''}</small></div>${FIN_REPORTS.open && summary.openAmount !== overdue ? `<div><span>Em aberto com vencimento no mês ${metricInfo('Em aberto no mês')}</span><strong>${money(summary.openAmount)}</strong></div>` : ''}</div>
+    <div class="fin-visuals"><section class="fin-visual fin-trend"><h2>Evolução dos recebimentos</h2><div class="hint">Últimos seis meses até ${monthLabel(key)}</div>
+      ${trend ? (() => { const useFlow = S.fin.series === 'flow' || !gross.some(v => v !== null); const values = useFlow ? flow : gross; return `<div class="seg series-toggle" role="group" aria-label="Série do gráfico"><button class="${useFlow ? '' : 'on'}" data-act="fin-series" data-v="receivables" ${gross.some(v => v !== null) ? '' : 'disabled'}>Recebimentos confirmados</button><button class="${useFlow ? 'on' : ''}" data-act="fin-series" data-v="flow" ${flow.some(v => v !== null) ? '' : 'disabled'}>Entradas no fluxo de caixa</button></div>${lineChart({ labels, series: [{ values, color: useFlow ? 'var(--info)' : 'var(--ok)', area: true }], fmt: value => 'R$ ' + Math.round(value).toLocaleString('pt-BR') })}<p class="hint">${useFlow ? 'Entradas do relatório Fluxo de Caixa Analítico (todas as formas de recebimento).' : 'Recebimentos confirmados em Contas a Receber, antes das taxas.'} Meses sem importação ficam sem ponto.</p>`; })() : '<p class="muted small">Importe meses anteriores para visualizar a tendência.</p>'}</section>
       <section class="fin-visual fin-aging"><h2>Atrasos por faixa ${metricInfo('Em atraso')}</h2><div class="hint">Mensalidades vencidas de todos os períodos presentes em Vendas em Aberto.</div>
-      ${FIN_REPORTS.open ? aging.map(row => `<div class="fin-aging-row"><span>${row.label}</span><div class="fin-aging-track"><span style="width:${overdue ? Math.max(2, row.amount / overdue * 100) : 0}%"></span></div><strong>${money(row.amount)}</strong></div>`).join('') + `<p class="hint">${alerts.length} parcela(s) vencida(s); importe nova fotografia para atualizar.</p>` : '<p class="muted small">Importe Vendas em Aberto para ativar esta análise.</p>'}</section></div>
+      ${FIN_REPORTS.open ? aging.map(row => `<div class="fin-aging-row"><span>${row.label}</span><div class="fin-aging-track"><span style="width:${overdue && row.amount ? Math.max(3, row.amount / overdue * 100) : 0}%"></span></div><strong>${money(row.amount)}</strong></div>`).join('') + `<p class="hint">${alerts.length} parcela(s) vencida(s). Para atualizar, importe de novo Vendas em Aberto.</p>` : '<p class="muted small">Importe Vendas em Aberto para ativar esta análise.</p>'}</section></div>
     <div class="fin-footnotes"><details><summary>Conferência entre relatórios</summary><div class="stat-line"><span>Contas a Receber · bruto confirmado</span><b>${FIN_REPORTS.receivables ? money(summary.gross) : '—'}</b></div><div class="stat-line"><span>Aguardando confirmação</span><b>${FIN_REPORTS.receivables ? summary.pendingConfirmation.length + ' linha(s)' : '—'}</b></div><div class="stat-line"><span>Fluxo de Caixa · entradas</span><b>${summary.flow ? money(summary.flow.total) : '—'}</b></div><div class="stat-line"><span>Diferença a investigar</span><b>${difference === null ? '—' : money(difference)}</b></div><p class="hint">O fluxo pode ter valores e datas de competência diferentes. Nenhuma diferença é lançada automaticamente.</p></details>
       <details><summary>Conta Digital e lançamentos</summary><div class="stat-line"><span>Depósitos PIX</span><b>${FIN_REPORTS.statement ? money(summary.bankDeposits) : '—'}</b></div><div class="stat-line"><span>Tarifas no extrato</span><b>${FIN_REPORTS.statement ? money(summary.bankFees) : '—'}</b></div><div class="stat-line"><span>Transferências</span><b>${FIN_REPORTS.statement ? money(summary.bankTransfers) : '—'}</b></div><div class="stat-line"><span>Entradas manuais</span><b>${money(manualIn)}</b></div><div class="stat-line"><span>Saídas manuais</span><b>${money(manualOut)}</b></div><p class="hint">Depósitos do extrato servem para conferência; não são somados novamente aos recebimentos.</p></details></div>
-    <div class="fin-alert-preview"><div class="panel-head" style="padding:0 0 12px;border:0"><div><h2>Mensalidades que pedem atenção</h2><div class="sub">Última fotografia de Vendas em Aberto</div></div><button class="btn sm" data-act="fin-tab" data-tab="alerts">Ver alertas</button></div>
-      ${FIN_REPORTS.open ? (alerts.length ? alerts.slice(0, 4).map(row => `<div class="stat-line"><span><b>${esc(row.name)}</b><small class="muted"> · ${row.days} dias de atraso</small></span><strong>${money(row.alertAmount)}</strong></div>`).join('') : '<p class="muted small">Nenhuma mensalidade vencida no relatório importado.</p>') : '<p class="muted small">Importe Vendas em Aberto para mostrar alertas.</p>'}</div>
+    <div class="fin-alert-preview"><div class="panel-head" style="padding:0 0 12px;border:0"><div><h2>Mensalidades que pedem atenção</h2><div class="sub">Mais atrasadas, segundo o último relatório de Vendas em Aberto</div></div><button class="btn sm" data-act="fin-tab" data-tab="alerts">Ver alertas</button></div>
+      ${FIN_REPORTS.open ? (alerts.length ? alerts.slice(0, 4).map(row => `<div class="stat-line"><span><b>${esc(displayName(finContactFor(row)?.athlete.name || row.name))}</b><small class="muted"> · ${row.days} dias de atraso</small></span><strong>${money(row.alertAmount)}</strong></div>`).join('') : '<p class="muted small">Nenhuma mensalidade vencida no relatório importado.</p>') : '<p class="muted small">Importe Vendas em Aberto para mostrar alertas.</p>'}</div>
   </div>`;
 }
 function finReceiptsHtml(summary) {
@@ -122,31 +121,91 @@ function finFlowHtml(key, summary) {
     ${flow ? Object.entries(flow.categories).filter(([, v]) => v).sort((a, b) => b[1] - a[1]).map(([name, amount]) => `<div class="stat-line"><span>${esc(name)}</span><b>${money(amount)}</b></div>`).join('') : ''}
     <h3 class="mt2">Histórico no arquivo</h3><div class="table-wrap"><table><thead><tr><th>Mês</th><th class="num">Entradas</th></tr></thead><tbody>${FIN_REPORTS.flow.data.map(r => `<tr><td>${monthLabel(r.month)}</td><td class="num">${money(r.total)}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
+// Sugestões de atleta para um nome do Tecnofit: compara as palavras do nome (sem acentos e partículas).
+const finNameTokens = v => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(w => w && !NAME_PARTICLES.has(w));
+function finLinkSuggestions(clientId, reportName, limit = 3) {
+  const target = finNameTokens(reportName), full = target.join(' ');
+  return ATHLETES.filter(a => a.active && (!a.tecnofitClientId || String(a.tecnofitClientId) === String(clientId))).map(a => {
+    const tokens = finNameTokens(a.name), shared = tokens.filter(w => target.includes(w)).length;
+    const exact = tokens.join(' ') === full;
+    const score = exact ? 1 : shared / new Set([...tokens, ...target]).size + (tokens[0] === target[0] ? .15 : 0);
+    return { athlete: a, score, exact };
+  }).filter(x => x.score >= .4).sort((x, y) => y.score - x.score).slice(0, limit);
+}
+const finUniqueExact = r => { const s = finLinkSuggestions(r.clientId, r.name, 5).filter(x => x.exact); return s.length === 1 ? s[0].athlete : null; };
 function finAlertsHtml() {
   if (!FIN_REPORTS.open) return `<div class="panel-pad">${emptyState('Alertas aguardando relatório', 'Vendas em Aberto informa vencimento e saldo. Importe-o desde o primeiro mês com possível débito.')}</div>`;
-  const alerts = finAlertRows(), upcoming = finOpenInstallments().filter(r => r.date >= ymd(TODAY));
+  const all = finAlertRows(), upcoming = finOpenInstallments().filter(r => r.date >= ymd(TODAY));
   const review = FIN_REPORTS.open.data.filter(r => r.needsReview);
-  const clients = new Set(alerts.map(r => r.clientId));
+  const clients = new Set(all.map(r => r.clientId));
   const dates = FIN_REPORTS.open.data.flatMap(r => r.dueDates).sort();
-  return `<div class="panel-pad"><div class="grid g3">${finKpi('Atletas com atraso', String(clients.size), `${alerts.length} registro(s)`, 'users')}${finKpi('Saldo vencido', money(finSum(alerts, 'alertAmount')), 'Total em aberto vencido', 'alert')}${finKpi('A vencer', money(finSum(upcoming, 'amount')), `${upcoming.length} parcela(s) no prazo`, 'clock')}</div>
-  <p class="hint mt">Vencimentos presentes no arquivo: ${finDateLabel(dates[0])} a ${finDateLabel(dates.at(-1))}. Este intervalo mostra as linhas encontradas; não comprova que períodos anteriores foram incluídos no filtro de exportação.</p>
-  <div class="banner note mt">${icon('info')}<span class="small">O status “Bloqueado” do cliente não define atraso. A regra é <b>vencimento anterior a hoje + saldo em aberto positivo</b>. O WhatsApp só aparece após vincular o código Tecnofit ao cadastro do atleta. Para menores, exige telefone do responsável.</span></div>
-  ${review.length ? `<div class="banner warn mt">${icon('alert')}<span>${review.length} linha(s) têm vencimentos e valores que não puderam ser associados. Elas não entram nos totais de alerta; confira o arquivo original antes de agir.</span></div>` : ''}</div>
-  <div class="table-wrap"><table><thead><tr><th>Atleta / cliente</th><th>Mensalidade</th><th>Vencimento</th><th class="num">Dias</th><th class="num">Saldo vencido</th><th>Alerta</th><th>Contato</th></tr></thead><tbody>${alerts.map(r => {
-    const contact = finContactFor(r), href = contact?.name && finWhatsappHref(contact.phone);
-    return `<tr><td><strong>${esc(contact?.athlete.name || r.name)}</strong><div class="hint">Cód. Tecnofit ${esc(r.clientId)}${contact && contact.athlete.name !== r.name ? ` · Relatório: ${esc(r.name)}` : ''}</div></td><td>${esc(r.item)}</td><td>${r.dueDates.map(finDateLabel).join(' · ')}</td><td class="num">${r.days}</td><td class="num"><strong>${money(r.alertAmount)}</strong></td><td><span class="tag ${r.days > 60 ? 'st-bad' : r.days > 30 ? 'st-warn' : 'st-info'}">${r.days > 60 ? 'Prioritário' : r.days > 30 ? 'Acompanhar' : 'Recente'}</span>${r.dueDates.length > 1 ? '<div class="hint">Vencimentos agrupados</div>' : ''}</td><td>${href ? `<a class="btn sm wa" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Abrir WhatsApp de ${esc(contact.name)}">${icon('whatsapp')} WhatsApp</a><div class="hint">${contact.minor ? 'Responsável: ' : ''}${esc(contact.name)} · ${esc(fmtPhone(contact.phone))}</div>` : contact ? `<span class="hint">${contact.minor ? 'Cadastre nome e WhatsApp do responsável' : 'Cadastre o WhatsApp do atleta'}</span>` : `<button class="btn sm" data-act="fin-link-athlete" data-client="${esc(r.clientId)}" data-name="${esc(r.name)}" data-edit>Vincular atleta</button>`}</td></tr>`;
-  }).join('') || '<tr><td colspan="7" class="muted">Nenhuma mensalidade vencida no arquivo.</td></tr>'}</tbody></table></div>`;
+  const unlinked = all.filter(r => !finContactFor(r));
+  const exact = canEdit('finance') ? [...new Map(unlinked.filter(finUniqueExact).map(r => [r.clientId, r])).values()] : [];
+  const f = S.fin.alertFilter, alerts = f === 'unlinked' ? unlinked : f === 'linked' ? all.filter(r => finContactFor(r)) : all;
+  const filters = [['', `Todos (${all.length})`], ['unlinked', `Sem vínculo (${unlinked.length})`], ['linked', `Com contato (${all.length - unlinked.length})`]];
+  const exactBtn = exact.length ? ` <button class="btn sm primary" data-act="fin-link-exact" data-edit style="margin-left:6px">Vincular ${exact.length} com nome idêntico</button>` : '';
+  return `<div class="panel-pad"><div class="grid g3 kpis">${finKpi('Atletas com atraso', String(clients.size), `${all.length} parcela(s)`, 'users')}${finKpi('Saldo vencido', money(finSum(all, 'alertAmount')), 'Total em aberto vencido', 'alert')}${finKpi('A vencer', money(finSum(upcoming, 'amount')), `${upcoming.length} parcela(s) no prazo`, 'clock')}</div>
+  <p class="hint mt">Vencimentos no relatório importado: ${finDateLabel(dates[0])} a ${finDateLabel(dates.at(-1))}. Atraso = vencimento anterior a hoje com saldo em aberto (o status “Bloqueado” do Tecnofit não é usado).</p>
+  ${review.length ? `<div class="banner warn mt">${icon('alert')}<span>${review.length} linha(s) têm vencimentos e valores que não puderam ser associados. Elas não entram nos totais de alerta; confira o arquivo original antes de agir.</span></div>` : ''}
+  ${unlinked.length ? `<div class="banner note mt">${icon('info')}<span class="small"><b>${new Set(unlinked.map(r => r.clientId)).size} cliente(s) do Tecnofit ainda sem atleta vinculado.</b> Vincular uma vez libera o WhatsApp de cobrança nas próximas importações.${exactBtn}</span></div>` : ''}
+  <div class="seg mt" role="group" aria-label="Filtrar alertas">${filters.map(([v, l]) => `<button class="${f === v ? 'on' : ''}" data-act="fin-alert-filter" data-v="${v}">${l}</button>`).join('')}</div></div>
+  <div class="table-wrap"><table class="cards"><thead><tr><th>Atleta / cliente</th><th>Contato</th><th>Mensalidade</th><th class="num">Atraso</th><th class="num">Saldo vencido</th></tr></thead><tbody>${alerts.map(finAlertRow).join('') || `<tr><td colspan="5" class="muted">${f ? 'Nenhum alerta neste filtro.' : 'Nenhuma mensalidade vencida no arquivo.'}</td></tr>`}</tbody></table></div>`;
+}
+function finAlertRow(r) {
+  const contact = finContactFor(r), href = contact?.name && finWhatsappHref(contact.phone);
+  const best = !contact && canEdit('finance') ? finLinkSuggestions(r.clientId, r.name, 1)[0] : null;
+  const tone = r.days > 60 ? 'st-bad' : r.days > 30 ? 'st-warn' : 'st-info';
+  let action;
+  if (href) action = `<a class="btn sq wa-ghost" href="${href}" target="_blank" rel="noopener noreferrer" title="WhatsApp de ${esc(displayName(contact.name))}" aria-label="Abrir WhatsApp de ${esc(displayName(contact.name))}">${icon('whatsapp')}</a>`;
+  else if (contact) action = `<span class="hint">${contact.minor ? 'Falta WhatsApp do responsável' : 'Falta WhatsApp do atleta'}</span>`;
+  else if (best && best.score >= .75) action = `<button class="btn sm" data-act="fin-link-quick" data-client="${esc(r.clientId)}" data-athlete="${esc(best.athlete.id)}" data-edit title="Vincular ao cadastro ${esc(displayName(best.athlete.name))}">Vincular a ${esc(displayName(best.athlete.name).split(' ')[0])}</button>`;
+  else action = `<button class="btn sm" data-act="fin-link-athlete" data-client="${esc(r.clientId)}" data-name="${esc(r.name)}" data-edit>Vincular atleta</button>`;
+  const name = displayName(contact?.athlete.name || r.name);
+  const sub = `Cód. Tecnofit ${esc(r.clientId)}${contact && contact.athlete.name !== r.name ? ` · no relatório: ${esc(displayName(r.name))}` : ''}${contact ? ` · ${contact.minor ? 'resp. ' : ''}${esc(displayName(contact.name))}` : ''}`;
+  return `<tr><td class="c-main"><strong>${esc(name)}</strong><div class="hint">${sub}</div></td>
+    <td class="c-act">${action}</td>
+    <td class="c-sub" data-label="Mensalidade">${esc(tecnofitItem(r.item))}<div class="hint">Venc. ${r.dueDates.map(finDateLabel).join(' · ')}</div></td>
+    <td class="c-sub num" data-label="Atraso"><span class="tag nodot ${tone}">${r.days} dias</span></td>
+    <td class="c-status num"><strong>${money(r.alertAmount)}</strong></td></tr>`;
 }
 function finLinkAthleteForm(clientId, reportName) {
   if (!canEdit('finance')) return;
-  const normalized = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-  const athletes = ATHLETES.filter(a => a.active).sort((a, b) =>
-    Number(normalized(b.name) === normalized(reportName)) - Number(normalized(a.name) === normalized(reportName))
-    || a.name.localeCompare(b.name, 'pt-BR'));
-  openDialog(dHead('Vincular código Tecnofit', esc(reportName), `Código ${esc(clientId)}`) +
-    `<div class="d-body"><p class="small">Confira o cadastro antes de vincular. Nomes parecidos não são associados automaticamente. Para menores, confirme também o WhatsApp do responsável no cadastro.</p>
-    <div class="field"><label for="finLinkAthlete">Atleta da Apollo</label><select class="select" id="finLinkAthlete"><option value="">Selecione o atleta correto</option>${athletes.map(a => `<option value="${esc(a.id)}">${esc(a.name)} · ${esc(teamOf(a.teamId)?.name || 'sem equipe')}${a.tecnofitClientId ? ` · já vinculado a ${esc(a.tecnofitClientId)}` : ''}</option>`).join('')}</select></div>
-    <div class="err" id="finLinkError" role="alert"></div></div><div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="fin-link-save" data-client="${esc(clientId)}" data-edit>Confirmar vínculo</button></div>`, 'drawer');
+  const suggestions = finLinkSuggestions(clientId, reportName);
+  const others = ATHLETES.filter(a => a.active && !suggestions.some(x => x.athlete.id === a.id)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const opt = a => `<option value="${esc(a.id)}">${esc(displayName(a.name))} · ${esc(teamOf(a.teamId)?.name || 'sem equipe')}${a.tecnofitClientId ? ` · já vinculado a ${esc(a.tecnofitClientId)}` : ''}</option>`;
+  const card = x => `<button class="pending-item" data-act="fin-link-quick" data-client="${esc(clientId)}" data-athlete="${esc(x.athlete.id)}" data-edit><b style="font-size:13px">${x.exact ? 'Igual' : x.score >= .75 ? 'Alta' : 'Média'}</b><span><strong>${esc(displayName(x.athlete.name))}</strong><small>${esc(teamOf(x.athlete.teamId)?.name || 'sem equipe')}${x.athlete.parentName ? ' · resp. ' + esc(displayName(x.athlete.parentName)) : ''}</small></span>${icon('arrow')}</button>`;
+  openDialog(dHead('Vincular código Tecnofit', esc(displayName(reportName)), `Código ${esc(clientId)}`) +
+    `<div class="d-body">${suggestions.length ? `<h3>Sugestões pelo nome</h3><div class="grid" style="gap:8px;margin:8px 0 16px">${suggestions.map(card).join('')}</div>` : '<p class="small">Nenhum cadastro com nome parecido. Escolha o atleta na lista.</p>'}
+    <div class="field"><label for="finLinkAthlete">Ou escolha outro atleta</label><select class="select" id="finLinkAthlete"><option value="">Selecione o atleta correto</option>${others.map(opt).join('')}</select></div>
+    <p class="hint">Confira equipe e responsável antes de vincular: o vínculo vale para as próximas importações.</p>
+    <div class="err" id="finLinkError" role="alert"></div></div><div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="fin-link-save" data-client="${esc(clientId)}" data-edit>Vincular selecionado</button></div>`, 'drawer');
+}
+async function finLinkQuick(clientId, athleteId) {
+  if (!canEdit('finance')) return;
+  const athlete = ATHLETES.find(a => a.id === athleteId); if (!athlete) return;
+  const ok = await confirmBox({ title: 'Vincular este cadastro?', text: `Código Tecnofit <b>${esc(clientId)}</b> → <b>${esc(displayName(athlete.name))}</b> (${esc(teamOf(athlete.teamId)?.name || 'sem equipe')}).`, ok: 'Vincular' });
+  if (!ok) return;
+  try {
+    const { error } = await financeDbClient().rpc('v2_link_tecnofit_client', { p_athlete: athleteId, p_client_id: clientId });
+    if (error) throw error;
+    closeDialog(); await liveReload(); toast(`${displayName(athlete.name)} vinculado ao código ${clientId}.`);
+  } catch (error) { toast(`Não foi possível vincular: ${error.message}`, true); }
+}
+async function finLinkExactMatches() {
+  if (!canEdit('finance')) return;
+  const unlinked = [...new Map(finAlertRows().filter(r => !finContactFor(r)).map(r => [r.clientId, r])).values()];
+  const pairs = unlinked.map(r => ({ r, a: finUniqueExact(r) })).filter(x => x.a);
+  if (!pairs.length) return toast('Nenhum nome idêntico pendente.');
+  const list = pairs.slice(0, 12).map(x => `${esc(displayName(x.a.name))} → cód. ${esc(x.r.clientId)}`).join('<br>') + (pairs.length > 12 ? `<br>… e mais ${pairs.length - 12}` : '');
+  const ok = await confirmBox({ title: `Vincular ${pairs.length} cadastro(s) com nome idêntico?`, text: `Cada código do Tecnofit tem exatamente um atleta ativo com o mesmo nome:<br><br>${list}`, ok: 'Vincular todos' });
+  if (!ok) return;
+  let failed = 0;
+  for (const { r, a } of pairs) {
+    const { error } = await financeDbClient().rpc('v2_link_tecnofit_client', { p_athlete: a.id, p_client_id: r.clientId });
+    if (error) failed++;
+  }
+  await liveReload();
+  toast(failed ? `${pairs.length - failed} vinculado(s); ${failed} não puderam ser vinculados.` : `${pairs.length} atleta(s) vinculados.`, !!failed);
 }
 async function finLinkAthleteSave(clientId) {
   if (!canEdit('finance')) return;
@@ -208,7 +267,7 @@ function finCoverageState(type, month) {
 function finImportsHtml() {
   const account = FIN_DB.authorized ? FIN_DB.session?.user?.email : '';
   return `<div class="panel-pad"><h3>Importação individual por relatório</h3><p class="muted small">Cada arquivo é tratado e gravado separadamente. O arquivo original não é enviado ao banco. A cobertura abaixo usa o período informado por quem exportou; confira sempre o filtro aplicado no Tecnofit.</p>
-    ${account ? `<div class="banner note">${icon('check')}<span>Conectado como <b>${esc(account)}</b> · ${FIN_DB.canImport ? 'visualização e importação' : 'somente visualização'}. <button class="btn sm" data-act="fin-db-refresh">Atualizar dados</button></span></div>` : `<div class="banner warn">${icon('alert')}<span>Esta conta precisa ser autorizada na tabela finance_access para consultar ou importar relatórios.</span></div>`}
+    ${account ? `<div class="banner note">${icon('check')}<span>Conectado como <b>${esc(account)}</b> · ${FIN_DB.canImport ? 'visualização e importação' : 'somente visualização'}. <button class="btn sm" data-act="fin-db-refresh">Atualizar dados</button></span></div>` : `<div class="banner warn">${icon('alert')}<span>Esta conta ainda não tem permissão para consultar ou importar relatórios financeiros. Peça a um administrador.</span></div>`}
     ${FIN_DB.error ? `<p class="err mt" role="alert">${esc(FIN_DB.error)}</p>` : ''}</div>
     <div class="panel-pad"><div class="grid g2">${Object.entries(finReportNames).map(([type, name]) => finCoverageCard(type, name)).join('')}</div></div>
     <details class="fin-export-guide"><summary>Onde exportar, formato e período de cada relatório</summary>${finGuide()}</details>
@@ -220,7 +279,7 @@ function renderFinanceV3() {
   const content = { summary: () => finVisualSummaryHtml(key, summary), receipts: () => finReceiptsHtml(summary), statement: () => finStatementHtml(summary), flow: () => finFlowHtml(key, summary), alerts: finAlertsHtml, manual: () => finManualHtml(key), imports: finImportsHtml };
   if (!content[S.fin.tab]) S.fin.tab = 'summary';
   return `${viewBanner('finance')}<div class="page-head"><div><div class="eyebrow">Finanças · Tecnofit</div><h1>Financeiro</h1><p>Recebimentos, movimentações, fluxo de caixa e alertas de mensalidades com origem explícita.</p></div><div class="head-actions"><select class="select" id="finMonth" aria-label="Mês" style="width:auto">${monthOptions(key, 12)}</select><button class="btn" data-act="fin-tab" data-tab="imports">Importações</button><button class="btn primary" data-act="finance-manual-new" data-edit>${icon('plus')} Lançamento manual</button></div></div>
-  ${finHasImports() ? `<div class="banner note">${icon('info')}<span>Dados financeiros carregados do banco. ${!FIN_REPORTS.open ? 'Alertas aguardam Vendas em Aberto.' : `${alerts.length} mensalidade(s) vencida(s) na última fotografia.`}</span></div>` : `<div class="banner note">${icon('info')}<span><b>Comece pelas exportações do Tecnofit.</b> Abra “Importações” para enviar cada relatório e conferir os meses cobertos.</span></div>`}
+  ${finHasImports() ? `<div class="banner note">${icon('info')}<span>${FIN_REPORTS.open?.at || FIN_REPORTS.receivables?.at ? `Relatórios do Tecnofit importados até ${fmtStamp(FIN_REPORTS.open?.at || FIN_REPORTS.receivables?.at)}. ` : ''}${!FIN_REPORTS.open ? 'Os alertas aparecem depois de importar Vendas em Aberto.' : `${alerts.length} mensalidade(s) vencida(s) de ${new Set(alerts.map(a => a.clientId)).size} atleta(s).`}</span></div>` : `<div class="banner note">${icon('info')}<span><b>Comece pelas exportações do Tecnofit.</b> Abra “Importações” para enviar cada relatório e conferir os meses cobertos.</span></div>`}
   <section class="panel"><div class="tabs fin-tabs">${tabs.map(([id, name]) => `<button class="${S.fin.tab === id ? 'on' : ''}" data-act="fin-tab" data-tab="${id}">${name}</button>`).join('')}</div>${content[S.fin.tab]()}</section>`;
 }
 function financeManualForm() {

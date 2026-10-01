@@ -38,7 +38,7 @@ function athletesProjectionHTML() {
       <div class="panel-pad">${lineChart({ labels: [...months, ...future].map(m => MON[m.getMonth()]), series: [{ values: [...real, null, null, null], color: 'var(--ok)', area: true }, { values: proj, color: 'var(--info)', dash: true }], fmt: v => Math.round(v) })}</div></section>
     <section class="panel"><div class="panel-head"><div><h2>Próximos 90 dias</h2><div class="sub">Cenário base · sem dados financeiros</div></div></div>
       <div class="panel-pad">${lines.map(([k, v]) => `<div class="stat-line"><span class="muted">${k} ${metricInfo(k)}</span><b>${v}</b></div>`).join('')}
-      <div class="banner note mt" style="margin-bottom:0">${icon('shield')}<span class="small">Receitas e demais indicadores financeiros ficam disponíveis apenas para os perfis Administrador e Financeiro.</span></div></div></section>
+      <div class="banner note mt" style="margin-bottom:0">${icon(seesFinance() ? 'info' : 'shield')}<span class="small">${seesFinance() ? 'A projeção de receita aparece quando houver pelo menos 3 meses completos de Contas a Receber importados.' : 'Receitas e demais indicadores financeiros ficam disponíveis apenas para os perfis Administrador e Financeiro.'}</span></div></div></section>
   </div>`;
 }
 
@@ -110,4 +110,53 @@ function renderCoachOverview() {
         ${comps.length ? `<ul class="list">${comps.map(compLi).join('')}</ul>` : '<div class="panel-pad muted small">Nenhuma competição agendada.</div>'}</section>
     </div>
   </div>`;
+}
+
+/* ═══ v2.9 · Resumo financeiro e Pendências na Visão geral ═══ */
+const fmtStamp = iso => { if (!iso) return ''; const d = new Date(iso); return `${fmtShort(d)} às ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+// Um número principal (recebido líquido) e dois de apoio (vencido, a vencer), com a data da última importação.
+function ovFinanceHTML() {
+  if (!finHasImports()) return `<div class="empty-cta">${icon('upload')}<p><b>Importe os relatórios do Tecnofit</b> para ver aqui o recebido no mês, as mensalidades vencidas e o que ainda vai vencer.</p><button class="btn primary" data-act="ov-finance" data-tab="imports">Ir para importações</button></div>`;
+  const r = finSummary(CUR_MONTH), alerts = finAlertRows();
+  const overdue = alerts.reduce((s, x) => s + x.alertAmount, 0), athletes = new Set(alerts.map(x => x.clientId)).size;
+  const upcoming = finOpenInstallments().filter(x => x.date >= ymd(TODAY));
+  const stamp = FIN_REPORTS.receivables?.at || FIN_REPORTS.open?.at;
+  return `<div class="ov-fin">
+    <div class="ov-main"><div class="lbl">Recebido no mês (líquido) ${metricInfo('Recebido líquido')}</div><div class="val">${FIN_REPORTS.receivables ? money(r.net) : '—'}</div><small>${FIN_REPORTS.receivables ? `Bruto ${money(r.gross)} · taxas ${money(r.fees)} · ${r.paid.length} recebimento(s)` : 'Importe Contas a Receber'}</small></div>
+    <div><div class="lbl">Mensalidades vencidas ${metricInfo('Em atraso')}</div><div class="val" style="color:${overdue ? 'var(--brand-ink)' : 'inherit'}">${FIN_REPORTS.open ? money(overdue) : '—'}</div><small>${FIN_REPORTS.open ? `${athletes} atleta(s) com atraso` : 'Importe Vendas em Aberto'}</small>${FIN_REPORTS.open && athletes ? `<button class="btn sm link" data-act="ov-finance" data-tab="alerts">Ver alertas ${icon('arrow')}</button>` : ''}</div>
+    <div><div class="lbl">A vencer ${metricInfo('A vencer')}</div><div class="val">${FIN_REPORTS.open ? money(upcoming.reduce((s, x) => s + x.amount, 0)) : '—'}</div><small>${FIN_REPORTS.open ? `${upcoming.length} parcela(s) dentro do prazo` : 'Importe Vendas em Aberto'}</small></div>
+  </div><div class="ov-fin-foot"><span>Mês de referência: ${MONTHS[TODAY.getMonth()]} de ${TODAY.getFullYear()}${stamp ? ` · Tecnofit importado em ${fmtStamp(stamp)}` : ''}</span><button class="btn sm ghost" data-act="ov-finance" data-tab="summary">Abrir Financeiro ${icon('arrow')}</button></div>`;
+}
+// Trabalho pendente reunido num só lugar; cada item abre a lista já filtrada.
+function pendingItems() {
+  const items = [];
+  const mine = myTeamIds();
+  if (canView('bookings')) {
+    const stale = BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS.stale[1](b)).length;
+    const guardian = BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS.guardian[1](b)).length;
+    if (stale) items.push({ k: 'stale', n: stale, label: 'testes já realizados sem resultado', hint: 'Registre se compareceu, faltou ou foi aprovado', tone: 'warn' });
+    if (guardian) items.push({ k: 'guardian', n: guardian, label: 'menores com responsável a confirmar', hint: 'Nome do responsável igual ao do atleta', tone: 'warn' });
+  }
+  if (canView('finance') && FIN_REPORTS.open) {
+    const unlinked = new Set(finAlertRows().filter(r => !finContactFor(r)).map(r => r.clientId)).size;
+    if (unlinked) items.push({ k: 'unlinked', n: unlinked, label: 'atrasos sem atleta vinculado', hint: 'Vincule para liberar o WhatsApp de cobrança', tone: 'bad' });
+  }
+  if (canView('athletes')) {
+    if (seesFinance() && PLANS.length) { const n = ATHLETES.filter(a => mine.includes(a.teamId) && ATHLETE_FILTERS.noplan[1](a)).length; if (n) items.push({ k: 'noplan', n, label: 'atletas com plano fora do catálogo', hint: 'Escolha um pacote vigente no cadastro', tone: '' }); }
+    const noContact = ATHLETES.filter(a => mine.includes(a.teamId) && ATHLETE_FILTERS.nocontact[1](a)).length;
+    if (noContact) items.push({ k: 'nocontact', n: noContact, label: 'atletas sem WhatsApp de contato', hint: 'Para menores, o do responsável', tone: '' });
+  }
+  if (canView('teams')) { const n = TEAMS.filter(t => t.active && mine.includes(t.id) && !t.coach).length; if (n) items.push({ k: 'nocoach', n, label: n === 1 ? 'equipe sem técnico' : 'equipes sem técnico', hint: 'Defina o técnico responsável', tone: '' }); }
+  return items;
+}
+function pendingHTML() {
+  const items = pendingItems();
+  if (!items.length) return '';
+  return `<div class="section-title" style="margin-top:0"><h2>Pendências</h2></div><div class="pending">${items.map(i => `<button class="pending-item ${i.tone}" data-act="pending-go" data-k="${i.k}"><b>${i.n}</b><span>${i.label}<small>${i.hint}</small></span>${icon('arrow')}</button>`).join('')}</div>`;
+}
+function pendingGo(k) {
+  if (k === 'stale' || k === 'guardian') { Object.assign(S.bk, { pending: k, q: '', status: '', team: '', kpi: '', archived: false }); S.bk.sel.clear(); return go('bookings'); }
+  if (k === 'noplan' || k === 'nocontact') { Object.assign(S.at, { pending: k, q: '', status: '', team: '' }); return go('athletes'); }
+  if (k === 'unlinked') { S.fin.tab = 'alerts'; S.fin.alertFilter = 'unlinked'; return go('finance'); }
+  if (k === 'nocoach') { S.tm.n = 'all'; return go('teams'); }
 }

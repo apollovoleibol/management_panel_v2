@@ -177,7 +177,7 @@ function financeImportWizard(type) {
   FIN_STAGED = null;
   const format = { receivables: '.xlsx', open: '.xls', flow: '.xls', statement: '.csv' }[type];
   openDialog(dHead(`Importar ${finReportNames[type]}`, 'Tecnofit', 'Somente dados tratados serão gravados') + `<div class="d-body">
-    <p class="muted small">Escolha um único arquivo ${format}. O navegador extrai os registros; o arquivo original não é enviado nem guardado no banco. Depois informe o período completo usado no filtro do Tecnofit. Reimportar substitui os dados deste período${type === 'open' ? ' e toda a fotografia anterior de vendas em aberto' : ''}.</p>
+    <p class="muted small">Escolha um único arquivo ${format}. O navegador extrai os registros; o arquivo original não é enviado nem guardado no banco. Depois informe o período completo usado no filtro do Tecnofit. Reimportar substitui os dados deste período${type === 'open' ? ' e todo o relatório anterior de Vendas em Aberto' : ''}.</p>
     <button class="btn sm mb" data-act="fin-goto" data-tab="imports">Ver onde exportar, formato e período de cada arquivo</button>
     <label class="dropzone" style="display:block;cursor:pointer">${icon('upload')}<h3>Escolher ${finReportNames[type]}</h3><p class="muted small">Formato ${format}</p><input id="finFiles" type="file" accept="${format}" class="sr"></label>
     <div id="finFileReview" class="mt"></div><div class="err" id="finFileError" role="alert"></div></div><div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="finance-import-commit" data-edit disabled>Gravar dados tratados</button></div>`, 'drawer wide');

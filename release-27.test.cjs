@@ -53,13 +53,13 @@ test('a date closed to trial bookings still counts as training until separately 
     addDays: (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days),
     ymd: date => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'),
     myTeamIds: () => ['team-1'], toMin: value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3)),
-    coachOf: () => null, NCLASS: () => 'novo', nucleusLabel: value => value, esc: value => value, icon: () => '',
-    DOW: ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'], MONTHS: ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],
+    coachOf: () => null, NCLASS: () => 'novo', nucleusOf: id => scope.NUCLEI.find(n => n.id === id), nucleusLabel: value => value, esc: value => value, icon: () => '',
+    DOW: ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'], DOW_FULL: ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'], MONTHS: ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],
     MON: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], pad: n => String(n).padStart(2, '0')
   });
   vm.runInContext(fs.readFileSync('js/pages-ops.js', 'utf8'), scope);
   let html = vm.runInContext('weekCalendarHTML()', scope);
-  assert.match(html, /1 treinos na semana/);
+  assert.match(html, /1 treino na semana/);
   assert.match(html, /sem novos testes/);
   assert.doesNotMatch(html, /treino cancelado/);
   team.cancelled.push('2026-09-30');

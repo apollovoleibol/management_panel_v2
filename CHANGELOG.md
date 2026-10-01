@@ -1,5 +1,19 @@
 # Histórico de versões
 
+## v2.9 — 2026-09-30
+
+- Visão geral começa por um bloco de **Pendências** (testes sem resultado, responsável a confirmar, atrasos sem vínculo, planos fora do catálogo, atletas sem contato, equipes sem técnico), cada uma levando à lista já filtrada.
+- Resumo financeiro da visão geral simplificado: recebido líquido em destaque, atrasos e valores a vencer, mês de referência e data da importação. Perfis sem acesso financeiro veem indicadores operacionais.
+- Núcleos com cores próprias e consistentes em etiquetas, agenda e cartões, nos temas claro e escuro.
+- Agenda com horário ajustado aos treinos da semana, no máximo três colunas por horário com "+N", resumo do dia e lista no celular ou em semanas com poucos treinos.
+- Agendamentos: resultado do teste em um clique (Compareceu, Faltou, Aprovado, Matriculado, Cancelado), seleção em lote para mudar status ou arquivar, aviso de filtro ativo e WhatsApp discreto.
+- Agendamentos e atletas viram cartões no celular; nomes em caixa alta ou minúscula são exibidos corretamente.
+- Alertas de mensalidade: filtros Sem vínculo/Com contato, sugestões de atleta por nome e vínculo em lote dos nomes idênticos. Itens do Tecnofit aparecem resumidos.
+- Financeiro: composição bruto/taxas sem repetir o total, gráfico com uma série por vez, menos jargão.
+- Contadores do menu neutros, vermelhos apenas com atraso acima de 60 dias.
+- Núcleos vazios oferecem "Criar equipe aqui"; pacotes explicam atletas fora do catálogo; fluxo do Chatbot Feeder recolhível; pagamentos sem lançamentos indicam o próximo passo; configurações destacam "Você" e resumem permissões em texto.
+- Contraste do botão principal e do WhatsApp ajustado para leitura (WCAG AA).
+
 ## v2.8 — 2026-09-30
 
 - Coleta de primeira resposta do assistente, tempo até gravar novo agendamento, encaminhamento humano e satisfação opcional no chatbot.

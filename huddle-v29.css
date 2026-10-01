@@ -1,0 +1,168 @@
+/* Huddle v2.9 — melhorias de UX/UI da varredura de 30/09/2026.
+   Carregado depois de styles.css e huddle-ui.css. */
+
+/* 1 · Cores dos núcleos: 6 tons atribuídos pela ordem de cadastro (contraste ≥ 4,2:1 sobre o fundo suave). */
+:root{
+  --n-nc0:#2a63c0;--n-nc0-soft:#e8effb;--n-nc1:#7b4bbf;--n-nc1-soft:#f1ebfa;--n-nc2:#935a0a;--n-nc2-soft:#fbf1e0;
+  --n-nc3:#0d6f6a;--n-nc3-soft:#e1f4f3;--n-nc4:#c0392b;--n-nc4-soft:#fdecea;--n-nc5:#4a5ab8;--n-nc5-soft:#eceefa;
+  --n-novo:var(--faint);--n-novo-soft:var(--surface-3);
+  --brand-btn:#d8352c;--wa:#15803d;--wa-hover:#116b33;
+}
+:root[data-theme="dark"]{
+  --n-nc0:#7fb0f5;--n-nc0-soft:#1a2a45;--n-nc1:#bb98ea;--n-nc1-soft:#2a2045;--n-nc2:#e8b05a;--n-nc2-soft:#36291a;
+  --n-nc3:#5fd0c8;--n-nc3-soft:#143535;--n-nc4:#f08a80;--n-nc4-soft:#3a1d24;--n-nc5:#9aa6f0;--n-nc5-soft:#1f2348;
+  --brand-btn:#d8352c;--wa:#1f9d52;--wa-hover:#15803d;
+}
+.tag.nc0,.ev.nc0{background:var(--n-nc0-soft);color:var(--n-nc0)}
+.tag.nc1,.ev.nc1{background:var(--n-nc1-soft);color:var(--n-nc1)}
+.tag.nc2,.ev.nc2{background:var(--n-nc2-soft);color:var(--n-nc2)}
+.tag.nc3,.ev.nc3{background:var(--n-nc3-soft);color:var(--n-nc3)}
+.tag.nc4,.ev.nc4{background:var(--n-nc4-soft);color:var(--n-nc4)}
+.tag.nc5,.ev.nc5{background:var(--n-nc5-soft);color:var(--n-nc5)}
+.tag.novo,.ev.novo{background:var(--n-novo-soft);color:var(--muted)}
+.ncard.nc0,.tcard.nc0{--c:var(--n-nc0)}.ncard.nc1,.tcard.nc1{--c:var(--n-nc1)}.ncard.nc2,.tcard.nc2{--c:var(--n-nc2)}
+.ncard.nc3,.tcard.nc3{--c:var(--n-nc3)}.ncard.nc4,.tcard.nc4{--c:var(--n-nc4)}.ncard.nc5,.tcard.nc5{--c:var(--n-nc5)}
+.person .avatar.kid{background:var(--n-nc2-soft);color:var(--n-nc2)}
+
+/* 18 · Contraste dos botões principais e do WhatsApp (texto branco ≥ 4,5:1). */
+.btn.primary{background:var(--brand-btn);border-color:var(--brand-btn)}
+.btn.primary:hover{background:var(--brand-ink);border-color:var(--brand-ink)}
+.wa{background:var(--wa);border-color:var(--wa);color:#fff}
+.wa:hover{background:var(--wa-hover);border-color:var(--wa-hover)}
+/* 6 · Ação de WhatsApp discreta dentro das tabelas */
+.btn.wa-ghost{background:transparent;border-color:var(--line);color:var(--wa)}
+.btn.wa-ghost:hover{background:color-mix(in srgb,var(--wa) 10%,transparent);border-color:var(--wa)}
+.btn.wa-ghost .i{width:17px;height:17px}
+
+/* 13 · Contagens do menu: neutras; vermelho só para o que é urgente */
+.nav .count{background:#ffffff1f;color:#fff}
+.nav .count.urgent{background:var(--brand-btn)}
+
+/* 2 · Agenda semanal legível */
+.ev{padding:6px 8px;font-size:12px;gap:2px;cursor:pointer}
+.ev strong{font-size:12px}
+.ev:focus-visible{outline:2px solid var(--ink);outline-offset:1px;z-index:3}
+.ev-more{position:absolute;border:1px dashed var(--line);border-radius:7px;background:var(--surface-2);color:var(--ink-2);font-size:11.5px;font-weight:650;display:grid;place-items:center;cursor:pointer;padding:0 4px}
+.ev-more:hover{background:var(--surface-3);border-style:solid}
+.cal-gutter span{font-size:11px}
+.cal-list{display:none}
+.cal-list.only{display:block}
+.cal-list .day{padding:12px 20px;border-bottom:1px solid var(--line-2)}
+.cal-list .day:last-child{border-bottom:0}
+.cal-list .day h3{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 0 8px}
+.cal-list .day.today h3{color:var(--brand-ink)}
+.cal-list .item{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;background:transparent;padding:8px 0;color:inherit;cursor:pointer;border-radius:8px}
+.cal-list .item:hover{background:var(--surface-2)}
+.cal-list .item .bar{width:4px;align-self:stretch;border-radius:3px;background:var(--c,var(--faint));height:auto}
+.cal-list .item.nc0{--c:var(--n-nc0)}.cal-list .item.nc1{--c:var(--n-nc1)}.cal-list .item.nc2{--c:var(--n-nc2)}
+.cal-list .item.nc3{--c:var(--n-nc3)}.cal-list .item.nc4{--c:var(--n-nc4)}.cal-list .item.nc5{--c:var(--n-nc5)}
+.cal-list .item strong{display:block;font-size:13.5px}
+.cal-list .item small{display:block;color:var(--muted);font-size:12px}
+.cal-list .item .time{font-variant-numeric:tabular-nums;font-weight:650;font-size:12.5px;min-width:88px}
+.cal-list .item.cancelled strong{text-decoration:line-through;color:var(--muted)}
+.cal-list .empty-day{color:var(--muted);font-size:12.5px}
+@media(max-width:760px){.cal-scroll.grid-view{display:none}.cal-list{display:block}}
+
+/* 5 · Pendências */
+.pending{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin:0 0 6px}
+.pending-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 14px;text-align:left;color:inherit;cursor:pointer;min-width:0;flex:1 1 220px}
+.pending-item:hover{border-color:color-mix(in srgb,var(--ink) 25%,var(--line));background:var(--surface-2)}
+.pending-item b{font-size:20px;font-variant-numeric:tabular-nums;line-height:1}
+.pending-item span{font-size:12.5px;color:var(--ink-2);line-height:1.35}
+.pending-item small{display:block;color:var(--muted);font-size:11.5px}
+.pending-item.warn b{color:var(--warn)}
+.pending-item.bad b{color:var(--brand-ink)}
+.pending-item .i{width:16px;height:16px;color:var(--muted);margin-left:auto;flex-shrink:0}
+.filter-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 20px;background:var(--info-soft);color:var(--ink);font-size:13px;border-bottom:1px solid var(--line-2)}
+.filter-banner .btn{margin-left:auto}
+
+/* 4 · Resumo financeiro da Visão geral: 1 número principal + 2 secundários */
+.ov-fin{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:0;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
+.ov-fin>div{padding:20px 22px;border-right:1px solid var(--line-2);min-width:0;position:relative}
+.ov-fin>div:last-child{border-right:0}
+.ov-fin .lbl{font-size:12px;font-weight:650;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+.ov-fin .val{font-size:30px;font-weight:750;letter-spacing:-.8px;line-height:1.15;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.ov-fin .ov-main .val{font-size:36px}
+.ov-fin small{display:block;color:var(--muted);font-size:12px}
+.ov-fin .metric-info{position:static;display:inline-grid;width:22px;height:22px}
+.ov-fin .link{margin-top:10px}
+.ov-fin-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:8px 2px 0}
+@media(max-width:900px){.ov-fin{grid-template-columns:1fr 1fr}.ov-fin .ov-main{grid-column:1/-1;border-right:0;border-bottom:1px solid var(--line-2)}}
+
+/* 7 · Resultado do teste no painel lateral */
+.quick-status{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.quick-status button{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 11px;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer}
+.quick-status button:hover{border-color:var(--ink-2)}
+.quick-status button.on{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.quick-status button:disabled{opacity:.5;cursor:progress}
+
+/* 7 · Seleção em lote */
+th.sel,td.sel{width:38px;padding-right:0!important}
+.sel input{width:17px;height:17px;accent-color:var(--brand-btn);cursor:pointer}
+.bulk-bar{position:sticky;bottom:12px;z-index:6;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 16px;padding:10px 14px;border-radius:12px;background:var(--nav);color:#fff;box-shadow:var(--shadow-lg)}
+.bulk-bar .select{width:auto;min-width:170px;background:#ffffff14;color:#fff;border-color:#ffffff33}
+.bulk-bar .select option{color:var(--ink)}
+.bulk-bar .btn{background:#ffffff14;border-color:#ffffff33;color:#fff}
+.bulk-bar .btn.primary{background:var(--brand-btn);border-color:var(--brand-btn)}
+.bulk-bar b{font-size:13px}
+.bulk-bar .spacer{flex:1}
+
+/* 3 · Tabelas viram cartões no celular */
+@media(max-width:760px){
+  table.cards thead{display:none}
+  table.cards,table.cards tbody{display:block;width:100%}
+  table.cards tr{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;padding:12px 14px;border-bottom:1px solid var(--line-2);align-items:center}
+  table.cards tr.sep{display:block;padding:8px 14px}
+  table.cards td{border:0;padding:0!important;min-width:0}
+  table.cards td.sel{grid-row:1;grid-column:1}
+  table.cards td.c-main{grid-column:2/4;grid-row:1}
+  table.cards tr:not(:has(td.sel)) td.c-main{grid-column:1/3}
+  table.cards td.c-act{grid-column:3;grid-row:2;justify-self:end}
+  table.cards td.c-sub{grid-column:1/3;font-size:12.5px;color:var(--ink-2)}
+  table.cards td.c-sub::before{content:attr(data-label) ' · ';color:var(--muted);font-size:11.5px}
+  table.cards td.c-status{grid-column:1/-1}
+  table.cards .person strong,table.cards .person small{white-space:normal}
+  table.cards td.c-sub .hint{display:inline}
+  .table-wrap:has(table.cards){overflow-x:visible}
+}
+
+/* 12 · Indicadores em 2 colunas no celular */
+@media(max-width:760px){
+  .grid.g4,.grid.g5,.grid.g3.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpi{min-height:0;padding:14px 14px 12px}
+  .kpi-value{font-size:22px}
+  .kpi .spark{display:none}
+  .kpi-icon{width:30px;height:30px;margin-bottom:8px}
+  .kpi-icon .i{width:19px;height:19px}
+  .metric-info{right:8px;top:8px}
+}
+
+/* 10 · Financeiro sem repetições */
+.fin-breakdown{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:#c3c6d9;font-size:12.5px}
+.fin-breakdown b{color:#fff;font-weight:650}
+.series-toggle{margin:10px 0 0}
+
+/* 14 · Chatbot Feeder */
+.fd-team>summary.panel-head{flex-wrap:nowrap;gap:12px}
+.fd-team>summary.panel-head>div{flex:1;min-width:0}
+.fd-team>summary.panel-head>label{flex-shrink:0}
+.fd-team>summary .hint{flex-basis:100%}
+.flow-details>summary{cursor:pointer;list-style:none}
+.flow-details>summary::-webkit-details-marker{display:none}
+.flow-details>summary .chev{transition:transform .15s}
+.flow-details[open]>summary .chev{transform:rotate(90deg)}
+
+/* 15 · Núcleos com cartões de mesma altura */
+.ngrid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.ngrid .ncard{height:100%}
+.ncard .meta b{color:var(--ink)}
+.ncard .ncard-note{font-size:12px;color:var(--muted)}
+
+/* 17 · Configurações */
+.you-tag{font-size:10.5px;font-weight:700;letter-spacing:.4px;padding:1px 6px;border-radius:5px;background:var(--info-soft);color:var(--info);margin-left:6px;vertical-align:1px}
+
+/* 9 · Estado vazio com próximo passo */
+.empty-cta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:18px 20px;border:1px dashed var(--line);border-radius:12px;background:var(--surface-2);margin-bottom:16px}
+.empty-cta p{margin:0;flex:1;min-width:220px;color:var(--ink-2);font-size:13px}
+
+@media(max-width:760px){.hide-mobile{display:none}}

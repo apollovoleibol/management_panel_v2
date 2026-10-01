@@ -26,8 +26,10 @@ function renderTeams() {
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><div class="eyebrow">Núcleo</div><h3>${esc(n.name)}</h3></div><button class="btn sm" data-act="nucleus-edit" data-id="${n.id}" data-edit>${icon('edit')} Editar</button></div>
       <div class="small"><strong>${esc(n.venue)}</strong><div class="muted">${esc(n.address)}</div>${n.phone ? `<div class="muted">${fmtPhone(n.phone)}</div>` : ''}</div>
       <div class="meta"><span><b>${ts.length}</b>equipes</span><span><b>${ath}</b>atletas ativos</span><span><b>${tr}</b>treinos/semana</span></div>
-      <button class="btn sm" data-act="team-filter" data-n="${n.id}" style="align-self:flex-start">Ver equipes do núcleo ${icon('arrow')}</button></section>`;
-  }).join('')}<button class="ncard add" data-act="nucleus-new" data-edit>${icon('plus')}<strong>Adicionar núcleo</strong><span class="small">Novo local de treino</span></button></div>
+      ${!ts.length ? `<div class="ncard-note">Nenhuma equipe neste núcleo ainda.</div><button class="btn sm" data-act="team-new" data-n="${n.id}" data-edit style="align-self:flex-start">${icon('plus')} Criar equipe aqui</button>`
+        : !ath ? `<span class="tag st-warn nodot" style="align-self:flex-start">${icon('alert')} Equipes sem atletas ativos vinculados</span><button class="btn sm" data-act="team-filter" data-n="${n.id}" style="align-self:flex-start">Ver equipes do núcleo ${icon('arrow')}</button>`
+        : `<button class="btn sm" data-act="team-filter" data-n="${n.id}" style="align-self:flex-start">Ver equipes do núcleo ${icon('arrow')}</button>`}</section>`;
+  }).join('')}</div>
 
   <div class="divider-band"><span>${icon('users')} Equipes</span></div>
   <section class="panel" style="margin-bottom:16px"><div class="toolbar" style="border:0">
@@ -169,7 +171,7 @@ function renderPackages() {
   return `${viewBanner('packages')}
   <div class="page-head"><div><div class="eyebrow">Oferta & organização</div><h1>Pacotes e mensalidades</h1><p>Pacotes por núcleo, vinculados às equipes. Reajustes mostram o impacto antes da confirmação.</p></div>
     <div class="head-actions"><button class="btn primary" data-act="pkg-new" data-edit>${icon('plus')} Criar pacote</button></div></div>
-  <div class="grid g4 mb">${[['Pacotes disponíveis', PLANS.length, `Em ${NUCLEI.length} núcleos`, 'layers'], ['Equipes com pacote', new Set(PLANS.flatMap(p => p.teams)).size, 'Oferta organizada por local', 'pin'], ['Atletas nos pacotes', members, 'Somente cadastros ativos', 'users'], ['Valor mensal previsto', money(sum), 'Estimativa de tabela · não é recebido', 'trend']].map(([l, v, s, i]) => kpiCard([l, v, s, '', i])).join('')}</div>
+  ${(() => { const activeN = ATHLETES.filter(a => a.active).length, outside = activeN - members; return `<div class="grid g4 mb">${[['Pacotes disponíveis', PLANS.length, `Em ${new Set(PLANS.map(p => p.n)).size} de ${NUCLEI.length} núcleos`, 'layers'], ['Equipes com pacote', new Set(PLANS.flatMap(p => p.teams)).size, `de ${TEAMS.filter(t => t.active).length} equipes ativas`, 'pin'], ['Atletas nos pacotes', `${members} <span class="muted" style="font-size:14px;font-weight:500">de ${activeN}</span>`, outside ? `${outside} ativo(s) com plano fora do catálogo` : 'Todos os ativos estão em um pacote', 'users'], ['Valor mensal de tabela', money(sum), `Só dos ${members} atletas nos pacotes · não é o recebido`, 'trend']].map(([l, v, s, i]) => kpiCard([l, v, s, '', i])).join('')}</div>${outside ? `<div class="banner warn">${icon('alert')}<span><b>${outside} atleta(s) ativo(s) têm um plano que não está no catálogo.</b> Eles ficam fora dos totais desta página. <button class="btn sm" data-act="pending-go" data-k="noplan" style="margin-left:6px">Ver atletas</button></span></div>` : ''}`; })()}
   <section class="panel">
     <div class="tabs">${[{ id: 'all', name: 'Todos os núcleos' }, ...NUCLEI].map(n => `<button class="${S.pk.n === n.id ? 'on' : ''}" data-act="pkg-n" data-n="${n.id}">${esc(n.name)} <span class="pill">${n.id === 'all' ? PLANS.length : PLANS.filter(p => p.n === n.id).length}</span></button>`).join('')}</div>
     <div class="toolbar"><div class="search">${icon('search')}<input class="input" id="pkQ" type="search" placeholder="Buscar pacote ou equipe..." value="${esc(S.pk.q)}" aria-label="Buscar pacote"></div>
@@ -182,7 +184,7 @@ function packagesTable() {
     .sort((a, b) => a.n.localeCompare(b.n) || a.days - b.days || a.value - b.value);
   if (!list.length) return emptyState('Nenhum pacote encontrado', 'Tente outra busca ou frequência.');
   return `<div class="table-wrap"><table><thead><tr><th>Pacote</th><th class="num">Mensalidade</th><th class="num">Matrícula</th><th>Núcleo / equipes</th><th class="num">Atletas ativos</th><th></th></tr></thead><tbody>${list.map(p => `<tr>
-    <td><strong>${p.days}x por semana</strong><div class="hint">${esc(planLabel(p))}</div></td><td class="num"><strong>${money(p.value)}</strong><span class="hint"> /mês</span></td><td class="num">${p.fee ? money(p.fee) : '<span class="muted">Sem taxa</span>'}</td>
+    <td><strong>${p.days}x por semana</strong></td><td class="num"><strong>${money(p.value)}</strong><span class="hint"> /mês</span></td><td class="num">${p.fee ? money(p.fee) : '<span class="muted">Sem taxa</span>'}</td>
     <td>${nTag(p.n)}<div class="hint">${p.teams.map(t => esc(teamOf(t)?.name)).join(' · ') || 'Nenhuma equipe'}</div></td><td class="num">${athletesOnPlan(p.id).length}</td>
     <td style="text-align:right"><button class="btn sm" data-act="pkg-open" data-id="${p.id}">Gerenciar</button></td></tr>`).join('')}</tbody></table></div><div class="panel-foot"><span>${list.length} de ${PLANS.length} pacotes</span><span>O rótulo padronizado é o que aparece no cadastro do atleta.</span></div>`;
 }
@@ -333,14 +335,14 @@ function renderFeeder() {
     ${kpiCard(['Sincronização', 'Pendente', 'Prévia local; confirme os dados no chatbot em produção', '', 'clock'])}
     ${kpiCard(['Datas oferecidas', vis.reduce((s, t) => s + nextDatesFor(t).length, 0), `${FEEDER.datesCount} por equipe · antecedência ${FEEDER.minHoursAhead} h`, '', 'calendar'])}
   </div>
-  <section class="panel mb"><div class="panel-head"><div><h2>Fluxo previsto do assistente</h2><div class="sub">A integração com o Apps Script precisa ser validada antes de ativar regras e sincronização</div></div></div>
-    <div class="panel-pad"><div class="flow">
+  <details class="panel mb flow-details"><summary class="panel-head" style="border-bottom:0"><div><h2>${icon('right', 'i chev')} Como o assistente usa estes dados</h2><div class="sub">Fontes, quadro oficial, instruções e conversa — clique para ver</div></div></summary>
+    <div class="panel-pad" style="border-top:1px solid var(--line-2)"><div class="flow">
       <div class="step"><b>1. Fontes no painel</b>Dados de cadastro<ul><li>Equipes (dados, horários)</li><li>Núcleos (endereço)</li><li>Datas indisponíveis</li><li>Técnico responsável</li></ul></div><div class="arrow">${icon('arrow')}</div>
       <div class="step"><b>2. Quadro oficial</b>Texto montado por equipe visível, com as próximas datas calculadas<ul><li>Atualização a cada ${FEEDER.cacheMin} min</li></ul></div><div class="arrow">${icon('arrow')}</div>
       <div class="step"><b>3. Instruções</b>Diretrizes, passo a passo e formatação<ul><li>Nunca informa preços</li><li>Pergunta idade para menores</li></ul></div><div class="arrow">${icon('arrow')}</div>
       <div class="step"><b>4. Conversa</b>O assistente agenda e grava em Agendamentos<ul><li>Aparece no painel e no Manager</li></ul></div>
     </div>
-    <div class="banner note mt" style="margin-bottom:0">${icon('shield')}<span class="small"><b>Nunca é enviado ao assistente:</b> valores de mensalidade, dados de atletas (CPF, endereço, responsáveis), informações financeiras e de pagamento de técnicos.</span></div></div></section>
+    <div class="banner note mt" style="margin-bottom:0">${icon('shield')}<span class="small"><b>Nunca é enviado ao assistente:</b> valores de mensalidade, dados de atletas (CPF, endereço, responsáveis), informações financeiras e de pagamento de técnicos.</span></div></div></details>
   <section class="panel"><div class="tabs">${tabs.map(([k, l, c]) => `<button class="${S.fd.tab === k ? 'on' : ''}" data-act="fd-tab" data-tab="${k}">${l}${c != null ? ` <span class="pill">${c}</span>` : ''}</button>`).join('')}</div>${body}</section>
   <section class="panel mt"><div class="panel-head"><h2>Últimas alterações que afetam o assistente</h2></div><ul class="list">${FEEDER.history.slice(0, 5).map(h => `<li><span class="time-pill">${h.at.slice(8)}/${h.at.slice(5, 7)}</span><span style="flex:1">${esc(h.what)}</span><span class="muted small">${esc(h.who)}</span></li>`).join('')}</ul></section>`;
 }

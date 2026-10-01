@@ -94,7 +94,8 @@ const NUCLEI = [
   { id: 'sul', name: 'Sul', venue: 'Arena Sul', address: 'Av. das Nações, 845 — Jardim Sul', phone: '1130002000', notes: 'Duas quadras; estacionamento no local.' },
   { id: 'norte', name: 'Norte', venue: 'Centro Esportivo Norte', address: 'Rua Ipê Amarelo, 58 — Vila Norte', phone: '', notes: 'Parceria com escola municipal.' },
 ];
-const NCLASS = id => NUCLEI.some(n => n.id === id && ['centro', 'sul', 'norte'].includes(id)) ? id : 'novo';
+// Cada núcleo cadastrado recebe uma das 6 cores da paleta, pela ordem de cadastro.
+const NCLASS = id => { const i = NUCLEI.findIndex(n => n.id === id); return i < 0 ? 'novo' : 'nc' + (i % 6); };
 
 const COACHES = [
   { id: 'c1', name: 'Rafael Moura', phone: '11990000001', rate: 7000, daily: 30000, pix: 'rafael.moura@exemplo.com' },
@@ -364,13 +365,13 @@ let FEEDER = {
 const S = {
   page: 'overview', userId: 'u1', previewRole: '', theme: 'light',
   cal: { cursor: TODAY, nuclei: new Set(NUCLEI.map(n => n.id)), showTests: true },
-  bk: { q: '', status: '', team: '', archived: false, sort: { col: 'data', dir: 'asc' }, kpi: '' },
-  at: { q: '', status: '', team: '', n: '' },
+  bk: { q: '', status: '', team: '', archived: false, sort: { col: 'data', dir: 'asc' }, kpi: '', pending: '', sel: new Set() },
+  at: { q: '', status: '', team: '', n: '', pending: '' },
   tm: { n: 'all', q: '' },
   pk: { n: 'all', q: '', freq: 'all' },
   fd: { tab: 'teams', simAge: '', simGender: '', open: new Set(['t1']) },
   pay: { month: `${TODAY.getFullYear()}-${pad(TODAY.getMonth() + 1)}` },
-  fin: { tab: 'summary', type: 'all', q: '', month: `${TODAY.getFullYear()}-${pad(TODAY.getMonth() + 1)}` },
+  fin: { tab: 'summary', type: 'all', q: '', alertFilter: '', series: 'receivables', month: `${TODAY.getFullYear()}-${pad(TODAY.getMonth() + 1)}` },
   st: { tab: 'users' },
 };
 const me = () => {
@@ -405,9 +406,9 @@ const METRIC_HELP = {
   'Taxas dos recebimentos': 'Soma das taxas registradas em Contas a Receber para recebimentos confirmados.',
   'Recebido líquido': 'Recebido bruto menos as taxas do relatório Contas a Receber; não inclui despesas operacionais.',
   'Mensalidades vencidas': 'Soma das parcelas de mensalidade com vencimento anterior a hoje e saldo positivo em Vendas em Aberto. Depende da última importação.',
-  'Em atraso': 'Parcelas de mensalidade vencidas e ainda abertas na última fotografia de Vendas em Aberto.',
+  'Em atraso': 'Parcelas de mensalidade vencidas e ainda abertas no último relatório de Vendas em Aberto de Vendas em Aberto.',
   'Em aberto no mês': 'Parcelas abertas com vencimento no mês selecionado, inclusive as ainda dentro do prazo.',
-  'A vencer': 'Parcelas abertas com vencimento a partir de hoje na última fotografia de Vendas em Aberto.',
+  'A vencer': 'Parcelas abertas com vencimento a partir de hoje no último relatório de Vendas em Aberto de Vendas em Aberto.',
   'Fluxo analítico': 'Total de entradas agregado no Fluxo de Caixa Analítico. Pode divergir de Contas a Receber por competência e composição.',
   'Comparecimento': 'Testes realizados com status posterior a Agendado ou Pendente, divididos pelos testes passados não cancelados.',
   'Reagendamentos': 'Agendamentos com pelo menos uma remarcação, divididos pelo total de agendamentos carregados.',
@@ -466,7 +467,24 @@ const dHead = (eyebrow, title, sub = '') => `<div class="d-head"><div><div class
 const nucleusLabel = (name, prefix = 'Núcleo ') => prefix && String(name || '').toLocaleLowerCase('pt-BR').startsWith(prefix.trim().toLocaleLowerCase('pt-BR')) ? String(name) : prefix + String(name || '—');
 const nTag = (id, prefix = 'Núcleo ') => { const n = nucleusOf(id); return `<span class="tag ${NCLASS(id)}">${esc(nucleusLabel(n?.name, prefix))}</span>`; };
 const stTag = s => `<span class="tag ${stClass(s)}">${esc(s || 'Pendente')}</span>`;
-const srcTag = s => `<span class="src ${s === 'Tecnofit' ? 'tecnofit' : s === 'Assistente' ? 'bot' : s === 'Proposta' ? 'proposta' : ''}">${esc(s)}</span>`;
+// As fontes técnicas (Supabase, Tecnofit, Manager App) ficam na explicação do ícone (i), não na tela.
+const srcTag = () => '';
+// Nomes vindos de cadastros e do Tecnofit chegam em CAIXA ALTA ou minúsculas: padroniza só a exibição.
+const NAME_PARTICLES = new Set(['da', 'de', 'do', 'das', 'dos', 'e', 'di', 'du']);
+const displayName = raw => {
+  const s = String(raw || '').trim().replace(/\s+/g, ' ');
+  if (!s || (s !== s.toUpperCase() && s !== s.toLowerCase())) return s;
+  return s.toLowerCase().split(' ').map((w, i) => i && NAME_PARTICLES.has(w) ? w
+    : w.split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('-')).join(' ');
+};
+// "MENSAL | ADULTO INICIANTE 1X POR SEMANA - Período: 10/09/2026 - 10/10/2026" → "Adulto iniciante 1x por semana · 10/09–10/10"
+const tecnofitItem = raw => {
+  const text = String(raw || '').replace(/\s+/g, ' ').trim();
+  const sentence = v => { const t = v.trim().toLowerCase().replace(/(\d)x\b/g, '$1x'); return t.charAt(0).toUpperCase() + t.slice(1); };
+  const found = [...text.matchAll(/(?:[A-ZÀ-Ú ]+\|\s*)?([^|]+?)\s*-\s*Per[ií]odo:\s*(\d{2}\/\d{2})\/\d{4}\s*-\s*(\d{2}\/\d{2})\/\d{4}/gi)]
+    .map(m => `${sentence(m[1])} · ${m[2]}–${m[3]}`);
+  return found.length ? [...new Set(found)].join(' + ') : sentence(text.replace(/^[A-ZÀ-Ú ]+\|\s*/, ''));
+};
 const emptyState = (title, text, action = '') => `<div class="empty">${icon('search')}<h3>${title}</h3><p class="small">${text}</p>${action}</div>`;
 const viewBanner = page => canEdit(page) ? '' : `<div class="banner view">${icon('eye')}<div><b>Modo visualização.</b> O perfil <b>${esc(me().name)}</b> pode consultar esta página, mas não alterar dados. Botões de edição ficam bloqueados.</div></div>`;
 

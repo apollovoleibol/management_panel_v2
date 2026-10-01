@@ -17,7 +17,6 @@ const expectedMonthly = () => ATHLETES.filter(a => a.active).reduce((s, a) => { 
 function renderOverview() {
   if (isCoach()) return renderCoachOverview();
   const fin = seesFinance();
-  const importedFinance = fin && finHasImports();
   const cur = monthTotals(CUR_MONTH), prevKey = monthKey(new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1)), prev = monthTotals(prevKey);
   const expected = expectedMonthly();
   const delinq = DELINQ.reduce((s, d) => s + d.amount, 0), delinqAth = new Set(DELINQ.map(d => d.athleteId)).size;
@@ -44,19 +43,6 @@ function renderOverview() {
   const realLine = [...realized, null, null, null];
   const outLine = [...months.map(m => monthKey(m) === CUR_MONTH ? null : monthTotals(monthKey(m)).out), null, null, null];
 
-  const kpis = importedFinance ? (() => { const r = finSummary(CUR_MONTH), overdue = finAlertRows(); return [
-    ['Recebido bruto', FIN_REPORTS.receivables ? money(r.gross) : '—', 'Recebimentos confirmados no Tecnofit', 'Tecnofit', 'money'],
-    ['Taxas', FIN_REPORTS.receivables ? money(r.fees) : '—', 'Contas a Receber', 'Tecnofit', 'wallet'],
-    ['Recebido líquido', FIN_REPORTS.receivables ? money(r.net) : '—', 'Bruto menos taxas', 'Tecnofit', 'trend'],
-    ['Mensalidades vencidas', FIN_REPORTS.open ? money(overdue.reduce((s, x) => s + x.alertAmount, 0)) : '—', FIN_REPORTS.open ? `${new Set(overdue.map(x => x.clientId)).size} atleta(s)` : 'Importe Vendas em Aberto', 'Tecnofit', 'alert'],
-    ['Fluxo analítico', r.flow ? money(r.flow.total) : '—', 'Entradas agregadas do mês', 'Tecnofit', 'chart'],
-  ]; })() : [
-    ['Entradas no mês', '—', 'Importe os relatórios do Tecnofit', 'Tecnofit', 'money'],
-    ['Receita prevista (tabela)', money(expected), `${active} atletas ativos × pacote`, 'Supabase', 'layers'],
-    ['Inadimplência', '—', 'Importe Vendas em Aberto', 'Tecnofit', 'alert'],
-    ['Custo com técnicos', COACH_ITEMS.length ? money(coachCost) : '—', 'Cadastre as horas e diárias', 'Pagamentos', 'wallet'],
-    ['Resultado do mês', '—', 'Aguardando dados financeiros', 'Financeiro', 'trend'],
-  ];
   const svc = [
     ['Comparecimento', pct(showed, past.length), `${showed} de ${past.length} testes passados`, 'check'],
     ['Reagendamentos', pct(BOOKINGS.filter(b => b.reag > 0).length, BOOKINGS.length), 'do total de agendamentos', 'refresh'],
@@ -65,20 +51,20 @@ function renderOverview() {
   ];
 
   return `
-  <div class="page-head"><div><div class="eyebrow">Apollo · ${monthName} de ${TODAY.getFullYear()}</div><h1>Visão geral</h1><p>${fin ? 'Finanças, atendimento, conversão e a agenda de treinos em um só lugar.' : 'Operação, atendimento, conversão e a agenda de treinos em um só lugar.'} Cada número indica a fonte de onde vem.</p></div>
+  <div class="page-head"><div><div class="eyebrow">Apollo · ${monthName} de ${TODAY.getFullYear()}</div><h1>Visão geral</h1><p>${fin ? 'Finanças, pendências, agenda e conversão em um só lugar.' : 'Pendências, agenda, atendimento e conversão em um só lugar.'} Toque no ícone (i) para ver como cada número é calculado.</p></div>
     <div class="head-actions"><button class="btn" data-act="export-overview">${icon('download')} Exportar resumo</button></div></div>
 
-  ${importedFinance ? `<div class="banner note">${icon('info')}<span>Indicadores financeiros dos relatórios importados; indicadores operacionais do Supabase.</span></div>` : ''}
-  ${fin ? `<div class="section-title" style="margin-top:0"><h2>Financeiro</h2></div>
-  <div class="grid g5">${kpis.map(kpiCard).join('')}</div>` : opsKpisHTML()}
+  ${pendingHTML()}
+  ${fin ? `<div class="section-title" ${pendingItems().length ? '' : 'style="margin-top:0"'}><h2>Financeiro</h2></div>${ovFinanceHTML()}` : opsKpisHTML()}
 
   <div class="section-title"><h2>Agenda da semana</h2></div>
   ${weekCalendarHTML()}
 
   <div class="section-title"><h2>Atendimento e conversão de leads</h2></div>
   <div class="split-wide">
-    <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Últimos 30 dias · agendamentos registrados no Supabase</div></div><span class="tag nodot st-ok">Conversão total ${pct(enrolled.length, recentBookings.length, 1)}</span></div>
-      <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}<br>${srcTag(s)}</span><div class="funnel-bar"><span style="width:${recentBookings.length ? v / recentBookings.length * 100 : 0}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
+    <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Agendamentos criados nos últimos 30 dias</div></div><span class="tag nodot st-ok">Conversão total ${pct(enrolled.length, recentBookings.length, 1)}</span></div>
+      <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}</span><div class="funnel-bar"><span style="width:${recentBookings.length ? v / recentBookings.length * 100 : 0}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
+      ${(() => { const stale = BOOKINGS.filter(b => myTeamIds().includes(b.teamId) && BOOKING_FILTERS.stale[1](b)).length; return stale ? `<div class="banner warn mt" style="margin-bottom:0">${icon('alert')}<span class="small"><b>${stale} teste(s) já realizados ainda sem resultado.</b> As etapas depois do teste só ficam corretas quando o status é atualizado. <button class="btn sm" data-act="pending-go" data-k="stale" style="margin-left:6px">Registrar resultados</button></span></div>` : ''; })()}
       <div class="grid g3 mt">${NUCLEI.map(n => { const local = recentBookings.filter(b => teamOf(b.teamId)?.n === n.id); const converted = local.filter(b => b.status === 'Tecnofit').length; const value = local.length ? Math.round(converted / local.length * 100) : 0; return `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n.id)}<b>${local.length ? value + '%' : '—'}</b></div><div class="bar"><span style="width:${value}%;background:var(--brand)"></span></div><div class="hint" style="margin-top:4px">agendamento → matrícula</div></div>`; }).join('')}</div></div>
     </section>
     <div><div class="service-metrics">${svc.map(([l, v, f, i]) => `<div class="service-metric">${kpiIcon(i)}${metricInfo(l)}<span>${l}</span><strong>${v}</strong><small>${f}</small></div>`).join('')}</div>
@@ -106,52 +92,84 @@ function renderOverview() {
   `;
 }
 
+function calWeekEvents(d) {
+  const key = ymd(d), mine = myTeamIds();
+  return TEAMS.filter(t => t.active && S.cal.nuclei.has(t.n) && mine.includes(t.id)).flatMap(t => t.schedule.filter(s => s.day === d.getDay()).map(s => ({
+    t, s, key, testBlocked: t.blocked.includes(key), cancelled: t.cancelled?.includes(key),
+    tests: BOOKINGS.filter(b => b.teamId === t.id && b.date.slice(0, 10) === key && b.status !== 'Cancelado' && !b.archived)
+  }))).sort((a, b) => toMin(a.s.start) - toMin(b.s.start) || a.t.name.localeCompare(b.t.name, 'pt-BR'));
+}
+const calEventTitle = e => { const c = coachOf(e.t.coach); return `${e.t.name} · ${e.s.start}–${e.s.end} · ${c ? c.name : 'sem técnico'}${e.cancelled ? ' · treino cancelado' : e.testBlocked ? ' · sem novos testes' : ''}${e.tests.length ? ` · ${e.tests.length} teste(s)` : ''}`; };
+function calListItem(e) {
+  const c = coachOf(e.t.coach);
+  return `<button class="item ${NCLASS(e.t.n)} ${e.cancelled ? 'cancelled' : ''}" data-act="cal-event" data-team="${e.t.id}" data-date="${e.key}" aria-label="${esc(calEventTitle(e))}"><span class="bar"></span><span class="time">${e.s.start}–${e.s.end}</span><span style="min-width:0;flex:1"><strong>${esc(e.t.name)}</strong><small>${esc(nucleusLabel(nucleusOf(e.t.n)?.name))} · ${c ? esc(c.name) : 'Sem técnico'}${e.cancelled ? ' · treino cancelado' : e.testBlocked ? ' · sem novos testes' : ''}</small></span>${S.cal.showTests && e.tests.length ? `<span class="tag st-cancelado nodot">${e.tests.length} teste${e.tests.length > 1 ? 's' : ''}</span>` : ''}</button>`;
+}
 function weekCalendarHTML() {
-  const ws = startOfWeek(S.cal.cursor), days = [...Array(7)].map((_, i) => addDays(ws, i));
-  const H0 = 6, H1 = 23, PH = 46, end = addDays(ws, 6);
+  const ws = startOfWeek(S.cal.cursor), days = [...Array(7)].map((_, i) => addDays(ws, i)), end = addDays(ws, 6);
   const range = ws.getMonth() === end.getMonth() ? `${ws.getDate()} – ${end.getDate()} de ${MONTHS[end.getMonth()]} ${end.getFullYear()}` : `${ws.getDate()} ${MON[ws.getMonth()].toLowerCase()} – ${end.getDate()} ${MON[end.getMonth()].toLowerCase()} ${end.getFullYear()}`;
-  let total = 0;
-  const cols = days.map(d => {
-    const key = ymd(d);
-    const mine = myTeamIds(); const evs = TEAMS.filter(t => t.active && S.cal.nuclei.has(t.n) && mine.includes(t.id)).flatMap(t => t.schedule.filter(s => s.day === d.getDay()).map(s => ({ t, s, testBlocked: t.blocked.includes(key), cancelled: t.cancelled?.includes(key), tests: BOOKINGS.filter(b => b.teamId === t.id && b.date.slice(0, 10) === key && b.status !== 'Cancelado' && !b.archived) })))
-      .sort((a, b) => toMin(a.s.start) - toMin(b.s.start));
-    // faixas por grupo de treinos sobrepostos (eventos isolados ocupam a largura toda)
-    let lanes = [], cluster = [], clusterEnd = -1;
-    const closeCluster = () => { cluster.forEach(e => { e.L = lanes.length; }); lanes = []; cluster = []; };
+  const week = days.map(d => ({ d, key: ymd(d), evs: calWeekEvents(d) }));
+  const all = week.flatMap(w => w.evs), total = all.filter(e => !e.cancelled).length;
+  // Mostra só o intervalo de horas com treinos (mínimo de 4 horas), em vez de 6h–23h fixos.
+  let H0 = 7, H1 = 22;
+  if (all.length) {
+    H0 = Math.max(0, Math.floor(Math.min(...all.map(e => toMin(e.s.start))) / 60));
+    H1 = Math.min(24, Math.ceil(Math.max(...all.map(e => toMin(e.s.end))) / 60));
+    if (H1 - H0 < 4) H1 = Math.min(24, H0 + 4);
+  }
+  const PH = 56, MAXL = 3; // altura de cada hora; no máximo 3 colunas por horário
+  const cols = week.map(({ d, key, evs }) => {
+    // Agrupa treinos sobrepostos; acima de 3 ao mesmo tempo, mostra "+N" que abre a lista do dia.
+    const clusters = []; let cur = null, curEnd = -1;
     evs.forEach(e => {
-      if (toMin(e.s.start) >= clusterEnd) closeCluster();
-      let i = lanes.findIndex(l => l <= toMin(e.s.start)); if (i < 0) { i = lanes.length; lanes.push(0); }
-      lanes[i] = toMin(e.s.end); e.lane = i; cluster.push(e); clusterEnd = Math.max(clusterEnd, toMin(e.s.end));
+      const st = toMin(e.s.start);
+      if (!cur || st >= curEnd) { cur = { evs: [], lanes: [] }; clusters.push(cur); curEnd = -1; }
+      let i = cur.lanes.findIndex(l => l <= st); if (i < 0) { i = cur.lanes.length; cur.lanes.push(0); }
+      cur.lanes[i] = toMin(e.s.end); e.lane = i; cur.evs.push(e); curEnd = Math.max(curEnd, toMin(e.s.end));
     });
-    closeCluster();
-    total += evs.filter(e => !e.cancelled).length;
+    let more = '';
+    clusters.forEach(c => {
+      const L = c.lanes.length;
+      if (L <= MAXL) { c.evs.forEach(e => { e.L = L; e.show = true; }); return; }
+      c.evs.forEach(e => { e.L = MAXL; e.show = e.lane < MAXL - 1; });
+      const hidden = c.evs.filter(e => !e.show), a = Math.min(...hidden.map(e => toMin(e.s.start))), b = Math.max(...hidden.map(e => toMin(e.s.end)));
+      more += `<button class="ev-more" style="top:${(a - H0 * 60) / 60 * PH}px;height:${Math.max(36, (b - a) / 60 * PH - 3)}px;left:calc(${(MAXL - 1) / MAXL * 100}% + 3px);width:calc(${100 / MAXL}% - 6px)" data-act="cal-day" data-date="${key}" title="Mais ${hidden.length} treino(s) neste horário — ver o dia">+${hidden.length}</button>`;
+    });
     const isToday = key === ymd(TODAY);
-    const html = evs.map(e => {
+    const html = evs.filter(e => e.show).map(e => {
       const top = (toMin(e.s.start) - H0 * 60) / 60 * PH, h = (toMin(e.s.end) - toMin(e.s.start)) / 60 * PH - 3;
       const c = coachOf(e.t.coach);
-      return `<button class="ev ${e.cancelled ? 'blocked' : NCLASS(e.t.n)} ${e.testBlocked && !e.cancelled ? 'test-unavailable' : ''}" style="top:${top}px;height:${h}px;left:calc(${e.lane / e.L * 100}% + 3px);width:calc(${100 / e.L}% - 6px)" data-act="cal-event" data-team="${e.t.id}" data-date="${key}" aria-label="${esc(e.t.name)}, ${e.s.start} às ${e.s.end}${e.cancelled ? ', treino cancelado' : e.testBlocked ? ', testes indisponíveis' : ''}">
-        <strong>${esc(e.t.name)}</strong><span>${e.s.start}–${e.s.end}${e.cancelled ? ' · sem treino' : e.testBlocked ? ' · sem novos testes' : ''}</span>${h > 50 ? `<span>${c ? esc(c.name) : 'Sem técnico'}</span>` : ''}${S.cal.showTests && e.tests.length ? `<span class="tests">${icon('target')} ${e.tests.length} teste${e.tests.length > 1 ? 's' : ''}</span>` : ''}</button>`;
+      return `<button class="ev ${e.cancelled ? 'blocked' : NCLASS(e.t.n)} ${e.testBlocked && !e.cancelled ? 'test-unavailable' : ''}" style="top:${top}px;height:${h}px;left:calc(${e.lane / e.L * 100}% + 3px);width:calc(${100 / e.L}% - 6px)" data-act="cal-event" data-team="${e.t.id}" data-date="${key}" title="${esc(calEventTitle(e))}" aria-label="${esc(calEventTitle(e))}">
+        <strong>${esc(e.t.name)}</strong><span>${e.s.start}–${e.s.end}${e.cancelled ? ' · sem treino' : e.testBlocked ? ' · sem testes' : ''}</span>${h > 70 && e.L < 3 ? `<span>${c ? esc(c.name) : 'Sem técnico'}</span>` : ''}${S.cal.showTests && e.tests.length ? `<span class="tests">${icon('target')} ${e.tests.length}</span>` : ''}</button>`;
     }).join('');
     const nowLine = isToday && NOW.getHours() >= H0 && NOW.getHours() < H1 ? `<div class="now-line" style="top:${((NOW.getHours() - H0) * 60 + NOW.getMinutes()) / 60 * PH}px"></div>` : '';
-    return { head: `<div class="cal-head ${isToday ? 'today' : ''}"><div class="dname">${DOW[d.getDay()]}</div><div class="dnum">${d.getDate()}</div><span class="dcount">${evs.filter(e => !e.cancelled).length} treinos</span></div>`, col: `<div class="cal-col ${isToday ? 'today' : ''}" style="height:${(H1 - H0) * PH}px">${html}${nowLine}</div>` };
+    return { head: `<div class="cal-head ${isToday ? 'today' : ''}"><div class="dname">${DOW[d.getDay()]}</div><div class="dnum">${d.getDate()}</div><span class="dcount">${evs.filter(e => !e.cancelled).length} treino${evs.filter(e => !e.cancelled).length === 1 ? '' : 's'}</span></div>`, col: `<div class="cal-col ${isToday ? 'today' : ''}" style="height:${(H1 - H0) * PH}px;--ph:${PH}px">${html}${more}${nowLine}</div>` };
   });
   const gutter = [...Array(H1 - H0)].map((_, i) => i ? `<span style="top:${i * PH}px">${pad(H0 + i)}:00</span>` : '').join('');
+  // Semanas com poucos treinos (ex.: técnico com 1 equipe) e celulares usam a lista, mais fácil de ler.
+  const listOnly = total <= 4;
+  const list = week.map(({ d, key, evs }) => `<div class="day ${key === ymd(TODAY) ? 'today' : ''}"><h3>${DOW_FULL[d.getDay()]}, ${d.getDate()}/${pad(d.getMonth() + 1)}${key === ymd(TODAY) ? ' · hoje' : ''}</h3>${evs.length ? evs.map(calListItem).join('') : '<div class="empty-day">Sem treinos</div>'}</div>`)
+    .filter((html, i) => !listOnly || week[i].evs.length || week[i].key === ymd(TODAY)).join('');
   return `<section class="panel">
     <div class="cal-toolbar">
       <button class="btn sm" data-act="cal-today">Hoje</button>
       <button class="btn ghost sq" data-act="cal-nav" data-dir="-1" aria-label="Semana anterior">${icon('left')}</button>
       <button class="btn ghost sq" data-act="cal-nav" data-dir="1" aria-label="Próxima semana">${icon('right')}</button>
       <span class="range">${range}</span>
-      <span class="muted small">${total} treinos na semana</span>
-      <div class="chips" style="margin-left:auto">${NUCLEI.filter(n => TEAMS.some(t => t.n === n.id && myTeamIds().includes(t.id))).map(n => `<button class="chip ${S.cal.nuclei.has(n.id) ? '' : 'off'}" data-act="cal-nucleus" data-n="${n.id}" aria-pressed="${S.cal.nuclei.has(n.id)}"><span class="dot" style="background:var(--n-${NCLASS(n.id)},var(--faint))"></span>${esc(nucleusLabel(n.name))}</button>`).join('')}
-        <label class="chip" style="cursor:pointer"><input type="checkbox" data-act="cal-tests" ${S.cal.showTests ? 'checked' : ''} style="accent-color:var(--brand);margin:0"> Testes agendados</label></div>
+      <span class="muted small">${total} treino${total === 1 ? '' : 's'} na semana</span>
+      <div class="chips" style="margin-left:auto">${NUCLEI.filter(n => TEAMS.some(t => t.n === n.id && myTeamIds().includes(t.id))).map(n => `<button class="chip ${S.cal.nuclei.has(n.id) ? '' : 'off'}" data-act="cal-nucleus" data-n="${n.id}" aria-pressed="${S.cal.nuclei.has(n.id)}"><span class="dot" style="background:var(--n-${NCLASS(n.id)})"></span>${esc(nucleusLabel(n.name))}</button>`).join('')}
+        <label class="chip" style="cursor:pointer"><input type="checkbox" data-act="cal-tests" ${S.cal.showTests ? 'checked' : ''} style="accent-color:var(--brand-btn);margin:0"> Testes agendados</label></div>
     </div>
-    <div class="cal-scroll"><div class="cal">
+    ${listOnly ? '' : `<div class="cal-scroll grid-view"><div class="cal">
       <div class="cal-head" style="border-right:1px solid var(--line-2)"></div>${cols.map(c => c.head).join('')}
       <div class="cal-gutter" style="height:${(H1 - H0) * PH}px">${gutter}</div>${cols.map(c => c.col).join('')}
-    </div></div>
-    <div class="panel-foot"><span>Sem novos testes não cancela o treino; apenas treinos cancelados aparecem riscados.</span><span>Clique em um treino para ver detalhes e testes marcados.</span></div>
+    </div></div>`}
+    <div class="cal-list ${listOnly ? 'only' : ''}">${list || '<div class="day"><div class="empty-day">Nenhum treino nesta semana.</div></div>'}</div>
+    <div class="panel-foot"><span>Cada cor é um núcleo. Treinos cancelados aparecem riscados; “sem testes” só fecha a data para novos agendamentos.</span><span>Clique em um treino para ver detalhes e testes marcados.</span></div>
   </section>`;
+}
+function openCalDay(date) {
+  const d = parseYmd(date), evs = calWeekEvents(d);
+  openDialog(dHead(`${evs.filter(e => !e.cancelled).length} treinos`, `${DOW_FULL[d.getDay()]}, ${d.getDate()} de ${MONTHS[d.getMonth()]}`) + `<div class="d-body cal-list only" style="padding-top:8px">${evs.map(calListItem).join('') || '<p class="muted">Sem treinos neste dia.</p>'}</div>`, 'drawer');
 }
 
 function openCalEvent(tid, date) {
@@ -200,47 +218,101 @@ function renderBookings() {
     <div id="bkTable">${bookingsTable()}</div>
   </section>`;
 }
+const BOOKING_DB_STATUS = { 'Pendente': 'PENDING', 'Agendado': 'CONFIRMED', 'Em avaliação': 'IN_EVALUATION',
+  'Em cadastro': 'IN_REGISTRATION', 'Tecnofit': 'TECNOFIT', 'Ausente': 'MISSED', 'Cancelado': 'CANCELLED' };
+// Resultado do teste em um clique (rótulo amigável → status do sistema)
+const BOOKING_QUICK = [['Em avaliação', 'Compareceu'], ['Ausente', 'Faltou'], ['Em cadastro', 'Aprovado · em cadastro'], ['Tecnofit', 'Matriculado'], ['Cancelado', 'Cancelado']];
+// Filtros abertos pelo bloco "Pendências" da Visão geral
+const BOOKING_FILTERS = {
+  stale: ['Testes que já aconteceram e estão sem resultado', b => !b.archived && parseLocal(b.date) < NOW && ['Agendado', 'Pendente', 'Em avaliação'].includes(b.status)],
+  guardian: ['Menores com responsável a confirmar', b => !b.archived && bookingGuardianDuplicated(b)],
+};
+const bookingName = b => displayName(b.nomeMenor || b.nome);
 function bookingsFiltered() {
   const q = S.bk.q.toLowerCase().trim();
   const mine = myTeamIds();
-  return BOOKINGS.filter(b => mine.includes(b.teamId) && (S.bk.archived ? b.archived : !b.archived)
+  const pending = BOOKING_FILTERS[S.bk.pending];
+  return BOOKINGS.filter(b => mine.includes(b.teamId) && (pending ? pending[1](b) : (S.bk.archived ? b.archived : !b.archived))
     && (!q || [b.nome, b.nomeMenor, b.whatsapp, fmtPhone(b.whatsapp)].some(v => String(v || '').toLowerCase().includes(q)))
     && (!S.bk.status || b.status === S.bk.status) && (!S.bk.team || b.teamId === S.bk.team)
     && (!S.bk.kpi || (S.bk.kpi === 'reag' ? b.reag > 0 : b.status.toLowerCase() === S.bk.kpi)));
 }
+const bookingsSelectable = () => canEdit('bookings') && !S.bk.archived;
 function bookingsTable() {
   const list = bookingsFiltered();
-  if (!list.length) return emptyState('Nenhum agendamento encontrado', 'Ajuste a busca ou os filtros.', `<button class="btn sm" data-act="bk-clear">Limpar filtros</button>`);
+  const pending = BOOKING_FILTERS[S.bk.pending];
+  const banner = pending ? `<div class="filter-banner">${icon('alert')}<span>Mostrando: <b>${pending[0]}</b> (${list.length})</span><button class="btn sm" data-act="bk-clear">Ver todos</button></div>` : '';
+  if (!list.length) return banner + emptyState('Nenhum agendamento encontrado', pending ? 'Nada pendente aqui. 👍' : 'Ajuste a busca ou os filtros.', `<button class="btn sm" data-act="bk-clear">Limpar filtros</button>`);
+  const ids = new Set(list.map(b => b.id));
+  [...S.bk.sel].forEach(id => { if (!ids.has(id)) S.bk.sel.delete(id); });
   const { col, dir } = S.bk.sort, m = dir === 'asc' ? 1 : -1;
-  const key = b => col === 'nome' ? (b.nomeMenor || b.nome).toLowerCase() : col === 'equipe' ? teamOf(b.teamId).name.toLowerCase() : b.date;
+  const key = b => col === 'nome' ? bookingName(b).toLowerCase() : col === 'equipe' ? teamOf(b.teamId).name.toLowerCase() : b.date;
   const sorted = [...list].sort((a, b) => key(a) < key(b) ? -m : key(a) > key(b) ? m : 0);
   const fut = sorted.filter(b => parseLocal(b.date) >= TODAY), past = sorted.filter(b => parseLocal(b.date) < TODAY);
   if (col === 'data') past.reverse();
   const in48 = b => { const d = parseLocal(b.date); return d > NOW && d - NOW <= 48 * 36e5; };
+  const sel = bookingsSelectable();
   const row = b => {
-    const t = teamOf(b.teamId), minor = !!b.nomeMenor;
+    const t = teamOf(b.teamId), minor = !!b.nomeMenor, dup = bookingGuardianDuplicated(b);
     return `<tr class="rowlink ${in48(b) ? 'soon' : ''}" data-act="booking-open" data-id="${b.id}" tabindex="0">
-      <td><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(b.nome)}</span><div><strong>${esc(b.nomeMenor || b.nome)}</strong>${minor ? `<small>${bookingGuardianDuplicated(b) ? 'Responsável não identificado · conferir cadastro' : 'Resp.: ' + esc(b.nome)}</small>` : `<small>${fmtPhone(b.whatsapp)}</small>`}</div></div></td>
-      <td><div class="cell-actions"><button class="btn sq" data-act="${b.archived ? 'booking-unarchive' : 'booking-archive'}" data-id="${b.id}" data-edit title="${b.archived ? 'Restaurar' : 'Arquivar'}" aria-label="${b.archived ? 'Restaurar' : 'Arquivar'} agendamento">${icon(b.archived ? 'unarchive' : 'archive')}</button><button class="btn sq wa" data-act="booking-wa" data-id="${b.id}" title="Contatar via WhatsApp" aria-label="Contatar via WhatsApp">${icon('whatsapp')}</button></div></td>
-      <td><div style="display:flex;align-items:center;gap:8px;white-space:nowrap">${fmtDT(b.date)}${b.reag ? `<span class="reag" title="${b.reag} reagendamento(s)">${b.reag}</span>` : ''}${in48(b) ? '<span class="tag st-ok nodot">em 48h</span>' : ''}</div></td>
-      <td><strong style="font-size:13px">${esc(t.name)}</strong><div class="hint">${esc(nucleusOf(t.n).venue)}</div></td>
-      <td>${stTag(b.status)}</td></tr>`;
+      ${sel ? `<td class="sel" data-stop><input type="checkbox" data-bk-sel="${b.id}" ${S.bk.sel.has(b.id) ? 'checked' : ''} aria-label="Selecionar ${esc(bookingName(b))}"></td>` : ''}
+      <td class="c-main"><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(displayName(b.nome))}</span><div><strong>${esc(bookingName(b))}</strong>${minor ? `<small${dup ? ' style="color:var(--warn)"' : ''}>${dup ? 'Responsável a confirmar' : 'Resp.: ' + esc(displayName(b.nome))}</small>` : `<small>${fmtPhone(b.whatsapp)}</small>`}</div></div></td>
+      <td class="c-act"><button class="btn sq wa-ghost" data-act="booking-wa" data-id="${b.id}" title="Mensagem no WhatsApp" aria-label="Mensagem no WhatsApp para ${esc(bookingName(b))}">${icon('whatsapp')}</button></td>
+      <td class="c-sub" data-label="Teste"><div style="display:flex;align-items:center;gap:8px;white-space:nowrap;flex-wrap:wrap">${fmtDT(b.date)}${b.reag ? `<span class="reag" title="${b.reag} reagendamento(s)">${b.reag}</span>` : ''}${in48(b) ? '<span class="tag st-ok nodot">em 48h</span>' : ''}</div></td>
+      <td class="c-sub" data-label="Equipe"><strong style="font-size:13px">${esc(t.name)}</strong><div class="hint">${esc(nucleusOf(t.n)?.venue || '')}</div></td>
+      <td class="c-status">${stTag(b.status)}</td></tr>`;
   };
   const th = (c, l) => `<th><button class="sort ${col === c ? 'on' : ''}" data-act="bk-sort" data-col="${c}" aria-label="Ordenar por ${l}">${l} ${icon('sort')}</button></th>`;
-  return `<div class="table-wrap"><table><thead><tr>${th('nome', 'Atleta / Resp.')}<th>Contato</th>${th('data', 'Data do teste')}${th('equipe', 'Equipe / Local')}<th>Status</th></tr></thead><tbody>
-    ${fut.map(row).join('')}${fut.length && past.length ? '<tr class="sep"><td colspan="5">Agendamentos passados</td></tr>' : ''}${past.map(row).join('')}</tbody></table></div>
-    <div class="panel-foot"><span>${list.length} agendamento${list.length > 1 ? 's' : ''}${S.bk.archived ? ' arquivados' : ''}</span><span>Clique em uma linha para ver detalhes, conversa e ações.</span></div>`;
+  const allOn = sel && list.length && list.every(b => S.bk.sel.has(b.id));
+  const cols = sel ? 6 : 5;
+  return `${banner}<div class="table-wrap"><table class="cards"><thead><tr>${sel ? `<th class="sel"><input type="checkbox" data-bk-all ${allOn ? 'checked' : ''} aria-label="Selecionar todos os ${list.length} agendamentos"></th>` : ''}${th('nome', 'Atleta / Resp.')}<th><span class="sr">Contato</span></th>${th('data', 'Data do teste')}${th('equipe', 'Equipe / Local')}<th>Status</th></tr></thead><tbody>
+    ${fut.map(row).join('')}${fut.length && past.length ? `<tr class="sep"><td colspan="${cols}">Agendamentos passados</td></tr>` : ''}${past.map(row).join('')}</tbody></table></div>
+    ${S.bk.sel.size ? `<div class="bulk-bar" role="region" aria-label="Ações em lote"><b>${S.bk.sel.size} selecionado(s)</b><select class="select" id="bkBulkStatus" aria-label="Novo status"><option value="">Mudar status para…</option>${BOOKING_QUICK.concat([['Agendado', 'Agendado']]).map(([st, l]) => `<option value="${st}">${l}</option>`).join('')}</select><button class="btn primary sm" data-act="bk-bulk-status" data-edit>Aplicar</button><button class="btn sm" data-act="bk-bulk-archive" data-edit>${icon('archive')} Arquivar</button><span class="spacer"></span><button class="btn sm" data-act="bk-bulk-clear">Limpar seleção</button></div>` : ''}
+    <div class="panel-foot"><span>${list.length} agendamento${list.length > 1 ? 's' : ''}${S.bk.archived ? ' arquivados' : ''}</span><span>${sel ? 'Marque várias linhas para mudar o status ou arquivar de uma vez.' : 'Clique em uma linha para ver detalhes, conversa e ações.'}</span></div>`;
+}
+function bookingsTableRefresh() {
+  const el = $('#bkTable'); if (!el) return;
+  el.innerHTML = bookingsTable();
+  if (!canEdit('bookings')) $$('#bkTable [data-edit]').forEach(b => { b.classList.add('locked'); b.setAttribute('aria-disabled', 'true'); });
+}
+async function bookingsBulk(kind) {
+  const ids = [...S.bk.sel];
+  if (!ids.length || !canEdit('bookings')) return;
+  let payload, label;
+  if (kind === 'status') {
+    const st = $('#bkBulkStatus')?.value;
+    if (!st) return toast('Escolha o novo status.', true);
+    payload = { status: BOOKING_DB_STATUS[st] }; label = `Status “${(BOOKING_QUICK.find(q => q[0] === st) || [st, st])[1]}”`;
+  } else {
+    if (!(await confirmBox({ title: `Arquivar ${ids.length} agendamento(s)?`, text: 'Eles deixam a lista principal, mas continuam na visão de arquivados.', ok: 'Arquivar', danger: true }))) return;
+    payload = { archived_at: new Date().toISOString() }; label = 'Arquivamento';
+  }
+  let failed = 0;
+  for (const id of ids) { try { await liveWrite('tryouts', payload, id); } catch { failed++; } }
+  S.bk.sel.clear();
+  await liveReload();
+  toast(failed ? `${label} aplicado a ${ids.length - failed} de ${ids.length}. ${failed} não puderam ser alterados.` : `${label} aplicado a ${ids.length} agendamento(s).`, !!failed);
+}
+async function bookingQuickStatus(id, st, button) {
+  if (!canEdit('bookings')) return;
+  $$('#dlg .quick-status button').forEach(b => { b.disabled = true; });
+  try {
+    await liveWrite('tryouts', { status: BOOKING_DB_STATUS[st] }, id);
+    await liveReload(); openBooking(id);
+    toast(`Status atualizado: ${(BOOKING_QUICK.find(q => q[0] === st) || [st, st])[1]}.`);
+  } catch (error) { $$('#dlg .quick-status button').forEach(b => { b.disabled = false; }); toast(`Não foi possível atualizar: ${error.message}`, true); }
 }
 
 const bookingGuardianDuplicated = b => !!b?.nomeMenor && b.nome.trim().localeCompare(b.nomeMenor.trim(), 'pt-BR', { sensitivity: 'base' }) === 0;
 function openBooking(id) {
   const b = BOOKINGS.find(x => x.id === id), t = teamOf(b.teamId), n = nucleusOf(t.n), ed = canEdit('bookings');
-  openDialog(dHead('Agendamento', esc(b.nomeMenor || b.nome), b.nomeMenor ? (bookingGuardianDuplicated(b) ? 'Responsável não identificado' : 'Responsável: ' + esc(b.nome)) : '') + `<div class="d-body">
+  openDialog(dHead('Agendamento', esc(bookingName(b)), b.nomeMenor ? (bookingGuardianDuplicated(b) ? 'Responsável a confirmar' : 'Responsável: ' + esc(displayName(b.nome))) : '') + `<div class="d-body">
     ${bookingGuardianDuplicated(b) ? `<div class="banner note">${icon('alert')}<span>O nome do responsável foi gravado igual ao do atleta. Confirme o responsável pelo WhatsApp antes de corrigir o cadastro.</span></div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${stTag(b.status)}${b.reag ? `<span class="tag st-em-cadastro nodot">${b.reag} reagendamento(s)</span>` : ''}${b.archived ? '<span class="tag nodot">Arquivado</span>' : ''}</div>
+    ${ed && !b.archived ? `<h3 class="mt">Resultado do teste</h3><div class="quick-status" role="group" aria-label="Atualizar o status do agendamento">${BOOKING_QUICK.map(([st, label]) => `<button type="button" class="${b.status === st ? 'on' : ''}" aria-pressed="${b.status === st}" data-act="booking-status" data-id="${id}" data-status="${st}">${label}</button>`).join('')}</div><p class="hint" style="margin-top:2px">O status muda na hora e aparece para o técnico no Manager App.</p>` : ''}
     <div class="kv"><div><small>Data e hora</small><strong>${fmtDT(b.date)}</strong></div><div><small>WhatsApp</small><strong>${fmtPhone(b.whatsapp)}</strong></div><div><small>Equipe</small><strong>${esc(t.name)}</strong></div><div><small>Local</small><strong>${esc(n.venue)}</strong><div class="hint">${esc(n.address)}</div></div></div>
     <div class="grid g2" style="gap:8px">
-      <button class="btn" data-act="booking-edit" data-id="${id}" data-edit>${icon('edit')} Editar manualmente</button>
+      <button class="btn" data-act="booking-edit" data-id="${id}" data-edit>${icon('edit')} Editar dados e data</button>
       <button class="btn" data-act="booking-chat" data-id="${id}">${icon('chat')} Ver conversa com o assistente</button>
       <button class="btn wa" data-act="booking-wa" data-id="${id}">${icon('whatsapp')} Mensagem no WhatsApp</button>
       <button class="btn" data-act="${b.archived ? 'booking-unarchive' : 'booking-archive'}" data-id="${id}" data-edit>${icon(b.archived ? 'unarchive' : 'archive')} ${b.archived ? 'Restaurar' : 'Arquivar'}</button>
@@ -293,8 +365,7 @@ async function saveBooking(id) {
   if (!st.team || !nome || !wpp || !st.date || (minor && !menor)) { $('#fbErr').textContent = 'Preencha todos os campos obrigatórios.'; return false; }
   if (wpp.length < 10) { $('#fbErr').textContent = 'Número de WhatsApp inválido.'; return false; }
   if (minor && nome.localeCompare(menor, 'pt-BR', { sensitivity: 'base' }) === 0) { $('#fbErr').textContent = 'Informe o nome do responsável; ele deve ser diferente do nome do atleta menor.'; return false; }
-  const statuses = { 'Pendente': 'PENDING', 'Agendado': 'CONFIRMED', 'Em avaliação': 'IN_EVALUATION',
-    'Em cadastro': 'IN_REGISTRATION', 'Tecnofit': 'TECNOFIT', 'Ausente': 'MISSED', 'Cancelado': 'CANCELLED' };
+  const statuses = BOOKING_DB_STATUS;
   const before = id ? BOOKINGS.find(x => x.id === id) : null;
   if ((!before || before.date !== st.date) && (t.blocked.includes(st.date.slice(0, 10)) || t.cancelled?.includes(st.date.slice(0, 10)))) {
     $('#fbErr').textContent = 'Esta data não aceita novos testes. Escolha outro treino.'; return false;
@@ -348,19 +419,27 @@ function renderAthletes() {
     <div id="atTable">${athletesTable()}</div>
   </section>`;
 }
+const athleteContact = a => { const t = teamOf(a.teamId), minor = isMinorTeam(t) || !!a.parentName; return { minor, tel: minor ? (a.parentPhone || a.phone) : a.phone }; };
+// Filtros abertos pelo bloco "Pendências" da Visão geral
+const ATHLETE_FILTERS = {
+  noplan: ['Atletas ativos com plano fora do catálogo de pacotes', a => a.active && !a.planId],
+  nocontact: ['Atletas ativos sem WhatsApp de contato', a => a.active && digits(athleteContact(a).tel).length < 10],
+};
 function athletesTable() {
   const q = S.at.q.toLowerCase().trim(), qd = digits(q);
   const mine = myTeamIds();
-  const list = ATHLETES.filter(a => mine.includes(a.teamId) && (!q || a.name.toLowerCase().includes(q) || a.parentName.toLowerCase().includes(q) || (qd && (digits(a.cpf).includes(qd) || digits(a.phone).includes(qd) || digits(a.parentPhone).includes(qd))))
-    && (!S.at.status || (S.at.status === 'ativo') === a.active) && (!S.at.team || a.teamId === S.at.team)).sort((a, b) => a.name.localeCompare(b.name));
-  if (!list.length) return emptyState('Nenhum atleta encontrado', 'Tente outra busca ou filtro.');
-  return `<div class="table-wrap"><table><thead><tr><th>Atleta / Responsável</th><th>Contato</th><th>Equipe / Plano</th><th>Status</th></tr></thead><tbody>${list.map(a => {
-    const t = teamOf(a.teamId), minor = isMinorTeam(t) || !!a.parentName, tel = minor ? (a.parentPhone || a.phone) : a.phone;
+  const pending = ATHLETE_FILTERS[S.at.pending];
+  const list = ATHLETES.filter(a => mine.includes(a.teamId) && (!pending || pending[1](a)) && (!q || a.name.toLowerCase().includes(q) || a.parentName.toLowerCase().includes(q) || (qd && (digits(a.cpf).includes(qd) || digits(a.phone).includes(qd) || digits(a.parentPhone).includes(qd))))
+    && (!S.at.status || (S.at.status === 'ativo') === a.active) && (!S.at.team || a.teamId === S.at.team)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const banner = pending ? `<div class="filter-banner">${icon('alert')}<span>Mostrando: <b>${pending[0]}</b> (${list.length})</span><button class="btn sm" data-act="at-clear">Ver todos</button></div>` : '';
+  if (!list.length) return banner + emptyState('Nenhum atleta encontrado', pending ? 'Nada pendente aqui. 👍' : 'Tente outra busca ou filtro.');
+  return `${banner}<div class="table-wrap"><table class="cards"><thead><tr><th>Atleta / Responsável</th><th>Contato</th><th>Equipe / Plano</th><th>Status</th></tr></thead><tbody>${list.map(a => {
+    const t = teamOf(a.teamId), { minor, tel } = athleteContact(a), name = displayName(a.name);
     return `<tr class="rowlink" data-act="athlete-open" data-id="${a.id}" tabindex="0">
-      <td><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(a.name)}</span><div><strong>${esc(a.name)}</strong>${minor ? `<small>Resp.: ${esc(a.parentName || '—')}</small>` : `<small>${esc(a.email)}</small>`}</div></div></td>
-      <td><div class="cell-actions"><span style="white-space:nowrap">${fmtPhone(tel) || '—'}</span>${tel ? `<a class="btn sm wa" href="https://wa.me/55${digits(tel)}" target="_blank" rel="noopener" data-stop>${icon('whatsapp')} Contatar</a>` : ''}</div></td>
-      <td><strong style="font-size:13px">${t ? esc(t.name) : 'Não definida'}</strong> ${t ? nTag(t.n, '') : ''}<div class="hint" style="max-width:300px;white-space:normal">${esc(maskPlan(a.plan) || 'Sem plano')}</div></td>
-      <td>${a.active ? '<span class="tag st-agendado">Ativo</span>' : '<span class="tag st-cancelado">Inativo</span>'}</td></tr>`;
+      <td class="c-main"><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(name)}</span><div><strong>${esc(name)}</strong>${minor ? `<small>Resp.: ${esc(displayName(a.parentName) || 'não informado')}</small>` : `<small>${esc(a.email)}</small>`}</div></div></td>
+      <td class="c-act"><div class="cell-actions"><span style="white-space:nowrap" class="hide-mobile">${fmtPhone(tel) || '<span class="muted">Sem WhatsApp</span>'}</span>${tel ? `<a class="btn sq wa-ghost" href="https://wa.me/55${digits(tel)}" target="_blank" rel="noopener" data-stop title="WhatsApp ${minor ? 'do responsável' : 'do atleta'}" aria-label="Abrir WhatsApp ${minor ? 'do responsável de' : 'de'} ${esc(name)}">${icon('whatsapp')}</a>` : ''}</div></td>
+      <td class="c-sub" data-label="Equipe"><strong style="font-size:13px">${t ? esc(t.name) : 'Não definida'}</strong> ${t ? nTag(t.n, '') : ''}<div class="hint" style="max-width:300px;white-space:normal">${esc(maskPlan(a.plan) || 'Sem plano')}</div></td>
+      <td class="c-status">${a.active ? '<span class="tag st-agendado">Ativo</span>' : '<span class="tag st-cancelado">Inativo</span>'}</td></tr>`;
   }).join('')}</tbody></table></div><div class="panel-foot"><span>${list.length} de ${ATHLETES.filter(a => mine.includes(a.teamId)).length} atletas</span><span>Clique em um atleta para ver ou editar o cadastro.</span></div>`;
 }
 function athleteForm(id) {
