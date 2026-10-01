@@ -16,7 +16,8 @@ const parseYmd = s => { const [y, m, d] = s.slice(0, 10).split('-').map(Number);
 const parseLocal = s => { const [a, b = '00:00'] = s.split('T'); const d = parseYmd(a); const [h, mi] = b.split(':').map(Number); d.setHours(h, mi, 0, 0); return d; };
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const startOfWeek = d => { const x = startOfDay(d); return addDays(x, -((x.getDay() + 6) % 7)); };
+// Semana de domingo a sábado.
+const startOfWeek = d => { const x = startOfDay(d); return addDays(x, -x.getDay()); };
 const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 const hoursBetween = (a, b) => (toMin(b) - toMin(a)) / 60;
 const fmtDate = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
@@ -397,6 +398,7 @@ const canView = p => perm(p) !== 'none';
 const canEdit = p => !S.previewRole && perm(p) === 'edit';
 
 const METRIC_HELP = {
+  'Fluxo de caixa': 'Total de entradas do relatório Fluxo de Caixa Analítico do Tecnofit, por forma de pagamento. O relatório é agregado: não identifica atletas nem parcelas em atraso.',
   '1ª resposta do assistente': 'Tempo médio da primeira mensagem recebida pelo servidor até a primeira resposta útil preparada pelo assistente. Exclui saudação automática, falhas e o download no aparelho. Amostra: conversas iniciadas nos últimos 30 dias com resposta registrada.',
   'Tempo até agendar': 'Tempo médio entre a primeira mensagem e a gravação confirmada de um novo agendamento na mesma sessão do chatbot. Exclui reagendamentos, agendamentos anteriores e conversas sem agendamento. Mostra o esforço de conversão, não o tempo até o dia do treino.',
   'Retorno humano': 'Tempo médio do pedido explícito de atendimento no chatbot até o atendente registrar no Huddle que enviou a primeira resposta no WhatsApp. É uma medição manual em horas corridas. Abrir o WhatsApp não conta como resposta; pedidos pendentes ficam fora da média e aparecem na contagem.',

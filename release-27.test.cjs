@@ -49,7 +49,7 @@ test('a date closed to trial bookings still counts as training until separately 
   const scope = vm.createContext({
     TODAY: today, NOW: today, TEAMS: [team], BOOKINGS: [], NUCLEI: [{ id: 'n1', name: 'Apollo' }],
     S: { cal: { cursor: today, nuclei: new Set(['n1']), showTests: true } },
-    startOfWeek: date => new Date(2026, 8, 28),
+    startOfWeek: date => new Date(2026, 8, 27),
     addDays: (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days),
     ymd: date => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'),
     myTeamIds: () => ['team-1'], toMin: value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3)),

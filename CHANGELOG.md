@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## v2.9.1 — 2026-10-01
+
+- Corrige o resumo financeiro: o fundo escuro do destaque cobria a página inteira e escondia o valor "A vencer".
+- Ícones dos indicadores à esquerda do texto.
+- Agenda de domingo a sábado.
+- Pacotes mostram em gráfico quem está fora dos pacotes: sem plano registrado, pacote de outra equipe ou nome fora do catálogo, com os planos mais comuns.
+- Fluxo de caixa visual: total com variação sobre o mês anterior, composição por forma de pagamento e gráfico de barras mensal.
+
 ## v2.9 — 2026-09-30
 
 - Visão geral começa por um bloco de **Pendências** (testes sem resultado, responsável a confirmar, atrasos sem vínculo, planos fora do catálogo, atletas sem contato, equipes sem técnico), cada uma levando à lista já filtrada.

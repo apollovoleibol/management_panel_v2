@@ -11,7 +11,7 @@ function opsKpisHTML() {
   const next7 = BOOKINGS.filter(b => !b.archived && b.status !== 'Cancelado' && parseLocal(b.date) >= NOW && parseLocal(b.date) <= addDays(TODAY, 8)).length;
   const toEval = BOOKINGS.filter(b => !b.archived && parseLocal(b.date) < NOW && ['Agendado', 'Pendente', 'Em avaliação'].includes(b.status)).length;
   const l30 = SESSIONS.filter(s => parseYmd(s.date) >= addDays(TODAY, -29)), ws = startOfWeek(TODAY);
-  const weekTrainings = TEAMS.filter(t => t.active).reduce((n, t) => n + t.schedule.filter(s => !t.cancelled?.includes(ymd(addDays(ws, (s.day + 6) % 7)))).length, 0);
+  const weekTrainings = TEAMS.filter(t => t.active).reduce((n, t) => n + t.schedule.filter(s => !t.cancelled?.includes(ymd(addDays(ws, s.day)))).length, 0);
   const recorded = l30.filter(s => s.recorded).length;
   return `<div class="section-title" style="margin-top:0"><h2>Operação</h2></div>
   <div class="grid g5">${[
@@ -142,7 +142,7 @@ function pendingItems() {
     if (unlinked) items.push({ k: 'unlinked', n: unlinked, label: 'atrasos sem atleta vinculado', hint: 'Vincule para liberar o WhatsApp de cobrança', tone: 'bad' });
   }
   if (canView('athletes')) {
-    if (seesFinance() && PLANS.length) { const n = ATHLETES.filter(a => mine.includes(a.teamId) && ATHLETE_FILTERS.noplan[1](a)).length; if (n) items.push({ k: 'noplan', n, label: 'atletas com plano fora do catálogo', hint: 'Escolha um pacote vigente no cadastro', tone: '' }); }
+    if (seesFinance() && PLANS.length) { const n = ATHLETES.filter(a => mine.includes(a.teamId) && ATHLETE_FILTERS.noplan[1](a)).length; if (n) items.push({ k: 'noplan', n, label: 'atletas fora dos pacotes', hint: 'Sem plano ou com plano fora do catálogo', tone: '' }); }
     const noContact = ATHLETES.filter(a => mine.includes(a.teamId) && ATHLETE_FILTERS.nocontact[1](a)).length;
     if (noContact) items.push({ k: 'nocontact', n: noContact, label: 'atletas sem WhatsApp de contato', hint: 'Para menores, o do responsável', tone: '' });
   }

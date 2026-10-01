@@ -166,12 +166,29 @@ async function saveTeam() {
 }
 
 /* ═══════════════ PACOTES E MENSALIDADES ═══════════════ */
+// Por que um atleta ativo não entra em nenhum pacote: sem plano, plano de outra equipe ou nome que não existe no catálogo.
+const PLAN_GAP = { none: ['Sem plano registrado', 'slate'], team: ['Pacote de outra equipe', 'amber'], label: ['Nome fora do catálogo', 'red'] };
+const planGap = a => !a.active || a.planId ? null : !String(a.plan || '').trim() ? 'none' : PLANS.some(p => p.sourceLabel === a.plan) ? 'team' : 'label';
+function planGapHTML() {
+  const rows = ATHLETES.filter(planGap), groups = new Map();
+  rows.forEach(a => { const kind = planGap(a), name = kind === 'none' ? '—' : String(a.plan).trim(), key = kind + '|' + name;
+    const g = groups.get(key) || { kind, name, n: 0 }; g.n++; groups.set(key, g); });
+  const list = [...groups.values()].sort((a, b) => b.n - a.n), max = list[0]?.n || 1, shown = list.slice(0, 8);
+  const byKind = Object.keys(PLAN_GAP).map(k => [k, rows.filter(a => planGap(a) === k).length]).filter(([, n]) => n);
+  return `<section class="panel mb plan-gap"><div class="panel-head"><div><h2>${rows.length} atletas ativos fora dos pacotes</h2></div><button class="btn sm" data-act="pending-go" data-k="noplan">Ver atletas ${icon('arrow')}</button></div>
+    <div class="panel-pad">
+      <div class="gap-stack" role="img" aria-label="${byKind.map(([k, n]) => `${PLAN_GAP[k][0]}: ${n}`).join(', ')}">${byKind.map(([k, n]) => `<span class="tone-${PLAN_GAP[k][1]}" style="flex:${n}" title="${PLAN_GAP[k][0]}: ${n}"></span>`).join('')}</div>
+      <div class="gap-legend">${byKind.map(([k, n]) => `<span><i class="tone-${PLAN_GAP[k][1]}"></i>${PLAN_GAP[k][0]} <b>${n}</b></span>`).join('')}</div>
+      <div class="gap-bars">${shown.map(g => `<div class="gap-row"><span class="gap-name" title="${esc(g.name)}"><i class="tone-${PLAN_GAP[g.kind][1]}"></i>${g.kind === 'none' ? '<em>Sem plano registrado</em>' : esc(g.name)}</span><span class="gap-track"><span class="tone-${PLAN_GAP[g.kind][1]}" style="width:${Math.max(4, g.n / max * 100)}%"></span></span><b>${g.n}</b></div>`).join('')}</div>
+      ${list.length > shown.length ? `<div class="hint">+ ${list.length - shown.length} outro(s) plano(s) com ${list.slice(8).reduce((s, g) => s + g.n, 0)} atleta(s)</div>` : ''}
+    </div></section>`;
+}
 function renderPackages() {
   const members = PLANS.reduce((s, p) => s + athletesOnPlan(p.id).length, 0), sum = PLANS.reduce((s, p) => s + p.value * athletesOnPlan(p.id).length, 0);
   return `${viewBanner('packages')}
   <div class="page-head"><div><div class="eyebrow">Oferta & organização</div><h1>Pacotes e mensalidades</h1><p>Pacotes por núcleo, vinculados às equipes. Reajustes mostram o impacto antes da confirmação.</p></div>
     <div class="head-actions"><button class="btn primary" data-act="pkg-new" data-edit>${icon('plus')} Criar pacote</button></div></div>
-  ${(() => { const activeN = ATHLETES.filter(a => a.active).length, outside = activeN - members; return `<div class="grid g4 mb">${[['Pacotes disponíveis', PLANS.length, `Em ${new Set(PLANS.map(p => p.n)).size} de ${NUCLEI.length} núcleos`, 'layers'], ['Equipes com pacote', new Set(PLANS.flatMap(p => p.teams)).size, `de ${TEAMS.filter(t => t.active).length} equipes ativas`, 'pin'], ['Atletas nos pacotes', `${members} <span class="muted" style="font-size:14px;font-weight:500">de ${activeN}</span>`, outside ? `${outside} ativo(s) com plano fora do catálogo` : 'Todos os ativos estão em um pacote', 'users'], ['Valor mensal de tabela', money(sum), `Só dos ${members} atletas nos pacotes · não é o recebido`, 'trend']].map(([l, v, s, i]) => kpiCard([l, v, s, '', i])).join('')}</div>${outside ? `<div class="banner warn">${icon('alert')}<span><b>${outside} atleta(s) ativo(s) têm um plano que não está no catálogo.</b> Eles ficam fora dos totais desta página. <button class="btn sm" data-act="pending-go" data-k="noplan" style="margin-left:6px">Ver atletas</button></span></div>` : ''}`; })()}
+  ${(() => { const activeN = ATHLETES.filter(a => a.active).length, outside = activeN - members; return `<div class="grid g4 mb">${[['Pacotes disponíveis', PLANS.length, `Em ${new Set(PLANS.map(p => p.n)).size} de ${NUCLEI.length} núcleos`, 'layers'], ['Equipes com pacote', new Set(PLANS.flatMap(p => p.teams)).size, `de ${TEAMS.filter(t => t.active).length} equipes ativas`, 'pin'], ['Atletas nos pacotes', `${members} <span class="muted" style="font-size:14px;font-weight:500">de ${activeN}</span>`, outside ? `${outside} ativo(s) com plano fora do catálogo` : 'Todos os ativos estão em um pacote', 'users'], ['Valor mensal de tabela', money(sum), `Só dos ${members} atletas nos pacotes · não é o recebido`, 'trend']].map(([l, v, s, i]) => kpiCard([l, v, s, '', i])).join('')}</div>${outside ? planGapHTML() : ''}`; })()}
   <section class="panel">
     <div class="tabs">${[{ id: 'all', name: 'Todos os núcleos' }, ...NUCLEI].map(n => `<button class="${S.pk.n === n.id ? 'on' : ''}" data-act="pkg-n" data-n="${n.id}">${esc(n.name)} <span class="pill">${n.id === 'all' ? PLANS.length : PLANS.filter(p => p.n === n.id).length}</span></button>`).join('')}</div>
     <div class="toolbar"><div class="search">${icon('search')}<input class="input" id="pkQ" type="search" placeholder="Buscar pacote ou equipe..." value="${esc(S.pk.q)}" aria-label="Buscar pacote"></div>

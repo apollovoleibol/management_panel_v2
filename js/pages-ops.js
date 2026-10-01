@@ -422,7 +422,7 @@ function renderAthletes() {
 const athleteContact = a => { const t = teamOf(a.teamId), minor = isMinorTeam(t) || !!a.parentName; return { minor, tel: minor ? (a.parentPhone || a.phone) : a.phone }; };
 // Filtros abertos pelo bloco "Pendências" da Visão geral
 const ATHLETE_FILTERS = {
-  noplan: ['Atletas ativos com plano fora do catálogo de pacotes', a => a.active && !a.planId],
+  noplan: ['Atletas ativos fora dos pacotes (sem plano ou plano fora do catálogo)', a => a.active && !a.planId],
   nocontact: ['Atletas ativos sem WhatsApp de contato', a => a.active && digits(athleteContact(a).tel).length < 10],
 };
 function athletesTable() {
