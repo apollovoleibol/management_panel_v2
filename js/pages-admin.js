@@ -264,7 +264,7 @@ function drawUser() {
     <h3 class="mt">Permissões por página</h3><p class="hint" style="margin:2px 0 8px">${c.e} com edição · ${c.v} somente visualização · ${PAGES.length - c.e - c.v} sem acesso</p>
     <div class="table-wrap" style="margin:0 -24px"><table class="perm-table"><thead><tr><th>Página</th><th>Visualizar</th><th>Editar</th><th>Resultado</th></tr></thead><tbody>${PAGES.map(row).join('')}</tbody></table></div>
     <div class="err" id="ueErr" role="alert"></div></fieldset></div>
-    <div class="d-foot"><button class="btn" data-act="close-dialog">${ro ? 'Fechar' : 'Cancelar'}</button>${ro ? '' : `<button class="btn primary" data-act="user-save">${u.isNew ? 'Enviar convite' : 'Salvar permissões'}</button>`}</div>`, 'drawer wide');
+    <div class="d-foot"><button class="btn" data-act="close-dialog">${ro ? 'Fechar' : 'Cancelar'}</button>${ro ? '' : `<button class="btn primary" data-act="user-save">${u.isNew ? 'Criar acesso' : 'Salvar permissões'}</button>`}</div>`, 'drawer wide');
   const body = $('#dlg .d-body');
   body.addEventListener('change', e => {
     const el = e.target, grab = () => { UE.name = $('#ueName').value; UE.email = $('#ueEmail').value; UE.active = $('#ueActive').checked; if ($('#ueCoach')) UE.coachId = $('#ueCoach').value || null; };
@@ -291,8 +291,12 @@ async function saveUser() {
       const { error } = await financeDbClient().functions.invoke('v2-invite-user', {
         body: { email: UE.email, fullName: UE.name, role, permissions: UE.perms }
       });
-      if (error) throw error;
-      toast(`Convite enviado para ${UE.email}.`);
+      if (error) {
+        let response = null;
+        try { if (error.context?.json) response = await error.context.json(); } catch { }
+        throw new Error(response?.error || error.message);
+      }
+      toast(`Acesso criado. Peça para ${UE.email} entrar com Google.`);
     } else {
       const { error } = await financeDbClient().rpc('v2_admin_set_staff', {
         p_user: UE.id, p_role: role, p_permissions: UE.perms, p_active: UE.active
@@ -321,9 +325,9 @@ function portalInviteForm() {
     <div class="field"><label for="piName">Nome da pessoa convidada</label><input class="input" id="piName" autocomplete="name"></div>
     <div class="field"><label for="piEmail">E-mail da conta</label><input class="input" type="email" id="piEmail" autocomplete="email"></div>
     <div class="field"><label for="piAthlete">Atleta vinculado</label><select class="select" id="piAthlete"><option value="">Selecione...</option>${portalAthleteOptions()}</select></div>
-    <p class="hint">Para menores, convide o responsável legal. Um adulto recebe acesso somente ao próprio cadastro. Confirme a identidade antes de enviar o convite.</p>
+    <p class="hint">Para menores, convide o responsável legal. Um adulto recebe acesso somente ao próprio cadastro. Confirme a identidade antes de criar o acesso. A pessoa entra com Google usando este e-mail.</p>
     <div class="err" id="piError" role="alert"></div></div>
-    <div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="portal-invite-save" data-edit>Enviar convite</button></div>`, 'drawer');
+    <div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" data-act="portal-invite-save" data-edit>Criar acesso</button></div>`, 'drawer');
 }
 async function portalInviteSave() {
   const fullName = $('#piName').value.trim(), email = $('#piEmail').value.trim();
@@ -342,7 +346,7 @@ async function portalInviteSave() {
       try { if (error.context?.json) response = await error.context.json(); } catch { }
       throw new Error(response?.error || error.message);
     }
-    closeDialog(); await liveReload(); toast(`Convite enviado para ${email}.`);
+    closeDialog(); await liveReload(); toast(`Acesso criado. Peça para ${email} entrar com Google.`);
   } catch (error) { errorBox.textContent = `Não foi possível convidar: ${error.message}`; button.disabled = false; }
 }
 function portalLinkForm() {

@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## v2.9.2 — 2026-10-05
+
+- "Convidar usuário" e o convite da Área do atleta voltam a funcionar: a função v2-invite-user foi publicada e passa a criar o acesso já confirmado (sem depender de e-mail). A pessoa entra com Google usando o e-mail cadastrado.
+- Contas existentes são reaproveitadas sem sobrescrever o perfil; mensagens de erro em português.
+
 ## v2.9.1 — 2026-10-01
 
 - Corrige o resumo financeiro: o fundo escuro do destaque cobria a página inteira e escondia o valor "A vencer".
