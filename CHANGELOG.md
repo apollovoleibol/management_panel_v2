@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## v2.9.5 — 2026-10-05
+
+- Botões e links de WhatsApp no verde oficial (#25D366) e símbolo do WhatsApp preenchido.
+
 ## v2.9.4 — 2026-10-05
 
 - Área do atleta: o aviso de ausência pede o motivo (opcional); o técnico vê a falta já justificada na chamada do Manager App.

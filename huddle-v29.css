@@ -6,12 +6,12 @@
   --n-nc0:#2a63c0;--n-nc0-soft:#e8effb;--n-nc1:#7b4bbf;--n-nc1-soft:#f1ebfa;--n-nc2:#935a0a;--n-nc2-soft:#fbf1e0;
   --n-nc3:#0d6f6a;--n-nc3-soft:#e1f4f3;--n-nc4:#c0392b;--n-nc4-soft:#fdecea;--n-nc5:#4a5ab8;--n-nc5-soft:#eceefa;
   --n-novo:var(--faint);--n-novo-soft:var(--surface-3);
-  --brand-btn:#d8352c;--wa:#15803d;--wa-hover:#116b33;
+  --brand-btn:#d8352c;--wa:#25D366;--wa-hover:#1ebe5d;
 }
 :root[data-theme="dark"]{
   --n-nc0:#7fb0f5;--n-nc0-soft:#1a2a45;--n-nc1:#bb98ea;--n-nc1-soft:#2a2045;--n-nc2:#e8b05a;--n-nc2-soft:#36291a;
   --n-nc3:#5fd0c8;--n-nc3-soft:#143535;--n-nc4:#f08a80;--n-nc4-soft:#3a1d24;--n-nc5:#9aa6f0;--n-nc5-soft:#1f2348;
-  --brand-btn:#d8352c;--wa:#1f9d52;--wa-hover:#15803d;
+  --brand-btn:#d8352c;--wa:#25D366;--wa-hover:#1ebe5d;
 }
 .tag.nc0,.ev.nc0{background:var(--n-nc0-soft);color:var(--n-nc0)}
 .tag.nc1,.ev.nc1{background:var(--n-nc1-soft);color:var(--n-nc1)}
@@ -231,3 +231,6 @@ th.sel,td.sel{width:38px;padding-right:0!important}
 @media(max-width:760px){.flow-top{grid-template-columns:1fr;gap:16px}.flow-cats{grid-template-columns:1fr}.flow-chart{gap:4px;height:160px}.flow-col small{font-size:9px}}
 .flow-delta.down .i{transform:scaleY(-1)}
 .fin-submetrics strong.late{color:var(--brand-ink)}
+
+/* Símbolo do WhatsApp preenchido (core.js icon) */
+svg.i.i-fill{fill:currentColor;stroke:none}
