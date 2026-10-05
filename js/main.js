@@ -191,6 +191,7 @@ document.addEventListener('click', async e => {
     /* pagamentos */
     case 'pay-open': return payDrawer(id);
     case 'pay-add': return payAddForm();
+    case 'pay-import-app': return payImportApp();
     case 'pay-add-save': return payAddSave();
     case 'pay-approve': {
       const it = COACH_ITEMS.find(i => i.id === id);
@@ -281,7 +282,7 @@ document.addEventListener('change', e => {
 });
 
 /* ─── Topo ─── */
-const PREVIEW_WRITE_ACTIONS = new Set(['booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
+const PREVIEW_WRITE_ACTIONS = new Set(['pay-import-app','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
 $('#viewAs').addEventListener('change', event => {
   if (APOLLO_AUTH.access?.role !== 'admin') return;
   S.previewRole = event.target.value in ROLE_PRESETS && event.target.value !== 'Administrador' ? event.target.value : '';

@@ -11,13 +11,41 @@ function coachSummary(cid, key) {
   const sum = a => a.reduce((s, i) => s + itemValue(i), 0);
   return { items, hours: tr.reduce((s, i) => s + i.hours, 0), trV: sum(tr), compDays: comp.length, compV: sum(comp), exV: sum(ex), total: sum(items), pending: items.filter(i => i.status === 'pendente').length, paid: PAYOUTS[`${cid}|${key}`] };
 }
+// Treinos registrados no Manager App (chamada ou "confirmar treino") ainda sem lançamento de horas.
+// Um por técnico, equipe e dia; sem duração gravada, usa a grade da equipe naquele dia da semana.
+function payAppSessions(key) {
+  const launched = new Set(COACH_ITEMS.filter(i => i.type === 'treino').map(i => `${i.coach}|${i.teamId}|${i.date}`));
+  const out = new Map();
+  SESSIONS.filter(s => s.coach && inMonth(s.date, key) && COACHES.some(c => c.id === s.coach)).forEach(s => {
+    const k = `${s.coach}|${s.teamId}|${s.date}`;
+    if (launched.has(k) || out.has(k)) return;
+    const team = teamOf(s.teamId), slot = team?.schedule?.find(x => x.day === parseYmd(s.date).getDay());
+    const hours = s.hours > 0 ? s.hours : slot ? hoursBetween(slot.start, slot.end) : 0;
+    if (hours > 0) out.set(k, { coach: s.coach, teamId: s.teamId, date: s.date, hours: Math.round(hours * 100) / 100, team });
+  });
+  return [...out.values()];
+}
+async function payImportApp() {
+  const list = payAppSessions(S.pay.month);
+  if (!list.length) return;
+  const ok = await confirmBox({ title: `Lançar ${list.length} treino(s) do app?`, text: `Horas dos treinos registrados no Manager App em ${monthLabel(S.pay.month)}. Os lançamentos entram como pendentes de aprovação.`, ok: 'Lançar treinos' });
+  if (!ok) return;
+  const rows = list.map(s => ({ coach_id: s.coach, team_id: s.teamId, item_date: s.date, kind: 'training',
+    description: `Treino ${s.team?.name || ''} (registrado no app)`.replace('  ', ' '), hours: s.hours, amount_cents: null,
+    created_by: APOLLO_AUTH.user.id }));
+  const { error } = await financeDbClient().from('v2_coach_items').insert(rows);
+  if (error) return toast(`Não foi possível lançar: ${error.message}`);
+  await liveReload(); toast(`${rows.length} treino(s) lançados — aguardando aprovação.`);
+}
+
 function renderPayments() {
   const key = S.pay.month, rows = COACHES.map(c => ({ c, s: coachSummary(c.id, key) }));
   const total = rows.reduce((s, r) => s + r.s.total, 0), paid = rows.filter(r => r.s.paid).reduce((s, r) => s + r.s.paid.amount, 0);
   return `${viewBanner('payments')}
   <div class="page-head"><div><div class="eyebrow">Finanças · equipe técnica</div><h1>Pagamentos de técnicos</h1><p>Horas trabalhadas, dias de competição e extras de cada técnico, com aprovação e registro de pagamento.</p></div>
     <div class="head-actions"><select class="select" id="payMonth" aria-label="Mês de referência" style="width:auto">${monthOptions(key, 3)}</select><button class="btn" data-act="pay-export">${icon('download')} Exportar CSV</button><button class="btn primary" data-act="pay-add" data-edit>${icon('plus')} Lançar competição ou extra</button></div></div>
-  ${rows.some(r => r.s.items.length) ? `<div class="banner note">${icon('info')}<div>Registre aqui as horas efetivamente trabalhadas, competições e extras. Os horários da agenda não comprovam a realização do treino.</div></div>`
+  ${(() => { const app = payAppSessions(key); return app.length && canEdit('payments') ? `<div class="banner note">${icon('clock')}<span><b>${app.length} treino(s) registrados no Manager App</b> (chamada ou confirmação) ainda sem lançamento em ${monthLabel(key)}. <button class="btn sm" data-act="pay-import-app" data-edit style="margin-left:6px">Lançar ${app.length} treino(s)</button></span></div>` : ''; })()}
+  ${rows.some(r => r.s.items.length) ? `<div class="banner note">${icon('info')}<div>Registre aqui as horas trabalhadas, competições e extras. Treinos com chamada ou confirmados no Manager App podem ser lançados automaticamente.</div></div>`
     : `<div class="empty-cta">${icon('clock')}<p><b>Nenhum lançamento em ${monthLabel(key)}.</b> Lance as horas de treino, competições e extras de cada técnico para calcular o fechamento do mês.${COACHES.some(c => !c.rate) ? ' Defina também a hora-aula e a diária em “Detalhes” de cada técnico.' : ''}</p>${canEdit('payments') ? `<button class="btn primary" data-act="pay-add" data-edit>${icon('plus')} Lançar horas ou competição</button>` : ''}</div>`}
   <div class="grid g4 mb">${[['Total do mês', money(total), monthLabel(key), 'wallet'], ['Horas de treino', rows.reduce((s, r) => s + r.s.hours, 0).toLocaleString('pt-BR') + ' h', `${money(rows.reduce((s, r) => s + r.s.trV, 0))} em treinos`, 'clock'], ['Dias de competição', rows.reduce((s, r) => s + r.s.compDays, 0), `${money(rows.reduce((s, r) => s + r.s.compV, 0))} em diárias`, 'trophy'], ['A pagar', money(total - paid), `${rows.reduce((s, r) => s + r.s.pending, 0)} lançamentos aguardando aprovação`, 'alert']].map(([l, v, f, i]) => kpiCard([l, v, f, '', i])).join('')}</div>
   <section class="panel"><div class="panel-head"><div><h2>Fechamento por técnico</h2><div class="sub">${monthLabel(key)} · valores calculados com a hora-aula e a diária de cada técnico</div></div></div>
