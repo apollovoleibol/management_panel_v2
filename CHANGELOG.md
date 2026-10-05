@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## Supabase — 2026-10-05
+
+- Migração 024 e função call-reminder: treino sem chamada 24 h depois do fim vira tarefa de prioridade alta, atribuída pela administração a cada técnico da equipe, com notificação. A tarefa é concluída automaticamente quando a chamada é salva. Só considera treinos que terminaram entre 24 h e 48 h atrás; cancelados no Huddle não geram tarefa.
+
 ## v2.9.5 — 2026-10-05
 
 - Botões e links de WhatsApp no verde oficial (#25D366) e símbolo do WhatsApp preenchido.
