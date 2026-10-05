@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## v2.9.4 — 2026-10-05
+
+- Área do atleta: o aviso de ausência pede o motivo (opcional); o técnico vê a falta já justificada na chamada do Manager App.
+- Migração 023: função v2_my_month ("Meu mês" do técnico no Manager App), registro de lembretes de chamada e agendamento (pg_cron + pg_net) da Edge Function call-reminder, que avisa os técnicos 30 minutos após o treino sem chamada.
+
 ## v2.9.3 — 2026-10-05
 
 - Pagamentos de técnicos: treinos registrados no Manager App (chamada ou "confirmar treino") e ainda sem lançamento aparecem num aviso com o botão "Lançar N treino(s)". Um lançamento por técnico, equipe e dia; sem duração gravada, usa a grade da equipe. Entram pendentes de aprovação.

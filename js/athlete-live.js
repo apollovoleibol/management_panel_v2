@@ -163,9 +163,11 @@ document.addEventListener('click', async event => {
   if (target.dataset.athlete) { PORTAL.selected = target.dataset.athlete; portalRender(); return; }
   try {
     if (target.dataset.absence) {
-      if (!confirm(`Avisar ausência em ${portalDate(target.dataset.absence)}?`)) return;
-      await portalNotice('absence', target.dataset.absence, { reason: 'Aviso enviado pelo portal' });
-      alert('Ausência registrada para a equipe.');
+      // O motivo aparece para o técnico na chamada do Manager App (já marcada como justificada)
+      const reason = prompt(`Avisar ausência em ${portalDate(target.dataset.absence)}.\nMotivo (opcional):`, '');
+      if (reason === null) return;
+      await portalNotice('absence', target.dataset.absence, { reason: reason.trim().slice(0, 200) || 'Ausência avisada pela família' });
+      alert('Ausência avisada. O técnico verá a falta como justificada na chamada.');
     } else if (target.dataset.event) {
       const going = confirm('Confirma a participação nesta competição?');
       if (!going && !confirm('Deseja registrar que não participará?')) return;
