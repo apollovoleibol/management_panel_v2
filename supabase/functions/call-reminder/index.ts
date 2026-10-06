@@ -130,6 +130,31 @@ async function missedCallTasks(admin: any, teams: Team[], today: string) {
   return { created, completed };
 }
 
+
+// ─── Fechamento da folha: faltando 3 dias para o fim do mês, às 9h ───
+// Uma notificação por técnico ativo por mês (confere se já foi enviada).
+const PAYROLL_TITLE = 'Revise suas horas do mês';
+const PAYROLL_BODY = 'Faltam 3 dias para o fechamento mensal da sua folha. Revise o registro de suas horas de treino e diárias de competições.';
+
+// deno-lint-ignore no-explicit-any
+async function payrollReminder(admin: any, now: { date: string; minutes: number }) {
+  const [y, m, d] = now.date.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  if (lastDay - d !== 3 || now.minutes < 9 * 60) return 0;
+  const monthStart = `${now.date.slice(0, 8)}01T00:00:00-03:00`;
+  const [{ data: coaches }, { data: sent }] = await Promise.all([
+    admin.from('profiles').select('id').eq('role', 'coach').eq('is_active', true),
+    admin.from('notifications').select('user_id').eq('type', 'payroll_review').gte('sent_at', monthStart)
+  ]);
+  const already = new Set((sent || []).map((r: { user_id: string }) => r.user_id));
+  const rows = (coaches || []).filter((c: { id: string }) => !already.has(c.id)).map((c: { id: string }) => ({
+    user_id: c.id, type: 'payroll_review', title: PAYROLL_TITLE, body: PAYROLL_BODY, data: { url: '/#/treinos' }
+  }));
+  // O envio ao celular é feito pelo gatilho de notifications (migração 025)
+  if (rows.length) await admin.from('notifications').insert(rows);
+  return rows.length;
+}
+
 Deno.serve(async () => {
   const url = Deno.env.get('SUPABASE_URL')!;
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -141,6 +166,7 @@ Deno.serve(async () => {
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
 
   const tasks = await missedCallTasks(admin, (teams || []) as Team[], now.date);
+  const payroll = await payrollReminder(admin, now);
 
   // Treinos de hoje cuja janela de lembrete está aberta
   const due = (teams || []).flatMap(t => (Array.isArray(t.training_schedule) ? t.training_schedule : [])
@@ -150,7 +176,7 @@ Deno.serve(async () => {
       return since >= 0 && since < WINDOW_MIN;
     })
     .map((s: { start: string }) => ({ team: t, start: String(s.start).slice(0, 5) })));
-  if (!due.length) return new Response(JSON.stringify({ checked: 0, sent: 0, tasks }));
+  if (!due.length) return new Response(JSON.stringify({ checked: 0, sent: 0, tasks, payroll }));
 
   const ids = [...new Set(due.map(d => d.team.id))];
   const [cancelRes, logsRes, sentRes, coachesRes] = await Promise.all([
@@ -185,5 +211,5 @@ Deno.serve(async () => {
       sent++;
     }
   }
-  return new Response(JSON.stringify({ checked: due.length, sent, tasks }));
+  return new Response(JSON.stringify({ checked: due.length, sent, tasks, payroll }));
 });
