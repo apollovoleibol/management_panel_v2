@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## v2.9.6 — 2026-10-06
+
+- Novo favicon e ícone (Apollo Huddle): A da Apollo em selo sobre gradiente azul-marinho, em SVG, PNG 32 px e apple-touch-icon.
+
 ## Supabase — 2026-10-05
 
 - Migração 024 e função call-reminder: treino sem chamada 24 h depois do fim vira tarefa de prioridade alta, atribuída pela administração a cada técnico da equipe, com notificação. A tarefa é concluída automaticamente quando a chamada é salva. Só considera treinos que terminaram entre 24 h e 48 h atrás; cancelados no Huddle não geram tarefa.
