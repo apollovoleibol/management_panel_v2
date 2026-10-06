@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## v2.9.7 — 2026-10-06
+
+- Pagamentos: horas atribuídas a quem conduziu o treino (substituto informado no Manager App); diárias de competição lançadas pelo técnico aparecem como "Lançado pelo técnico no app" e podem ser aprovadas ou reprovadas. Reprovados ficam fora dos totais.
+- Migração 026: training_logs.conducted_by, hora-aula base de R$ 30, status 'rejected', funções manager_coach_directory, manager_add_competition_day e manager_pay_forecast.
+
 ## v2.9.6 — 2026-10-06
 
 - Novo favicon e ícone (Apollo Huddle): A da Apollo em selo sobre gradiente azul-marinho, em SVG, PNG 32 px e apple-touch-icon.

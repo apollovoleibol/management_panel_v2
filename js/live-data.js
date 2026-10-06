@@ -71,7 +71,7 @@ async function liveLoadPanel() {
       isAdmin ? liveAll('profiles', 'id,full_name,email,phone,role,is_active') : liveAll('profiles', 'id,full_name,email,phone,role,is_active'),
       liveAll('team_unavailable_dates', 'team_id,date'),
       liveAll('v2_training_cancellations', 'team_id,training_date'),
-      liveAll('training_logs', 'id,team_id,coach_id,started_at,ended_at,duration_minutes'),
+      liveAll('training_logs', 'id,team_id,coach_id,conducted_by,started_at,ended_at,duration_minutes'),
       liveAll('attendance', 'log_id,athlete_id,status'),
       liveAll('competitions', 'id,team_id,name,scheduled_at,venue_name,status'),
       isAdmin ? liveAll('v2_staff', 'user_id,role,permissions,is_active') : Promise.resolve([]),
@@ -156,7 +156,8 @@ async function liveLoadPanel() {
     const attendanceByLog = new Map();
     attendance.forEach(a => { if (!attendanceByLog.has(a.log_id)) attendanceByLog.set(a.log_id, {});
       attendanceByLog.get(a.log_id)[a.athlete_id] = a.status; });
-    SESSIONS = logs.map(l => ({ teamId: l.team_id, coach: l.coach_id, date: l.started_at.slice(0, 10),
+    // Horas de quem conduziu o treino (substituto) ou, sem registro, de quem confirmou
+    SESSIONS = logs.map(l => ({ teamId: l.team_id, coach: l.conducted_by || l.coach_id, date: l.started_at.slice(0, 10),
       start: l.started_at.slice(11, 16), hours: (l.duration_minutes || 0) / 60,
       recorded: attendanceByLog.has(l.id), att: attendanceByLog.get(l.id) || {} }));
     COMPETITIONS.splice(0, COMPETITIONS.length, ...competitions.map(c => ({
@@ -166,7 +167,7 @@ async function liveLoadPanel() {
     if (finance) {
       const [rates, items, payouts, tecnofitLinks] = await Promise.all([
         liveAll('v2_coach_rates', 'coach_id,hourly_cents,daily_cents,pix_key'),
-        liveAll('v2_coach_items', 'id,coach_id,team_id,item_date,kind,description,hours,amount_cents,status'),
+        liveAll('v2_coach_items', 'id,coach_id,team_id,item_date,kind,description,hours,amount_cents,status,created_by'),
         liveAll('v2_coach_payouts', 'coach_id,month,amount_cents,paid_at'),
         liveAll('v2_tecnofit_athlete_links', 'athlete_id,client_id')
       ]);
@@ -179,7 +180,8 @@ async function liveLoadPanel() {
       COACH_ITEMS = items.map(i => ({ id: i.id, coach: i.coach_id, teamId: i.team_id,
         date: i.item_date, type: ({ training: 'treino', competition: 'competicao', extra: 'extra' })[i.kind],
         desc: i.description, hours: Number(i.hours), amount: i.amount_cents,
-        status: i.status === 'approved' ? 'aprovado' : 'pendente', origin: 'Manual' }));
+        status: ({ approved: 'aprovado', rejected: 'reprovado' })[i.status] || 'pendente',
+        origin: i.created_by === i.coach_id ? 'Técnico' : 'Manual' }));
       PAYOUTS = Object.fromEntries(payouts.map(p => [`${p.coach_id}|${p.month.slice(0, 7)}`,
         { paidAt: p.paid_at.slice(0, 10), amount: p.amount_cents }]));
     }

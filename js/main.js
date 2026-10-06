@@ -200,6 +200,15 @@ document.addEventListener('click', async e => {
       if (error) return toast(error.message, true);
       await liveReload(); return payDrawer(it.coach);
     }
+    case 'pay-reject': {
+      const it = COACH_ITEMS.find(i => i.id === id);
+      if (!it || !canEdit('payments')) return;
+      const ok = await confirmBox({ title: 'Reprovar lançamento?', text: `${esc(it.desc)} — ${it.date.split('-').reverse().join('/')}. O técnico verá como reprovado no app.`, ok: 'Reprovar', danger: true });
+      if (!ok) return;
+      const { error } = await financeDbClient().from('v2_coach_items').update({ status: 'rejected' }).eq('id', id);
+      if (error) return toast(error.message, true);
+      await liveReload(); return payDrawer(it.coach);
+    }
     case 'pay-approve-all': {
       if (!canEdit('payments')) return;
       const ids = COACH_ITEMS.filter(i => i.coach === id && inMonth(i.date, S.pay.month) && i.status === 'pendente').map(i => i.id);
@@ -282,7 +291,7 @@ document.addEventListener('change', e => {
 });
 
 /* ─── Topo ─── */
-const PREVIEW_WRITE_ACTIONS = new Set(['pay-import-app','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
+const PREVIEW_WRITE_ACTIONS = new Set(['pay-import-app','pay-reject','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
 $('#viewAs').addEventListener('change', event => {
   if (APOLLO_AUTH.access?.role !== 'admin') return;
   S.previewRole = event.target.value in ROLE_PRESETS && event.target.value !== 'Administrador' ? event.target.value : '';

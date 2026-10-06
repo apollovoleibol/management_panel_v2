@@ -6,10 +6,12 @@ const monthLabel = k => { const [y, m] = k.split('-').map(Number); return `${MON
 
 /* ═══════════════ PAGAMENTOS DE TÉCNICOS ═══════════════ */
 function coachSummary(cid, key) {
-  const items = COACH_ITEMS.filter(i => i.coach === cid && inMonth(i.date, key));
+  const all = COACH_ITEMS.filter(i => i.coach === cid && inMonth(i.date, key));
+  // Reprovados ficam visíveis no detalhe, mas fora dos totais
+  const items = all.filter(i => i.status !== 'reprovado');
   const tr = items.filter(i => i.type === 'treino'), comp = items.filter(i => i.type === 'competicao'), ex = items.filter(i => i.type === 'extra');
   const sum = a => a.reduce((s, i) => s + itemValue(i), 0);
-  return { items, hours: tr.reduce((s, i) => s + i.hours, 0), trV: sum(tr), compDays: comp.length, compV: sum(comp), exV: sum(ex), total: sum(items), pending: items.filter(i => i.status === 'pendente').length, paid: PAYOUTS[`${cid}|${key}`] };
+  return { all, items, hours: tr.reduce((s, i) => s + i.hours, 0), trV: sum(tr), compDays: comp.length, compV: sum(comp), exV: sum(ex), total: sum(items), pending: items.filter(i => i.status === 'pendente').length, paid: PAYOUTS[`${cid}|${key}`] };
 }
 // Treinos registrados no Manager App (chamada ou "confirmar treino") ainda sem lançamento de horas.
 // Um por técnico, equipe e dia; sem duração gravada, usa a grade da equipe naquele dia da semana.
@@ -59,13 +61,13 @@ function renderPayments() {
 function payDrawer(cid) {
   const c = coachOf(cid), key = S.pay.month, s = coachSummary(cid, key), ed = canEdit('payments');
   const typeLbl = { treino: 'Treino', competicao: 'Competição', extra: 'Extra' };
-  const items = [...s.items].sort((a, b) => a.date.localeCompare(b.date));
+  const items = [...s.all].sort((a, b) => a.date.localeCompare(b.date));
   openDialog(dHead(`Pagamento · ${monthLabel(key)}`, esc(c.name), `PIX: ${esc(c.pix)}`) + `<div class="d-body"><fieldset class="plain" ${ed && !s.paid ? '' : 'disabled'}>
     <div class="row2"><div class="field"><label for="pdRate">Valor da hora-aula (R$)</label><input class="input" id="pdRate" type="number" step="0.01" value="${(c.rate / 100).toFixed(2)}"></div><div class="field"><label for="pdDaily">Diária de competição (R$)</label><input class="input" id="pdDaily" type="number" step="0.01" value="${(c.daily / 100).toFixed(2)}"></div></div>
     <div class="kv"><div><small>Treinos</small><strong>${s.hours.toLocaleString('pt-BR')} h · ${money(s.trV)}</strong></div><div><small>Competições</small><strong>${s.compDays} dia(s) · ${money(s.compV)}</strong></div><div><small>Extras</small><strong>${money(s.exV)}</strong></div><div><small>Total</small><strong style="font-size:18px">${money(s.total)}</strong></div></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3>Lançamentos</h3>${s.pending && !s.paid ? '<button type="button" class="btn sm" data-act="pay-approve-all" data-id="' + cid + '">' + icon('check') + ' Aprovar todos</button>' : ''}</div>
-    <div class="table-wrap" style="margin:0 -24px"><table><thead><tr><th>Data</th><th>Lançamento</th><th class="num">Qtd.</th><th class="num">Valor</th><th>Status</th></tr></thead><tbody>${items.map(i => `<tr><td>${i.date.slice(8)}/${i.date.slice(5, 7)}</td><td><span class="tag nodot ${i.type === 'competicao' ? 'st-em-cadastro' : i.type === 'extra' ? 'st-info' : ''}">${typeLbl[i.type]}</span> ${esc(i.desc)}<div class="hint">${i.origin === 'Agenda' ? 'Gerado pela agenda' : 'Lançado manualmente'}</div></td><td class="num">${i.type === 'competicao' ? '1 dia' : i.hours ? i.hours.toLocaleString('pt-BR') + ' h' : '—'}</td><td class="num">${money(itemValue(i))}</td>
-      <td>${i.status === 'pendente' ? `<label class="check small"><input type="checkbox" data-act="pay-approve" data-id="${i.id}"> Aprovar</label>` : '<span class="tag st-ok nodot">Aprovado</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Nenhum lançamento no mês.</td></tr>'}</tbody></table></div>
+    <div class="table-wrap" style="margin:0 -24px"><table><thead><tr><th>Data</th><th>Lançamento</th><th class="num">Qtd.</th><th class="num">Valor</th><th>Status</th></tr></thead><tbody>${items.map(i => `<tr><td>${i.date.slice(8)}/${i.date.slice(5, 7)}</td><td><span class="tag nodot ${i.type === 'competicao' ? 'st-em-cadastro' : i.type === 'extra' ? 'st-info' : ''}">${typeLbl[i.type]}</span> ${esc(i.desc)}<div class="hint">${i.origin === 'Agenda' ? 'Gerado pela agenda' : i.origin === 'Técnico' ? 'Lançado pelo técnico no app' : 'Lançado manualmente'}</div></td><td class="num">${i.type === 'competicao' ? '1 dia' : i.hours ? i.hours.toLocaleString('pt-BR') + ' h' : '—'}</td><td class="num">${money(itemValue(i))}</td>
+      <td>${i.status === 'pendente' ? `<label class="check small"><input type="checkbox" data-act="pay-approve" data-id="${i.id}"> Aprovar</label> <button type="button" class="btn sm ghost" data-act="pay-reject" data-id="${i.id}" style="color:var(--bad,#c0392b)">Reprovar</button>` : i.status === 'reprovado' ? '<span class="tag nodot" style="text-decoration:line-through">Reprovado</span>' : '<span class="tag st-ok nodot">Aprovado</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Nenhum lançamento no mês.</td></tr>'}</tbody></table></div>
   </fieldset></div>
   <div class="d-foot">${s.paid ? `<span class="tag st-ok left">Pago em ${s.paid.paidAt.split('-').reverse().join('/')}</span><button class="btn" data-act="close-dialog">Fechar</button>` : `<button class="btn" data-act="close-dialog">Fechar</button>${ed ? `<button class="btn" data-act="pay-rates" data-id="${cid}">Salvar valores</button><button class="btn primary" data-act="pay-mark" data-id="${cid}" ${s.pending ? 'disabled title="Aprove todos os lançamentos antes"' : ''}>${icon('check')} Registrar pagamento de ${money(s.total)}</button>` : ''}`}</div>`, 'drawer wide');
 }
