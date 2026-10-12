@@ -41,6 +41,15 @@ function liveTeamSchedule(raw) {
   return [];
 }
 
+// Frequência e valor lidos do texto do plano. Cadastros antigos escrevem o mesmo pacote
+// de outro jeito ("1x semana - R$ 98,90 (Equipe Aldrin)"), então a comparação usa esses dois dados.
+function planTerms(raw) {
+  const label = String(raw || '');
+  const days = Number((label.match(/(\d+)\s*x/i) || [])[1]) || 0;
+  const amount = (label.match(/R\$\s*([\d.]+,\d{2})/) || [])[1];
+  return { days, value: amount ? Math.round(Number(amount.replace(/\./g, '').replace(',', '.')) * 100) : 0 };
+}
+const planMatches = (p, raw) => { if (p.sourceLabel === raw) return true; const t = planTerms(raw); return !!t.days && !!t.value && p.days === t.days && p.value === t.value; };
 function livePlan(raw, nucleusId, teamId, index) {
   const label = String(raw || '');
   const days = Number((label.match(/(\d+)\s*x\s*por\s*semana/i) || [])[1]) || 0;
@@ -136,7 +145,8 @@ async function liveLoadPanel() {
       parentName: a.parent_name || '', parentPhone: a.parent_phone || '',
       address: a.address || '', bank: finance ? (a.payment_bank || '') : '',
       plan: finance ? (a.payment_plan || '') : '',
-      planId: finance ? PLANS.find(p => p.sourceLabel === a.payment_plan && p.teams.includes(a.team_id))?.id : null,
+      planId: finance ? (PLANS.find(p => p.sourceLabel === a.payment_plan && p.teams.includes(a.team_id))
+        || PLANS.find(p => p.teams.includes(a.team_id) && planMatches(p, a.payment_plan)))?.id : null,
       since: a.joined_at || (a.created_at || '').slice(0, 10) || ymd(TODAY), active: a.is_active !== false
     }));
     PORTAL_ACCESS = portalLinks.map(link => ({ ...link,

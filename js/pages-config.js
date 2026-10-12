@@ -168,7 +168,7 @@ async function saveTeam() {
 /* ═══════════════ PACOTES E MENSALIDADES ═══════════════ */
 // Por que um atleta ativo não entra em nenhum pacote: sem plano, plano de outra equipe ou nome que não existe no catálogo.
 const PLAN_GAP = { none: ['Sem plano registrado', 'slate'], team: ['Pacote de outra equipe', 'amber'], label: ['Nome fora do catálogo', 'red'] };
-const planGap = a => !a.active || a.planId ? null : !String(a.plan || '').trim() ? 'none' : PLANS.some(p => p.sourceLabel === a.plan) ? 'team' : 'label';
+const planGap = a => !a.active || a.planId ? null : !String(a.plan || '').trim() ? 'none' : PLANS.some(p => planMatches(p, a.plan)) ? 'team' : 'label';
 function planGapHTML() {
   const rows = ATHLETES.filter(planGap), groups = new Map();
   rows.forEach(a => { const kind = planGap(a), name = kind === 'none' ? '—' : String(a.plan).trim(), key = kind + '|' + name;
