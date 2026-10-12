@@ -2,6 +2,7 @@
 // Só administração e financeiro (página 'billing' com edição). A chave do Asaas fica
 // no segredo ASAAS_API_KEY; ASAAS_BASE_URL padrão = sandbox.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { LOGO_BASE64 } from './logo.ts';
 
 const origin = 'https://apollovoleibol.github.io';
 const cors = { 'Access-Control-Allow-Origin': origin,
@@ -85,9 +86,16 @@ Deno.serve(async request => {
         .eq('env', ENV).in('status', ['pending', 'active']).limit(1);
       if (open?.length) return json(409, { error: 'Este atleta já tem uma mensalidade ativa ou aguardando o cartão.' });
 
-      // Pagador: reaproveita pelo CPF/CNPJ
+      // Pagador: reaproveita pelo CPF/CNPJ. No Pix já criamos o cliente no Asaas; no cartão, o próprio
+      // checkout do Asaas coleta endereço e cria o cliente (vinculado depois pelo aviso de assinatura).
       let { data: customer } = await admin.from('billing_customers').select('*').eq('env', ENV).eq('cpf_cnpj', doc).maybeSingle();
-      if (!customer?.asaas_id) {
+      if (!customer && method === 'CREDIT_CARD') {
+        const { data: saved, error } = await admin.from('billing_customers').insert({ env: ENV, name, cpf_cnpj: doc,
+          email: payer.email || null, phone: digits(payer.phone) || null }).select().single();
+        if (error) throw error;
+        customer = saved;
+      }
+      if (method === 'PIX' && !customer?.asaas_id) {
         const c = await asaas('/customers', { method: 'POST', body: JSON.stringify({
           name, cpfCnpj: doc, email: payer.email || undefined, mobilePhone: digits(payer.phone) || undefined,
           externalReference: athlete.id, notificationDisabled: false }) });
@@ -101,7 +109,7 @@ Deno.serve(async request => {
         customer_id: customer.id, method, value_cents: value, due_day: day, description, created_by: u.user.id }).select().single();
       if (subErr) throw subErr;
       const due = nextDue(day);
-
+      try {
       if (method === 'PIX') {
         const s = await asaas('/subscriptions', { method: 'POST', body: JSON.stringify({ customer: customer.asaas_id,
           billingType: 'PIX', value: value / 100, nextDueDate: due, cycle: 'MONTHLY', description, externalReference: sub.id }) });
@@ -113,15 +121,21 @@ Deno.serve(async request => {
 
       // Cartão: página segura do Asaas; o responsável digita o cartão uma vez e as próximas cobranças são automáticas
       const ck = await asaas('/checkouts', { method: 'POST', body: JSON.stringify({
-        billingTypes: ['CREDIT_CARD'], chargeTypes: ['RECURRENT'], minutesToExpire: 1440, customer: customer.asaas_id,
+        billingTypes: ['CREDIT_CARD'], chargeTypes: ['RECURRENT'], minutesToExpire: 1440,
+        // Sem customerData: o Asaas exige endereço completo; o responsável preenche os dados na própria página
         externalReference: sub.id,
         callback: { successUrl: `${PANEL}/area-do-atleta.html?pagamento=ok`, cancelUrl: `${PANEL}/area-do-atleta.html?pagamento=cancelado`,
           expiredUrl: `${PANEL}/area-do-atleta.html?pagamento=expirado` },
-        items: [{ name: 'Mensalidade Apollo', description, quantity: 1, value: value / 100 }],
+        items: [{ name: 'Mensalidade Apollo', description: description.slice(0, 150), quantity: 1, value: value / 100, imageBase64: LOGO_BASE64 }],
         subscription: { cycle: 'MONTHLY', nextDueDate: `${due} 00:00:00` } }) });
       const link = ck.link || ck.url || ck.checkoutUrl || null;
       await admin.from('billing_subscriptions').update({ asaas_checkout_id: ck.id, checkout_url: link, updated_at: new Date().toISOString() }).eq('id', sub.id);
-      return json(200, { ok: true, id: sub.id, method, nextDueDate: due, checkoutUrl: link, checkout: link ? undefined : ck });
+      return json(200, { ok: true, id: sub.id, method, nextDueDate: due, checkoutUrl: link });
+      } catch (e) {
+        // Falhou no Asaas: não deixa mensalidade pendente sem cobrança
+        await admin.from('billing_subscriptions').delete().eq('id', sub.id);
+        throw e;
+      }
     }
 
     if (input.action === 'cancel' || input.action === 'sync') {
