@@ -1,9 +1,11 @@
 /* Estruturas de carregamento sem dados ou permissões antes da autenticação. */
-.sk-line,.sk-circle,.sk-block,.sk-tab{display:block;flex:none;border-radius:6px;background:linear-gradient(100deg,#e8eaf0 20%,#f5f6f9 42%,#e8eaf0 64%);background-size:220% 100%;animation:sk-shimmer 1.8s ease-in-out infinite}
+/* Cores derivadas do texto do tema: ficam sutis tanto no claro quanto no escuro */
+.sk-line,.sk-circle,.sk-block,.sk-tab{--sk-base:color-mix(in srgb,var(--ink,#0f1332) 7%,transparent);--sk-shine:color-mix(in srgb,var(--ink,#0f1332) 12%,transparent);display:block;flex:none;border-radius:6px;background:linear-gradient(100deg,var(--sk-base) 20%,var(--sk-shine) 42%,var(--sk-base) 64%);background-size:220% 100%;animation:sk-shimmer 1.8s ease-in-out infinite}
 .sk-line{height:12px;max-width:100%}
 .sk-circle{width:34px;height:34px;border-radius:50%}
 .sk-block{width:100%;min-height:160px;border-radius:10px}
-.sk-dark{background-image:linear-gradient(100deg,#252a50 20%,#3a4066 42%,#252a50 64%)}
+/* Menu lateral (sempre escuro) */
+.sk-dark{--sk-base:rgba(255,255,255,.07);--sk-shine:rgba(255,255,255,.12)}
 @keyframes sk-shimmer{to{background-position-x:-220%}}
 
 /* Painel: a estrutura é genérica até a confirmação do perfil. */
@@ -31,7 +33,7 @@
 #tabs .sk-tab{width:82px;height:16px;margin:14px 16px 15px;border-radius:6px}
 .sk-athlete-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px}
 .sk-athlete-stack{display:grid;align-content:start;gap:16px}
-.sk-athlete-hero{min-height:210px;background:#e7e9f1}
+.sk-athlete-hero{min-height:210px}
 .sk-metric-row{display:flex;justify-content:space-between;gap:12px;margin-top:16px}
 
 @media(max-width:860px){#startup{grid-template-columns:1fr}.sk-panel-side{display:none}.sk-panel-content{padding:24px 16px}.sk-panel-top{padding:0 16px}}
