@@ -54,6 +54,7 @@ function renderOverview() {
   <div class="page-head"><div><div class="eyebrow">Apollo · ${monthName} de ${TODAY.getFullYear()}</div><h1>Visão geral</h1><p>${fin ? 'Finanças, pendências, agenda e conversão em um só lugar.' : 'Pendências, agenda, atendimento e conversão em um só lugar.'} Toque no ícone (i) para ver como cada número é calculado.</p></div>
     <div class="head-actions"><button class="btn" data-act="export-overview">${icon('download')} Exportar resumo</button></div></div>
 
+  ${leadCardsHTML()}
   ${pendingHTML()}
   ${fin ? `<div class="section-title" ${pendingItems().length ? '' : 'style="margin-top:0"'}><h2>Financeiro</h2></div>${ovFinanceHTML()}` : opsKpisHTML()}
 
@@ -225,8 +226,16 @@ const BOOKING_QUICK = [['Em avaliação', 'Compareceu'], ['Ausente', 'Faltou'], 
 // Filtros abertos pelo bloco "Pendências" da Visão geral
 const BOOKING_FILTERS = {
   stale: ['Testes que já aconteceram e estão sem resultado', b => !b.archived && parseLocal(b.date) < NOW && ['Agendado', 'Pendente', 'Em avaliação'].includes(b.status)],
-  guardian: ['Menores com responsável a confirmar', b => !b.archived && bookingGuardianDuplicated(b)],
+  approved: ['Aprovados ainda sem cadastro', b => !b.archived && b.status === 'Em cadastro' && !bookingAthlete(b)],
+  registered: ['Cadastrados aguardando Tecnofit', b => !b.archived && b.status === 'Em cadastro' && !!bookingAthlete(b)],
 };
+// Ficha de atleta correspondente ao agendamento: mesmo nome (sem acentos) ou mesmo telefone com o mesmo primeiro nome
+const normName = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+function bookingAthlete(b) {
+  const n = normName(b.nomeMenor || b.nome), tel = digits(b.whatsapp).slice(-8);
+  return ATHLETES.find(a => normName(a.name) === n
+    || (tel.length === 8 && [a.phone, a.parentPhone].some(p => digits(p).slice(-8) === tel) && normName(a.name).split(' ')[0] === n.split(' ')[0]));
+}
 const bookingName = b => displayName(b.nomeMenor || b.nome);
 function bookingsFiltered() {
   const q = S.bk.q.toLowerCase().trim();

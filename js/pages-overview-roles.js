@@ -132,14 +132,9 @@ function pendingItems() {
   const items = [];
   const mine = myTeamIds();
   if (canView('bookings')) {
-    const stale = BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS.stale[1](b)).length;
-    const guardian = BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS.guardian[1](b)).length;
+    // Atendimento e administração veem esse número nos cards da jornada do lead
+    const stale = showsLeadCards() ? 0 : BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS.stale[1](b)).length;
     if (stale) items.push({ k: 'stale', n: stale, label: 'testes já realizados sem resultado', hint: 'Registre se compareceu, faltou ou foi aprovado', tone: 'warn' });
-    if (guardian) items.push({ k: 'guardian', n: guardian, label: 'menores com responsável a confirmar', hint: 'Nome do responsável igual ao do atleta', tone: 'warn' });
-  }
-  if (canView('finance') && FIN_REPORTS.open) {
-    const unlinked = new Set(finAlertRows().filter(r => !finContactFor(r)).map(r => r.clientId)).size;
-    if (unlinked) items.push({ k: 'unlinked', n: unlinked, label: 'atrasos sem atleta vinculado', hint: 'Vincule para liberar o WhatsApp de cobrança', tone: 'bad' });
   }
   if (canView('athletes')) {
     if (seesFinance() && PLANS.length) { const n = ATHLETES.filter(a => mine.includes(a.teamId) && ATHLETE_FILTERS.noplan[1](a)).length; if (n) items.push({ k: 'noplan', n, label: 'atletas fora dos pacotes', hint: 'Sem plano ou com plano fora do catálogo', tone: '' }); }
@@ -149,13 +144,34 @@ function pendingItems() {
   if (canView('teams')) { const n = TEAMS.filter(t => t.active && mine.includes(t.id) && !t.coach).length; if (n) items.push({ k: 'nocoach', n, label: n === 1 ? 'equipe sem técnico' : 'equipes sem técnico', hint: 'Defina o técnico responsável', tone: '' }); }
   return items;
 }
+/* Jornada do lead: três etapas que dependem do atendimento, em destaque (Atendimento e Administrador) */
+const showsLeadCards = () => canView('bookings') && ['Administrador', 'Atendimento'].includes(me()?.role);
+function leadCardsHTML() {
+  if (!showsLeadCards()) return '';
+  const mine = myTeamIds(), now = Date.now();
+  const days = iso => iso ? Math.max(0, Math.floor((now - new Date(iso.length <= 16 ? iso + (iso.length === 10 ? 'T12:00' : '') : iso).getTime()) / 86400000)) : null;
+  const cards = [
+    ['stale', 'Teste feito, sem resultado', 'Registre presença, falta, aprovação ou reprovação', 'clock', 'warn', b => b.date],
+    ['approved', 'Aprovados sem cadastro', 'Envie o link do cadastro e acompanhe', 'users', 'bad', b => b.approvedAt || b.date],
+    ['registered', 'Cadastrados aguardando Tecnofit', 'Conclua a matrícula no Tecnofit', 'check', 'info', b => b.approvedAt || b.date],
+  ].map(([k, title, hint, ic, tone, since]) => {
+    const list = BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS[k][1](b));
+    const oldest = list.reduce((m, b) => Math.max(m, days(since(b)) ?? 0), 0);
+    return `<button class="lead-card ${tone} ${list.length ? '' : 'done'}" data-act="pending-go" data-k="${k}">
+      <span class="lc-icon">${icon(ic)}</span>
+      <span class="lc-body"><span class="lc-title">${title}</span><b class="lc-n">${list.length}</b>
+      <small>${list.length ? `${hint}${oldest ? ` · o mais antigo há ${oldest} dia${oldest === 1 ? '' : 's'}` : ''}` : 'Tudo em dia'}</small></span>
+      ${icon('arrow')}</button>`;
+  }).join('');
+  return `<div class="section-title" style="margin-top:0"><h2>Jornada do lead</h2></div><div class="lead-cards">${cards}</div>`;
+}
 function pendingHTML() {
   const items = pendingItems();
   if (!items.length) return '';
-  return `<div class="section-title" style="margin-top:0"><h2>Pendências</h2></div><div class="pending">${items.map(i => `<button class="pending-item ${i.tone}" data-act="pending-go" data-k="${i.k}"><b>${i.n}</b><span>${i.label}<small>${i.hint}</small></span>${icon('arrow')}</button>`).join('')}</div>`;
+  return `<div class="section-title" ${showsLeadCards() ? '' : 'style="margin-top:0"'}><h2>Pendências</h2></div><div class="pending">${items.map(i => `<button class="pending-item ${i.tone}" data-act="pending-go" data-k="${i.k}"><b>${i.n}</b><span>${i.label}<small>${i.hint}</small></span>${icon('arrow')}</button>`).join('')}</div>`;
 }
 function pendingGo(k) {
-  if (k === 'stale' || k === 'guardian') { Object.assign(S.bk, { pending: k, q: '', status: '', team: '', kpi: '', archived: false }); S.bk.sel.clear(); return go('bookings'); }
+  if (k === 'stale' || k === 'approved' || k === 'registered') { Object.assign(S.bk, { pending: k, q: '', status: '', team: '', kpi: '', archived: false }); S.bk.sel.clear(); return go('bookings'); }
   if (k === 'noplan' || k === 'nocontact') { Object.assign(S.at, { pending: k, q: '', status: '', team: '' }); return go('athletes'); }
   if (k === 'unlinked') { S.fin.tab = 'alerts'; S.fin.alertFilter = 'unlinked'; return go('finance'); }
   if (k === 'nocoach') { S.tm.n = 'all'; return go('teams'); }

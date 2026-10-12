@@ -234,3 +234,22 @@ th.sel,td.sel{width:38px;padding-right:0!important}
 
 /* Símbolo do WhatsApp preenchido (core.js icon) */
 svg.i.i-fill{fill:currentColor;stroke:none}
+
+/* Jornada do lead na Visão geral: cards em destaque */
+.lead-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 6px}
+.lead-card{--tone:var(--warn);--tone-soft:var(--warn-soft);display:flex;align-items:center;gap:14px;text-align:left;color:inherit;cursor:pointer;min-width:0;
+  background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--tone);border-radius:var(--radius);padding:16px 16px 16px 14px;box-shadow:var(--shadow)}
+.lead-card.bad{--tone:var(--brand-ink);--tone-soft:var(--brand-soft)}
+.lead-card.info{--tone:var(--info);--tone-soft:var(--info-soft)}
+.lead-card:hover{background:var(--surface-2)}
+.lead-card .lc-icon{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--tone-soft);color:var(--tone);flex-shrink:0}
+.lead-card .lc-icon .i{width:20px;height:20px}
+.lead-card .lc-body{display:flex;flex-direction:column;min-width:0;flex:1}
+.lead-card .lc-title{font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.lead-card .lc-n{font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--tone)}
+.lead-card small{font-size:11.5px;color:var(--muted);line-height:1.35}
+.lead-card > .i{width:16px;height:16px;color:var(--muted);flex-shrink:0}
+.lead-card.done{border-left-color:var(--ok)}
+.lead-card.done .lc-n{color:var(--ok)}
+.lead-card.done .lc-icon{background:var(--ok-soft);color:var(--ok)}
+@media(max-width:980px){.lead-cards{grid-template-columns:1fr}}
