@@ -25,9 +25,12 @@ function renderOverview() {
   const monthName = MONTHS[TODAY.getMonth()];
   const dlt = (a, b, invert = false) => { if (!b) return ''; const v = (a - b) / b * 100; const good = invert ? v < 0 : v > 0; return `<span class="delta ${Math.abs(v) < .5 ? 'flat' : good ? 'up' : 'down'}">${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${Math.abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>`; };
 
-  const past = BOOKINGS.filter(b => parseLocal(b.date) < NOW && b.status !== 'Cancelado');
+  // Atendimento e conversão: mês escolhido (atual por padrão)
+  const R = monthRange(S.ov.month);
+  const pastAll = BOOKINGS.filter(b => parseLocal(b.date) < NOW && b.status !== 'Cancelado');
+  const past = pastAll.filter(b => inRange(parseLocal(b.date), R));
   const showed = past.filter(b => !['Ausente', 'Pendente', 'Agendado'].includes(b.status)).length;
-  const recentBookings = BOOKINGS.filter(b => b.createdAt && parseYmd(b.createdAt) >= addDays(TODAY, -29));
+  const recentBookings = BOOKINGS.filter(b => b.createdAt && inRange(parseYmd(b.createdAt), R));
   const attended = recentBookings.filter(b => ['Em avaliação','Em cadastro','Tecnofit'].includes(b.status));
   const registering = recentBookings.filter(b => ['Em cadastro','Tecnofit'].includes(b.status));
   const enrolled = recentBookings.filter(b => b.status === 'Tecnofit');
@@ -44,10 +47,10 @@ function renderOverview() {
   const outLine = [...months.map(m => monthKey(m) === CUR_MONTH ? null : monthTotals(monthKey(m)).out), null, null, null];
 
   const svc = [
-    ['Comparecimento', pct(showed, past.length), `${showed} de ${past.length} testes passados`, 'check'],
-    ['Reagendamentos', pct(BOOKINGS.filter(b => b.reag > 0).length, BOOKINGS.length), 'do total de agendamentos', 'refresh'],
-    ['Conversão em matrícula', pct(enrolled.length, recentBookings.length, 1), 'agendamentos dos últimos 30 dias', 'target'],
-    ['Aguardando avaliação', past.filter(b => ['Agendado','Pendente','Em avaliação'].includes(b.status)).length, 'testes passados sem conclusão', 'clock'],
+    ['Comparecimento', pct(showed, past.length), `${showed} de ${past.length} testes de ${R.label}`, 'check'],
+    ['Reagendamentos', pct(recentBookings.filter(b => b.reag > 0).length, recentBookings.length), `dos agendamentos de ${R.label}`, 'refresh'],
+    ['Conversão em matrícula', pct(enrolled.length, recentBookings.length, 1), `agendamentos de ${R.label}`, 'target'],
+    ['Aguardando avaliação', pastAll.filter(b => ['Agendado','Pendente','Em avaliação'].includes(b.status)).length, 'testes passados sem conclusão (todos)', 'clock'],
   ];
 
   return `
@@ -61,9 +64,9 @@ function renderOverview() {
   <div class="section-title"><h2>Agenda da semana</h2></div>
   ${weekCalendarHTML()}
 
-  <div class="section-title"><h2>Atendimento e conversão de leads</h2></div>
+  <div class="section-title"><h2>Atendimento e conversão de leads</h2><div class="seg" role="group" aria-label="Período">${[[0, 'Mês atual'], [-1, 'Mês anterior']].map(([v, l]) => `<button class="${S.ov.month === v ? 'on' : ''}" data-act="ov-month" data-v="${v}">${l}</button>`).join('')}</div></div>
   <div class="split-wide">
-    <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Agendamentos criados nos últimos 30 dias</div></div><span class="tag nodot st-ok">Conversão total ${pct(enrolled.length, recentBookings.length, 1)}</span></div>
+    <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Agendamentos criados em ${R.label}${S.ov.month === 0 ? ' (até hoje)' : ''}</div></div><span class="tag nodot st-ok">Conversão total ${pct(enrolled.length, recentBookings.length, 1)}</span></div>
       <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}</span><div class="funnel-bar"><span style="width:${recentBookings.length ? v / recentBookings.length * 100 : 0}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
       ${(() => { const stale = BOOKINGS.filter(b => myTeamIds().includes(b.teamId) && BOOKING_FILTERS.stale[1](b)).length; return stale ? `<div class="banner warn mt" style="margin-bottom:0">${icon('alert')}<span class="small"><b>${stale} teste(s) já realizados ainda sem resultado.</b> As etapas depois do teste só ficam corretas quando o status é atualizado. <button class="btn sm" data-act="pending-go" data-k="stale" style="margin-left:6px">Registrar resultados</button></span></div>` : ''; })()}
       <div class="grid g3 mt">${NUCLEI.map(n => { const local = recentBookings.filter(b => teamOf(b.teamId)?.n === n.id); const converted = local.filter(b => b.status === 'Tecnofit').length; const value = local.length ? Math.round(converted / local.length * 100) : 0; return `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n.id)}<b>${local.length ? value + '%' : '—'}</b></div><div class="bar"><span style="width:${value}%;background:var(--brand)"></span></div><div class="hint" style="margin-top:4px">agendamento → matrícula</div></div>`; }).join('')}</div></div>
@@ -191,24 +194,27 @@ function canManageTraining(team) {
 }
 
 /* ═══════════════ AGENDAMENTOS ═══════════════ */
-function weeksCount(pred) {
-  const w = [0, 0, 0, 0];
-  BOOKINGS.filter(pred).forEach(b => { const diff = Math.ceil(Math.abs(NOW - parseLocal(b.date)) / 864e5); if (diff <= 7) w[3]++; else if (diff <= 14) w[2]++; else if (diff <= 21) w[1]++; else if (diff <= 28) w[0]++; });
-  return w;
+// Períodos mensais (Visão geral e Agendamentos)
+if (!S.ov) S.ov = { month: 0 };
+const monthRange = (offset = 0) => { const s = new Date(TODAY.getFullYear(), TODAY.getMonth() + offset, 1); return { s, e: new Date(s.getFullYear(), s.getMonth() + 1, 1), label: MONTHS[s.getMonth()] }; };
+const inRange = (d, r) => !!d && d >= r.s && d < r.e;
+// Testes por mês (data do teste), dos 5 meses anteriores até o atual
+function monthsCount(pred) {
+  return [-5, -4, -3, -2, -1, 0].map(k => { const r = monthRange(k); return BOOKINGS.filter(b => myTeamIds().includes(b.teamId) && pred(b) && inRange(parseLocal(b.date), r)).length; });
 }
 function renderBookings() {
-  const live = BOOKINGS.filter(b => !b.archived && myTeamIds().includes(b.teamId));
+  const R = monthRange(0);
   const k = [
-    ['agendado', 'Agendados', live.filter(b => b.status === 'Agendado').length, weeksCount(b => b.status === 'Agendado'), 'var(--ok)', 'check'],
-    ['reag', 'Reagendados', live.filter(b => b.reag > 0).length, weeksCount(b => b.reag > 0), 'var(--violet)', 'refresh'],
-    ['ausente', 'Ausentes', live.filter(b => b.status === 'Ausente').length, weeksCount(b => b.status === 'Ausente'), 'var(--warn)', 'clock'],
-    ['cancelado', 'Cancelados', live.filter(b => b.status === 'Cancelado').length, weeksCount(b => b.status === 'Cancelado'), 'var(--brand)', 'x'],
-  ];
+    ['agendado', 'Agendados', b => b.status === 'Agendado', 'var(--ok)', 'check'],
+    ['reag', 'Reagendados', b => b.reag > 0, 'var(--violet)', 'refresh'],
+    ['ausente', 'Ausentes', b => b.status === 'Ausente', 'var(--warn)', 'clock'],
+    ['cancelado', 'Cancelados', b => b.status === 'Cancelado', 'var(--brand)', 'x'],
+  ].map(([id, l, pred, c, i]) => { const w = monthsCount(pred); return [id, l, w.at(-1), w, c, i]; });
   const teams = [...new Set(BOOKINGS.map(b => b.teamId))].filter(id => myTeamIds().includes(id)).map(teamOf).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
   return `${viewBanner('bookings')}${coachScopeBanner()}
   <div class="page-head"><div><div class="eyebrow">Operação · peneiras e aulas experimentais</div><h1>Agendamentos</h1><p>Agendamentos feitos pelo assistente e manualmente. Os próximos 2 dias ficam em destaque.</p></div>
     <div class="head-actions">${canUseServiceQueue() ? `<button class="btn" data-act="service-queue">${icon('whatsapp')} Atendimento humano</button>` : ''}${APOLLO_AUTH.access?.role === 'attendance' ? `<button class="btn" data-act="payment-contacts">${icon('whatsapp')} Contatos de mensalidades</button>` : ''}<button class="btn primary" data-act="booking-new" data-edit>${icon('plus')} Novo agendamento</button></div></div>
-  <div class="grid g4 mb">${k.map(([id, l, v, w, c, i]) => `<div class="kpi click ${S.bk.kpi === id ? 'on' : ''}"><button class="kpi-activate" data-act="bk-kpi" data-k="${id}" aria-pressed="${S.bk.kpi === id}">${kpiIcon(i)}<span class="kpi-label">${l}</span><span class="kpi-value">${v}</span><span class="kpi-foot">últimas 4 semanas</span></button>${metricInfo(l)}${sparkline(w, c)}</div>`).join('')}</div>
+  <div class="grid g4 mb">${k.map(([id, l, v, w, c, i]) => `<div class="kpi click ${S.bk.kpi === id ? 'on' : ''}"><button class="kpi-activate" data-act="bk-kpi" data-k="${id}" aria-pressed="${S.bk.kpi === id}">${kpiIcon(i)}<span class="kpi-label">${l}</span><span class="kpi-value">${v}</span><span class="kpi-foot">testes em ${R.label} · 6 meses no gráfico</span></button>${metricInfo(l)}${sparkline(w, c)}</div>`).join('')}</div>
   <section class="panel">
     <div class="toolbar">
       <div class="search">${icon('search')}<input class="input" id="bkQ" type="search" placeholder="Buscar por nome ou WhatsApp..." value="${esc(S.bk.q)}" aria-label="Buscar agendamento"></div>
@@ -241,10 +247,10 @@ function bookingsFiltered() {
   const q = S.bk.q.toLowerCase().trim();
   const mine = myTeamIds();
   const pending = BOOKING_FILTERS[S.bk.pending];
-  return BOOKINGS.filter(b => mine.includes(b.teamId) && (pending ? pending[1](b) : (S.bk.archived ? b.archived : !b.archived))
+  return BOOKINGS.filter(b => mine.includes(b.teamId) && (pending ? pending[1](b) : S.bk.kpi ? true : (S.bk.archived ? b.archived : !b.archived))
     && (!q || [b.nome, b.nomeMenor, b.whatsapp, fmtPhone(b.whatsapp)].some(v => String(v || '').toLowerCase().includes(q)))
     && (!S.bk.status || b.status === S.bk.status) && (!S.bk.team || b.teamId === S.bk.team)
-    && (!S.bk.kpi || (S.bk.kpi === 'reag' ? b.reag > 0 : b.status.toLowerCase() === S.bk.kpi)));
+    && (!S.bk.kpi || ((S.bk.kpi === 'reag' ? b.reag > 0 : b.status.toLowerCase() === S.bk.kpi) && inRange(parseLocal(b.date), monthRange(0)))));
 }
 const bookingsSelectable = () => canEdit('bookings') && !S.bk.archived;
 function bookingsTable() {

@@ -253,3 +253,14 @@ svg.i.i-fill{fill:currentColor;stroke:none}
 .lead-card.done .lc-n{color:var(--ok)}
 .lead-card.done .lc-icon{background:var(--ok-soft);color:var(--ok)}
 @media(max-width:980px){.lead-cards{grid-template-columns:1fr}}
+
+/* Métricas de atendimento: ícone e rótulo na mesma linha, número e nota abaixo */
+.service-metrics .service-metric{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"icon label info" "value value value" "note note note";column-gap:10px;row-gap:2px;align-items:center;align-content:start;padding:16px 12px}
+.service-metrics .service-metric>*{grid-column:auto;grid-row:auto}
+.service-metrics .service-metric>.kpi-icon{grid-area:icon;width:32px;height:32px;margin:0;align-self:center}
+.service-metrics .service-metric>.kpi-icon .i{width:18px;height:18px}
+.service-metrics .service-metric>.metric-info{grid-area:info;position:static;margin:0}
+.service-metrics .service-metric>span{grid-area:label;font-size:12px;font-weight:600;color:var(--ink-2);line-height:1.3}
+.service-metrics .service-metric>strong{grid-area:value;font-size:24px;line-height:1.15;margin:8px 0 2px}
+.service-metrics .service-metric>small{grid-area:note;font-size:11.5px;line-height:1.35}
+.section-title .seg{margin-left:auto}

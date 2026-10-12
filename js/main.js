@@ -65,6 +65,7 @@ document.addEventListener('click', async e => {
     case 'service-queue': return openServiceQueue();
     case 'service-replied': return serviceRecordReply(id);
     case 'service-refresh': await serviceMetricsLoad(); return render();
+    case 'ov-month': S.ov.month = Number(el.dataset.v) || 0; render(); await serviceMetricsLoad(); return render();
     case 'logout': return apolloSignOut();
     case 'close-dialog': return closeDialog();
     case 'try-close': return guardClose();

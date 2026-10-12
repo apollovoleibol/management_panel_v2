@@ -10,7 +10,7 @@ function opsKpisHTML() {
   const active = ATHLETES.filter(a => a.active), m0 = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
   const next7 = BOOKINGS.filter(b => !b.archived && b.status !== 'Cancelado' && parseLocal(b.date) >= NOW && parseLocal(b.date) <= addDays(TODAY, 8)).length;
   const toEval = BOOKINGS.filter(b => !b.archived && parseLocal(b.date) < NOW && ['Agendado', 'Pendente', 'Em avaliação'].includes(b.status)).length;
-  const l30 = SESSIONS.filter(s => parseYmd(s.date) >= addDays(TODAY, -29)), ws = startOfWeek(TODAY);
+  const l30 = SESSIONS.filter(s => parseYmd(s.date) >= m0), ws = startOfWeek(TODAY);
   const weekTrainings = TEAMS.filter(t => t.active).reduce((n, t) => n + t.schedule.filter(s => !t.cancelled?.includes(ymd(addDays(ws, s.day)))).length, 0);
   const recorded = l30.filter(s => s.recorded).length;
   return `<div class="section-title" style="margin-top:0"><h2>Operação</h2></div>
@@ -18,8 +18,8 @@ function opsKpisHTML() {
     ['Atletas ativos', active.length, `${active.filter(a => parseYmd(a.since) >= m0).length} novos neste mês`, 'Supabase', 'users'],
     ['Testes nos próximos 7 dias', next7, 'aulas experimentais agendadas', 'Supabase', 'calendar'],
     ['Aguardando avaliação', toEval, 'testes já realizados sem decisão', 'Manager App', 'target'],
-    ['Presença média', (presencePct(l30) ?? '—') + '%', 'últimos 30 dias, todas as equipes', 'Manager App', 'check'],
-    ['Treinos na semana', weekTrainings, `${pct(recorded, l30.length)} com chamada registrada (30 dias)`, 'Manager App', 'clock'],
+    ['Presença média', (presencePct(l30) ?? '—') + '%', `em ${MONTHS[TODAY.getMonth()]}, todas as equipes`, 'Manager App', 'check'],
+    ['Treinos na semana', weekTrainings, `${pct(recorded, l30.length)} com chamada registrada em ${MONTHS[TODAY.getMonth()]}`, 'Manager App', 'clock'],
   ].map(kpiCard).join('')}</div>`;
 }
 
@@ -29,9 +29,9 @@ function athletesProjectionHTML() {
   const real = months.map(countAt), growth = Math.max(0, (real.at(-1) - real[0]) / 5);
   const proj = [...real.map((v, i) => i === real.length - 1 ? v : null), ...future.map((_, k) => Math.round(real.at(-1) + growth * (k + 1)))];
   const l30 = SESSIONS.filter(s => parseYmd(s.date) >= addDays(TODAY, -29));
-  const recentBookings = BOOKINGS.filter(b => b.createdAt && parseYmd(b.createdAt) >= addDays(TODAY, -29));
+  const recentBookings = BOOKINGS.filter(b => b.createdAt && parseYmd(b.createdAt) >= new Date(TODAY.getFullYear(), TODAY.getMonth(), 1));
   const enrolled = recentBookings.filter(b => b.status === 'Tecnofit').length;
-  const lines = [['Atletas ativos em 90 dias', `${proj.at(-1)} <span class="delta up">+${proj.at(-1) - real.at(-1)}</span>`], ['Novas matrículas por mês (média)', Math.round(growth)], ['Testes agendados (30 dias)', recentBookings.length], ['Conversão teste → matrícula', pct(enrolled, recentBookings.length)], ['Presença média (30 dias)', (presencePct(l30) ?? '—') + '%']];
+  const lines = [['Atletas ativos em 90 dias', `${proj.at(-1)} <span class="delta up">+${proj.at(-1) - real.at(-1)}</span>`], ['Novas matrículas por mês (média)', Math.round(growth)], ['Testes agendados no mês', recentBookings.length], ['Conversão teste → matrícula', pct(enrolled, recentBookings.length)], ['Presença média (30 dias)', (presencePct(l30) ?? '—') + '%']];
   return `<div class="split-wide">
     <section class="panel"><div class="panel-head"><div><h2>Atletas atuais e projeção</h2><div class="sub">Coorte dos atletas ativos hoje; previsão simples pelo ritmo recente de entradas</div></div>
       <div class="legend"><span><i style="background:var(--ok)"></i>Atletas ativos</span><span><i class="dash" style="border-color:var(--info)"></i>Projeção</span></div></div>

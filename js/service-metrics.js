@@ -4,7 +4,8 @@ async function serviceMetricsLoad() {
   SERVICE.data = null; SERVICE.error = '';
   if (!canView('overview') || !['admin','attendance','coordination','finance'].includes(APOLLO_AUTH.access?.role)) return;
   try {
-    const { data, error } = await financeDbClient().rpc('v2_service_metrics');
+    const r = monthRange(S.ov?.month || 0);
+    const { data, error } = await financeDbClient().rpc('v2_service_metrics', { p_start: r.s.toISOString(), p_end: r.e.toISOString() });
     if (error) throw error;
     SERVICE.data = data;
   } catch (error) { SERVICE.error = 'Não foi possível carregar os indicadores de atendimento.'; }
@@ -27,7 +28,7 @@ function serviceMetricsHTML() {
       `${m.ratingCount} avaliação(ões)${m.ratingAverage == null ? '' : ` · média ${Number(m.ratingAverage).toLocaleString('pt-BR',{maximumFractionDigits:1})}/5`}`, 'star']
   ];
   return `<div class="service-metrics mt">${metrics.map(([label,value,note,i])=>`<div class="service-metric">${kpiIcon(i)}${metricInfo(label)}<span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join('')}</div>
-    <p class="hint mt">Atendimentos iniciados nos últimos 30 dias. ${m.started} conversa(s) instrumentada(s). ${m.started ? 'Tempos médios em horas corridas.' : 'Aguardando novas conversas; o histórico anterior não tem estas medições.'} Retorno humano depende do registro do atendente no momento da resposta.</p>`;
+    <p class="hint mt">Atendimentos iniciados em ${monthRange(S.ov?.month || 0).label}. ${m.started} conversa(s) instrumentada(s). ${m.started ? 'Tempos médios em horas corridas.' : 'Aguardando novas conversas; o histórico anterior não tem estas medições.'} Retorno humano depende do registro do atendente no momento da resposta.</p>`;
 }
 function canUseServiceQueue() {
   return !S.previewRole && canView('bookings') && ['admin','attendance','coordination'].includes(APOLLO_AUTH.access?.role);
