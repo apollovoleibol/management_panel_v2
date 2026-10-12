@@ -1,5 +1,7 @@
 /* Pagamentos de técnicos · Financeiro · Configurações */
 'use strict';
+// Mensalidades segue o perfil (administração e financeiro); não é gravada por usuário
+const staffPerms = perms => Object.fromEntries(Object.entries(perms || {}).filter(([page]) => page !== 'billing'));
 
 const monthOptions = (sel, n = 6) => lastMonths(n).reverse().map(m => { const k = monthKey(m); return `<option value="${k}" ${sel === k ? 'selected' : ''}>${MONTHS[m.getMonth()][0].toUpperCase() + MONTHS[m.getMonth()].slice(1)} ${m.getFullYear()}</option>`; }).join('');
 const monthLabel = k => { const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} de ${y}`; };
@@ -44,7 +46,7 @@ function renderPayments() {
   const key = S.pay.month, rows = COACHES.map(c => ({ c, s: coachSummary(c.id, key) }));
   const total = rows.reduce((s, r) => s + r.s.total, 0), paid = rows.filter(r => r.s.paid).reduce((s, r) => s + r.s.paid.amount, 0);
   return `${viewBanner('payments')}
-  <div class="page-head"><div><div class="eyebrow">Finanças · equipe técnica</div><h1>Pagamentos de técnicos</h1><p>Horas trabalhadas, dias de competição e extras de cada técnico, com aprovação e registro de pagamento.</p></div>
+  <div class="page-head"><div><div class="eyebrow">Finanças · equipe técnica</div><h1>Folha dos técnicos</h1><p>Horas trabalhadas, dias de competição e extras de cada técnico, com aprovação e registro de pagamento.</p></div>
     <div class="head-actions"><select class="select" id="payMonth" aria-label="Mês de referência" style="width:auto">${monthOptions(key, 3)}</select><button class="btn" data-act="pay-export">${icon('download')} Exportar CSV</button><button class="btn primary" data-act="pay-add" data-edit>${icon('plus')} Lançar competição ou extra</button></div></div>
   ${(() => { const app = payAppSessions(key); return app.length && canEdit('payments') ? `<div class="banner note">${icon('clock')}<span><b>${app.length} treino(s) registrados no Manager App</b> (chamada ou confirmação) ainda sem lançamento em ${monthLabel(key)}. <button class="btn sm" data-act="pay-import-app" data-edit style="margin-left:6px">Lançar ${app.length} treino(s)</button></span></div>` : ''; })()}
   ${rows.some(r => r.s.items.length) ? `<div class="banner note">${icon('info')}<div>Registre aqui as horas trabalhadas, competições e extras. Treinos com chamada ou confirmados no Manager App podem ser lançados automaticamente.</div></div>`
@@ -290,7 +292,7 @@ function drawUser() {
       <div class="field"><label>Acesso</label><label class="check" style="height:40px"><span class="toggle"><input type="checkbox" id="ueActive" ${u.active ? 'checked' : ''} ${u.id === S.userId && u.role === 'Administrador' ? 'disabled' : ''}><span></span></span> ${u.active ? 'Ativo — pode entrar no painel' : 'Inativo — acesso bloqueado'}</label></div></div>
     ${u.role === 'Técnico' ? `<div class="hint">${coachTeams ? 'Equipes vinculadas: ' + coachTeams + '.' : 'Vincule este técnico às equipes na página Equipes e núcleos.'}</div>` : ''}
     ${u.role === 'Administrador' && u.legacyRole !== 'admin' ? `<div class="banner note">${icon('shield')}<span>Este perfil concede administração completa do Huddle v2, inclusive dados financeiros e gestão de usuários. O painel v1 mantém as permissões atuais desta pessoa.</span></div>` : ''}
-    ${finOk ? '' : `<div class="banner view">${icon('lock')}<span class="small">Dados financeiros (Pacotes e mensalidades, Pagamentos e Financeiro) só podem ser acessados, mesmo em visualização, pelos perfis <b>Administrador</b> e <b>Financeiro</b>. Para este perfil, valores de mensalidade e dados bancários também ficam ocultos nas demais páginas.</span></div>`}
+    ${finOk ? '' : `<div class="banner view">${icon('lock')}<span class="small">Dados financeiros (Pacotes, Mensalidades, Folha dos técnicos e Financeiro) só podem ser acessados, mesmo em visualização, pelos perfis <b>Administrador</b> e <b>Financeiro</b>. Para este perfil, valores de mensalidade e dados bancários também ficam ocultos nas demais páginas.</span></div>`}
     <h3 class="mt">Permissões por página</h3><p class="hint" style="margin:2px 0 8px">${c.e} com edição · ${c.v} somente visualização · ${PAGES.length - c.e - c.v} sem acesso</p>
     <div class="table-wrap" style="margin:0 -24px"><table class="perm-table"><thead><tr><th>Página</th><th>Visualizar</th><th>Editar</th><th>Resultado</th></tr></thead><tbody>${PAGES.map(row).join('')}</tbody></table></div>
     <div class="err" id="ueErr" role="alert"></div></fieldset></div>
@@ -319,7 +321,7 @@ async function saveUser() {
     }
     if (UE.isNew) {
       const { error } = await financeDbClient().functions.invoke('v2-invite-user', {
-        body: { email: UE.email, fullName: UE.name, role, permissions: UE.perms }
+        body: { email: UE.email, fullName: UE.name, role, permissions: staffPerms(UE.perms) }
       });
       if (error) {
         let response = null;
@@ -329,7 +331,7 @@ async function saveUser() {
       toast(`Acesso criado. Peça para ${UE.email} entrar com Google.`);
     } else {
       const { error } = await financeDbClient().rpc('v2_admin_set_staff', {
-        p_user: UE.id, p_role: role, p_permissions: UE.perms, p_active: UE.active
+        p_user: UE.id, p_role: role, p_permissions: staffPerms(UE.perms), p_active: UE.active
       });
       if (error) throw error;
       toast('Permissões salvas no banco.');

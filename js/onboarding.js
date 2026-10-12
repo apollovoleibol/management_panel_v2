@@ -29,7 +29,7 @@ const GUIDE_PAGES = {
     ['Origem dos dados', 'Abra uma equipe para conferir o dado, sua origem e onde corrigi-lo.', '.fd-team, .tabs']
   ],
   payments: [
-    ['Pagamentos', 'Acompanhe horas, diárias e aprovações de técnicos no mês selecionado.', '.page-head'],
+    ['Folha dos técnicos', 'Acompanhe horas, diárias e aprovações de técnicos no mês selecionado.', '.page-head'],
     ['Conferência', 'Confira o lançamento antes de aprovar. Marcar como pago registra um lançamento financeiro após a transferência externa.', '.table-wrap, .grid']
   ],
   finance: [

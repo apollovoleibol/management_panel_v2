@@ -316,19 +316,20 @@ const PAGES = [
   { id: 'bookings', label: 'Agendamentos', icon: 'calendar', group: 'OPERAÇÃO' },
   { id: 'athletes', label: 'Atletas', icon: 'users', group: 'OPERAÇÃO' },
   { id: 'teams', label: 'Equipes e núcleos', icon: 'pin', group: 'OPERAÇÃO' },
-  { id: 'packages', label: 'Pacotes e mensalidades', icon: 'layers', group: 'OPERAÇÃO' },
+  { id: 'packages', label: 'Pacotes', icon: 'layers', group: 'OPERAÇÃO' },
   { id: 'feeder', label: 'Chatbot Feeder', icon: 'bot', group: 'ASSISTENTE' },
-  { id: 'payments', label: 'Pagamentos', icon: 'wallet', group: 'FINANÇAS' },
+  { id: 'billing', label: 'Mensalidades', icon: 'money', group: 'FINANÇAS' },
+  { id: 'payments', label: 'Folha dos técnicos', icon: 'wallet', group: 'FINANÇAS' },
   { id: 'finance', label: 'Financeiro', icon: 'chart', group: 'FINANÇAS' },
   { id: 'settings', label: 'Configurações', icon: 'settings', group: 'SISTEMA' },
 ];
 const P = (...pairs) => Object.fromEntries(PAGES.map((p, i) => [p.id, pairs[i] || 'none']));
 const ROLE_PRESETS = {
-  'Administrador': P('edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit'),
-  'Coordenação técnica': P('view', 'edit', 'edit', 'edit', 'none', 'edit', 'none', 'none', 'none'),
-  'Financeiro': P('view', 'none', 'view', 'none', 'edit', 'none', 'edit', 'edit', 'none'),
-  'Atendimento': P('view', 'edit', 'view', 'view', 'none', 'view', 'none', 'none', 'none'),
-  'Técnico': P('view', 'view', 'view', 'view', 'none', 'none', 'none', 'none', 'none'),
+  'Administrador': P('edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit'),
+  'Coordenação técnica': P('view', 'edit', 'edit', 'edit', 'none', 'edit', 'none', 'none', 'none', 'none'),
+  'Financeiro': P('view', 'none', 'view', 'none', 'edit', 'none', 'edit', 'edit', 'edit', 'none'),
+  'Atendimento': P('view', 'edit', 'view', 'view', 'none', 'view', 'none', 'none', 'none', 'none'),
+  'Técnico': P('view', 'view', 'view', 'view', 'none', 'none', 'none', 'none', 'none', 'none'),
 };
 let USERS = [];
 
@@ -384,7 +385,7 @@ const me = () => {
 };
 /* Dados financeiros: somente perfis Administrador e Financeiro, mesmo para visualização */
 const FIN_ROLES = ['Administrador', 'Financeiro'];
-const FIN_PAGES = ['packages', 'payments', 'finance'];
+const FIN_PAGES = ['packages', 'billing', 'payments', 'finance'];
 const seesFinance = (u = me()) => !!u && FIN_ROLES.includes(u.role);
 const isCoach = (u = me()) => !!u && u.role === 'Técnico';
 const myTeamIds = (u = me()) => isCoach(u)

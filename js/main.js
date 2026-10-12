@@ -1,7 +1,7 @@
 /* Navegação, permissões e eventos */
 'use strict';
 
-const RENDER = { overview: renderOverview, bookings: renderBookings, athletes: renderAthletes, teams: renderTeams, packages: renderPackages, feeder: renderFeeder, payments: renderPayments, finance: renderFinanceV3, settings: renderSettings };
+const RENDER = { overview: renderOverview, bookings: renderBookings, athletes: renderAthletes, teams: renderTeams, packages: renderPackages, feeder: renderFeeder, billing: renderBilling, payments: renderPayments, finance: renderFinanceV3, settings: renderSettings };
 
 function renderNav() {
   let html = '', group = '';
@@ -62,6 +62,7 @@ document.addEventListener('click', async e => {
   if (el.dataset.need && !canEdit(el.dataset.need)) { e.preventDefault(); return toast('Seu perfil não pode editar ' + PAGES.find(p => p.id === el.dataset.need).label + '.', true); }
   if (el.tagName === 'INPUT' && el.type === 'checkbox' && !a.startsWith('fd-visible') && !a.startsWith('pay-approve')) return;
   switch (a) {
+    case 'bl-new': case 'bl-reload': case 'bl-goto-payroll': case 'bl-copy': case 'bl-wa': case 'bl-sync': case 'bl-cancel': e.preventDefault(); return billingAction(a, el);
     case 'service-queue': return openServiceQueue();
     case 'service-replied': return serviceRecordReply(id);
     case 'service-refresh': await serviceMetricsLoad(); return render();
@@ -292,7 +293,7 @@ document.addEventListener('change', e => {
 });
 
 /* ─── Topo ─── */
-const PREVIEW_WRITE_ACTIONS = new Set(['pay-import-app','pay-reject','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
+const PREVIEW_WRITE_ACTIONS = new Set(['bl-new','bl-cancel','bl-sync','pay-import-app','pay-reject','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
 $('#viewAs').addEventListener('change', event => {
   if (APOLLO_AUTH.access?.role !== 'admin') return;
   S.previewRole = event.target.value in ROLE_PRESETS && event.target.value !== 'Administrador' ? event.target.value : '';

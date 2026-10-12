@@ -186,7 +186,7 @@ function planGapHTML() {
 function renderPackages() {
   const members = PLANS.reduce((s, p) => s + athletesOnPlan(p.id).length, 0), sum = PLANS.reduce((s, p) => s + p.value * athletesOnPlan(p.id).length, 0);
   return `${viewBanner('packages')}
-  <div class="page-head"><div><div class="eyebrow">Oferta & organização</div><h1>Pacotes e mensalidades</h1><p>Pacotes por núcleo, vinculados às equipes. Reajustes mostram o impacto antes da confirmação.</p></div>
+  <div class="page-head"><div><div class="eyebrow">Oferta & organização</div><h1>Pacotes</h1><p>Pacotes por núcleo, vinculados às equipes. Reajustes mostram o impacto antes da confirmação.</p></div>
     <div class="head-actions"><button class="btn primary" data-act="pkg-new" data-edit>${icon('plus')} Criar pacote</button></div></div>
   ${(() => { const activeN = ATHLETES.filter(a => a.active).length, outside = activeN - members; return `<div class="grid g4 mb">${[['Pacotes disponíveis', PLANS.length, `Em ${new Set(PLANS.map(p => p.n)).size} de ${NUCLEI.length} núcleos`, 'layers'], ['Equipes com pacote', new Set(PLANS.flatMap(p => p.teams)).size, `de ${TEAMS.filter(t => t.active).length} equipes ativas`, 'pin'], ['Atletas nos pacotes', `${members} <span class="muted" style="font-size:14px;font-weight:500">de ${activeN}</span>`, outside ? `${outside} ativo(s) com plano fora do catálogo` : 'Todos os ativos estão em um pacote', 'users'], ['Valor mensal de tabela', money(sum), `Só dos ${members} atletas nos pacotes · não é o recebido`, 'trend']].map(([l, v, s, i]) => kpiCard([l, v, s, '', i])).join('')}</div>${outside ? planGapHTML() : ''}`; })()}
   <section class="panel">
