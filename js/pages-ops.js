@@ -411,10 +411,29 @@ function waMessage(id) {
   d2.oncancel = null; d2.showModal();
 }
 const fmtBot = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/__(.+?)__/g, '<u>$1</u>').replace(/_(.+?)_/g, '<i>$1</i>');
-function openChat(id) {
+// Conversa gravada pelo assistente (tabela chatlogs), buscada pelo telefone do agendamento
+async function openChat(id) {
   const b = BOOKINGS.find(x => x.id === id);
-  openDialog(dHead('Histórico — Apollo AI Bot', esc(b.nome), fmtPhone(b.whatsapp)) + `<div class="d-body"><div class="banner note">${icon('info')}<span>O histórico de conversa deste agendamento ainda não está conectado ao banco. Consulte o canal original do chatbot.</span></div></div>
+  if (!b) return;
+  openDialog(dHead('Histórico — Apollo AI Bot', esc(b.nome), fmtPhone(b.whatsapp)) + `<div class="d-body" id="chatBody"><p class="muted small">Carregando conversa…</p></div>
     <div class="d-foot"><button class="btn" data-act="booking-open" data-id="${id}">${icon('left')} Voltar ao agendamento</button></div>`, 'drawer');
+  let html;
+  try {
+    const { data, error } = await financeDbClient().rpc('v2_chat_history', { p_phone: b.whatsapp });
+    if (error) throw error;
+    const msgs = (Array.isArray(data?.history) ? data.history : [])
+      .map(m => ({ who: m.role === 'user' ? 'user' : 'bot', text: (m.parts || []).map(p => p.text || '').join('\n').trim(), at: m.timestamp }))
+      .filter(m => m.text);
+    const when = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : `${fmtShort(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+    html = msgs.length
+      ? `<p class="hint" style="margin-top:0">${msgs.length} mensagem(ns)${data.updated_at ? ` · última atualização ${when(data.updated_at)}` : ''}</p>
+         <div class="chat" style="max-height:none">${msgs.map(m => `<div class="bubble ${m.who}">${fmtBot(m.text)}${m.at ? `<time>${when(m.at)}</time>` : ''}</div>`).join('')}</div>`
+      : `<div class="banner note">${icon('info')}<span>Nenhuma conversa com o assistente encontrada para ${fmtPhone(b.whatsapp)}. O agendamento pode ter sido feito manualmente ou por outro número.</span></div>`;
+  } catch (error) {
+    html = `<div class="banner warn">${icon('alert')}<span>Não foi possível carregar a conversa. ${esc(error.message || '')}</span></div>`;
+  }
+  const target = $('#chatBody');
+  if (target) { target.innerHTML = html; const c = target.querySelector('.chat'); if (c) c.lastElementChild?.scrollIntoView({ block: 'end' }); }
 }
 
 /* ═══════════════ ATLETAS ═══════════════ */
