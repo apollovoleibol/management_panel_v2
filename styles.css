@@ -432,3 +432,7 @@ details.fd-team .chev{width:16px;height:16px;color:var(--muted);transition:trans
 details.fd-team[open] .chev{transform:rotate(90deg)}
 .ngrid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
 .ncard.add{min-height:0}
+
+/* Opções dos menus suspensos legíveis nos dois temas (o Windows desenha a lista com fundo próprio) */
+select option,select optgroup{background-color:var(--surface);color:var(--ink)}
+select option:disabled{color:var(--muted)}
