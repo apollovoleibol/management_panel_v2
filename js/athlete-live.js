@@ -1,7 +1,7 @@
 /* Real athlete/guardian portal. All reads are scoped by database RLS. */
 'use strict';
 const PORTAL = { athletes: [], teams: [], locations: [], attendance: [], competitions: [], invoices: [], notices: [], blocked: [],
-  selected: null, tab: 'home', error: '', historyError: '' };
+  selected: null, tab: new URLSearchParams(location.search).has('pagamento') ? 'pay' : 'home', error: '', historyError: '' };
 const portal$ = selector => document.querySelector(selector);
 const portalEsc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const portalDate = value => value ? new Date(`${String(value).slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR') : '—';
