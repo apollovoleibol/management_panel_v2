@@ -19,6 +19,7 @@ dialog.billing-rules-dialog{width:min(1000px,calc(100% - 24px))}
 @media(max-width:600px){.billing-tier{grid-template-columns:1fr 1fr}.billing-tier-head{align-items:flex-start}.billing-rules-dialog .d-body{padding:16px}.billing-rules-dialog .d-foot{flex-wrap:wrap}.billing-rules-dialog .fieldset{padding:12px}.billing-simulation{font-size:11px}}
 
 /* Administrative workspace */
+dialog.billing-rules-dialog{color-scheme:light;--surface:#fff;--surface-2:#f7f9fc;--surface-3:#eef3fa;--ink:#172238;--ink-2:#465770;--muted:#68758a;--line:#dce3ed;--line-2:#edf0f5;--warn:#8a6e36;--warn-soft:#fff7e4;--brand-ink:#a52b23;}
 dialog.billing-rules-dialog{width:min(1360px,100vw);max-width:100vw;height:100dvh;max-height:100dvh;margin:0 auto;padding:0;border:0;border-radius:0;background:#f5f7fa;color:#172238;box-shadow:0 0 50px #0f172a12;outline:none;}
 dialog.billing-rules-dialog::backdrop{background:#eef1f5;backdrop-filter:none;}
 .billing-rules-dialog[open]{display:flex;flex-direction:column;}
