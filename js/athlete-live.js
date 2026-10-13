@@ -135,7 +135,7 @@ function portalPayments(athlete) {
 }
 function portalPaymentHistory(athlete) {
   const rows = portalInvoices(athlete);
-  if (!rows.length) return `<section class="panel panel-pad billing-history"><h2>Histórico Tecnofit</h2><p>${PORTAL.historyError || 'Nenhum registro histórico vinculado a este atleta no último conjunto de relatórios importados.'}</p></section>`;
+  if (!rows.length) return PORTAL.historyError ? `<section class="panel panel-pad billing-history"><h2>Histórico Tecnofit</h2><p>${portalEsc(PORTAL.historyError)}</p></section>` : '';
   return `<section class="panel panel-pad billing-history"><h2>Histórico Tecnofit</h2><p class="muted small">Espelho das exportações manuais do Tecnofit. Registros históricos; pagamentos devem ser consultados nos canais oficiais da Apollo.</p>
     ${rows.map(invoice => { const r = invoice.data || {}; const open = invoice.reportType === 'open';
       return `<div class="stat-line"><span><b>${portalEsc(r.item || 'Mensalidade')}</b><br><small>${open ? `Vencimento: ${portalDate(r.due)}` : `Recebido em: ${portalDate(r.date)}`}</small></span>

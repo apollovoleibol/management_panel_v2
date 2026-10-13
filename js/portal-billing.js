@@ -135,6 +135,8 @@ window.PortalBilling = (() => {
   }
   function autoCard(athlete) {
     const choice=state.subscriptions.find(s=>s.athlete_id===athlete.id && s.status==='awaiting_choice');
+    const hasOpen=state.payments.some(p=>p.athlete_id===athlete.id && payable.has(up(p)));
+    if(choice && !hasOpen) return '';
     if(choice) return `<section class="pb-auto pb-choose"><span class="pb-auto-icon is-off" aria-hidden="true">★</span><div><strong>Escolha como pagar as mensalidades</strong><p>${portalMoney(choice.base_cents ?? choice.value_cents)} por mês, todo dia ${esc(choice.due_day)}. Com cartão ou Pix Automático, você não precisa entrar aqui todo mês.</p><div class="pb-auto-actions"><button class="btn primary" data-billing-choose="${esc(choice.id)}">Escolher forma de pagamento</button></div></div></section>`;
     if(state.subscriptions.some(s=>s.athlete_id===athlete.id && s.status==='choosing')) return `<section class="pb-auto"><span class="pb-auto-icon is-wait" aria-hidden="true">…</span><div><strong>Registrando sua escolha</strong><p>Isso leva só alguns segundos. Atualize em instantes.</p></div></section>`;
     const pendingCard=state.subscriptions.find(s=>s.athlete_id===athlete.id && s.method==='CREDIT_CARD' && s.status==='pending' && s.checkout_url);
@@ -224,7 +226,11 @@ window.PortalBilling = (() => {
     const overdue=open.filter(isOverdue);
     const rest=rows.filter(p=>!payable.has(up(p))).sort((a,b)=>String(b.due_date||'').localeCompare(String(a.due_date||'')));
     const focus=open[0];
-    const hero=focus
+    const choice=state.subscriptions.find(s=>s.athlete_id===athlete.id && s.status==='awaiting_choice');
+    // Sem cobrança ainda e com a forma por escolher: o próprio destaque convida a escolher
+    const hero=!focus && choice
+      ? `<section class="pb-hero"><div class="pb-hero-top"><span>Primeira mensalidade</span><span class="pb-chip is-warn">Escolha a forma</span></div><div class="pb-hero-amount" data-count="${Number(choice.base_cents ?? choice.value_cents)}">${portalMoney(choice.base_cents ?? choice.value_cents)}</div><p class="pb-hero-sub">Todo dia ${esc(choice.due_day)} · escolha como prefere pagar para liberar a cobrança.</p><button class="btn primary pb-cta" data-billing-choose="${esc(choice.id)}">Escolher forma de pagamento</button><p class="pbd-foot">Com cartão ou Pix Automático, você não precisa entrar aqui todo mês.</p></section>`
+      : focus
       ? `<section class="pb-hero ${isOverdue(focus) ? 'is-bad' : ''}"><div class="pb-hero-top"><span>${isOverdue(focus) ? 'Mensalidade em aberto' : 'Próxima mensalidade'}</span>${chipHtml(focus)}</div><div class="pb-hero-amount" ${amount(total(focus)) ? `data-count="${Number(total(focus))}"` : ''}>${amount(total(focus)) ? portalMoney(total(focus)) : 'A confirmar'}</div><p class="pb-hero-sub">${esc(monthName(monthKey(focus)))} · vence ${portalDate(focus.due_date)}</p>${payButton(focus)}<details class="pb-hero-more"><summary>Ver detalhes do valor</summary>${paymentDetail(focus)}</details></section>`
       : `<section class="pb-hero is-ok"><div class="pb-hero-top"><span>Situação</span></div><div class="pb-hero-amount pb-ok">Tudo em dia</div><p class="pb-hero-sub">${rows.length ? 'Nenhuma mensalidade em aberto.' : 'Nenhuma mensalidade lançada para este atleta ainda.'}</p></section>`;
     const others=open.slice(1);
