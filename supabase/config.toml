@@ -1,0 +1,11 @@
+project_id = "apollo-mensalidades"
+[functions.billing-asaas]
+verify_jwt = false
+[functions.billing-webhook]
+verify_jwt = false
+[functions.billing-portal]
+verify_jwt = false
+[functions.billing-reprice]
+verify_jwt = false
+[functions.billing-pix-automatic]
+verify_jwt = false

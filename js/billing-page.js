@@ -43,7 +43,7 @@ function renderBilling() {
     const link = s.status === 'pending' ? s.checkout_url : lp?.invoice_url;
     return `<tr><td><strong>${esc(a?.name || 'Atleta')}</strong><div class="hint">${esc(teamOf(a?.teamId)?.name || '')}</div></td>
       <td>${esc(c?.name || '')}<div class="hint">${c?.phone ? fmtPhone(c.phone) : ''}</div></td>
-      <td>${s.method === 'PIX' ? 'Pix mensal' : 'Cartão recorrente'}</td>
+      <td>${s.automatic_mode === 'PIX_AUTOMATIC' ? 'Pix Automático' : s.method === 'PIX' ? 'Pix mensal' : 'Cartão recorrente'}</td>
       <td class="num"><b>${money(s.value_cents)}</b><div class="hint">todo dia ${s.due_day}</div></td>
       <td>${billTag(billStatus[s.status] || [s.status, ''])}</td>
       <td>${lp ? `${billTag(payStatus[lp.status] || [lp.status, ''])}<div class="hint">venc. ${lp.due_date ? lp.due_date.split('-').reverse().join('/') : '—'}</div>` : '<span class="muted small">—</span>'}</td>
@@ -53,7 +53,7 @@ function renderBilling() {
   }).join('');
   return `${viewBanner('billing')}
   <div class="page-head"><div><div class="eyebrow">Finanças · atletas</div><h1>Mensalidades</h1><p>Cobrança recorrente dos atletas pelo Asaas: Pix mensal ou cartão de crédito cadastrado uma única vez pelo responsável. Pagamentos dos técnicos ficam em <a href="#payments" data-act="bl-goto-payroll">Folha dos técnicos</a>.</p></div>
-    <div class="head-actions"><button class="btn" data-act="bl-reload">${icon('refresh')} Atualizar</button><button class="btn primary" data-act="bl-new" data-edit>${icon('plus')} Nova mensalidade</button></div></div>
+    <div class="head-actions"><button class="btn" data-billing-rules data-edit>Regras de cobrança</button><button class="btn" data-act="bl-reload">${icon('refresh')} Atualizar</button><button class="btn primary" data-act="bl-new" data-edit>${icon('plus')} Nova mensalidade</button></div></div>
   ${BILL_SANDBOX ? `<div class="banner warn">${icon('alert')}<span><b>Ambiente de testes (sandbox do Asaas).</b> Nenhuma cobrança é real. Use CPFs e cartões de teste.</span></div>` : ''}
   ${BILL.error ? `<div class="banner warn">${icon('alert')}<span>${esc(BILL.error)}</span></div>` : ''}
   <div class="grid g4 mb">${kpis.map(([l, v, f, i]) => `<div class="kpi">${kpiIcon(i)}<div class="kpi-label">${l}</div><div class="kpi-value">${v}</div><div class="kpi-foot">${f}</div></div>`).join('')}</div>
@@ -64,6 +64,7 @@ function renderBilling() {
 
 // Formulário: atleta → pagador (responsável para menores) → valor do pacote → forma de pagamento
 async function billingForm() {
+  if (!canEdit('billing')) return toast('Seu perfil não pode criar mensalidades.', true);
   const pool = ATHLETES.filter(a => a.active).sort((a, b) => a.name.localeCompare(b.name));
   openDialog(dHead('Nova mensalidade', 'Cobrança recorrente', 'O Asaas gera uma cobrança por mês. No cartão, o responsável cadastra o cartão uma única vez num link seguro do Asaas.') + `<form id="blForm" class="d-body" novalidate>
     <div class="field"><label for="blAth">Atleta *</label><select class="select" id="blAth"><option value="">Selecione…</option>${pool.map(a => `<option value="${a.id}">${esc(a.name)} · ${esc(teamOf(a.teamId)?.name || '')}</option>`).join('')}</select></div>
@@ -71,50 +72,67 @@ async function billingForm() {
       <div class="field"><label for="blDoc">CPF do pagador *</label><input class="input" id="blDoc" inputmode="numeric" placeholder="000.000.000-00"></div></div>
     <div class="row2"><div class="field"><label for="blEmail">E-mail</label><input class="input" id="blEmail" type="email"></div>
       <div class="field"><label for="blPhone">WhatsApp</label><input class="input" id="blPhone" inputmode="tel"></div></div>
-    <div class="row2"><div class="field"><label for="blValue">Valor mensal (R$) *</label><input class="input" id="blValue" inputmode="decimal" placeholder="0,00"><span class="hint" id="blPlanHint"></span></div>
+    <div class="row2"><div class="field"><label for="blValue">Valor-base mensal (R$) *</label><input class="input" id="blValue" inputmode="decimal" placeholder="0,00"><span class="hint" id="blPlanHint"></span><span class="hint">Valor do pacote antes do ajuste da forma de pagamento.</span></div>
       <div class="field"><label for="blDay">Dia do vencimento *</label><input class="input" id="blDay" type="number" min="1" max="28" value="10"></div></div>
-    <div class="field"><label>Forma de pagamento *</label><div class="seg" role="group"><button type="button" class="on" data-m="PIX">Pix mensal</button><button type="button" data-m="CREDIT_CARD">Cartão recorrente</button></div>
-      <span class="hint" id="blMethodHint">Todo mês o Asaas gera um Pix com vencimento e envia ao pagador.</span></div>
+    <div class="field"><label for="blOverride">Motivo de valor individual</label><input class="input" id="blOverride" maxlength="500"><span class="hint">Obrigatório se o valor-base diferir do pacote. Atletas sem pacote exigem valor e motivo explícitos.</span></div>
+    <div class="field"><label>Forma de pagamento *</label><div class="seg" role="group"><button type="button" class="on" data-m="PIX">Pix mensal</button><button type="button" data-m="CREDIT_CARD">Cartão recorrente</button><button type="button" data-m="PIX_AUTOMATIC">Pix Automático</button></div>
+      <span class="hint" id="blMethodHint">Todo mês o Asaas gera um Pix com vencimento e envia ao pagador.</span><span class="hint billing-price-preview" id="blPricePreview" role="status" aria-live="polite"></span></div>
     <div class="err" id="blErr" role="alert"></div>
   </form><div class="d-foot"><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" id="blSave">${icon('check')} Criar mensalidade</button></div>`, 'drawer');
-  const f = $('#blForm'); let method = 'PIX';
+  const f = $('#blForm'); let method = 'PIX', packageBase = null;
+  const previewPrices = () => {
+    let cents = NaN;
+    try { cents = billingRulesCents($('#blValue').value, 'o valor-base'); } catch { }
+    if (typeof billingRulesPrincipalPreview === 'function') billingRulesPrincipalPreview(cents, method==='PIX_AUTOMATIC'?'PIX':method, $('#blPricePreview'));
+  };
+  $('#blValue').addEventListener('input', previewPrices);
+  previewPrices();
   f.querySelectorAll('[data-m]').forEach(b => b.onclick = () => {
     method = b.dataset.m; f.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b));
-    $('#blMethodHint').textContent = method === 'PIX' ? 'Todo mês o Asaas gera um Pix com vencimento e envia ao pagador.'
+    $('#blMethodHint').textContent = method === 'PIX_AUTOMATIC' ? 'O pagador autoriza uma vez no próprio banco. O débito só passa a ser automático após confirmação do Asaas. Uma assinatura Pix mensal existente exige conciliação antes de migrar.' : method === 'PIX' ? 'Todo mês o Asaas gera um Pix com vencimento e envia ao pagador.'
       : 'O responsável recebe um link seguro do Asaas, cadastra o cartão uma vez e as próximas mensalidades são cobradas automaticamente.';
+    previewPrices();
   });
   $('#blAth').onchange = async () => {
     const id = $('#blAth').value; if (!id) return;
     const a = ATHLETES.find(x => x.id === id);
     const { data } = await financeDbClient().from('athletes').select('full_name,cpf,email,phone,parent_name,parent_cpf,parent_email,parent_phone').eq('id', id).maybeSingle();
+    if (!f.isConnected || $('#blAth').value !== id) return;
     const minor = !!(data?.parent_name || a?.parentName);
     $('#blName').value = minor ? (data?.parent_name || '') : (data?.full_name || a?.name || '');
     $('#blDoc').value = (minor ? data?.parent_cpf : data?.cpf) || '';
     $('#blEmail').value = (minor ? data?.parent_email : data?.email) || '';
     $('#blPhone').value = fmtPhone((minor ? data?.parent_phone : data?.phone) || '');
     const plan = PLANS.find(p => p.id === a?.planId), terms = plan ? { value: plan.value } : planTerms(a?.plan);
+    packageBase = terms.value > 0 ? terms.value : null;
     $('#blValue').value = terms.value ? (terms.value / 100).toFixed(2).replace('.', ',') : '';
     $('#blPlanHint').textContent = a?.plan ? `Plano no cadastro: ${a.plan}` : 'Atleta sem plano no cadastro.';
+    previewPrices();
   };
   $('#blSave').onclick = async () => {
     const err = $('#blErr'); err.textContent = '';
-    const ath = $('#blAth').value, doc = digits($('#blDoc').value), value = Math.round(Number($('#blValue').value.replace(/\./g, '').replace(',', '.')) * 100);
+    if (!canEdit('billing')) return err.textContent = 'Seu perfil não pode criar mensalidades.';
+    const ath = $('#blAth').value, doc = digits($('#blDoc').value);
+    let value;
+    try { value = billingRulesCents($('#blValue').value, 'o valor-base'); } catch (e) { return err.textContent = e.message; }
     const day = Number($('#blDay').value), name = $('#blName').value.trim();
     if (!ath) return err.textContent = 'Escolha o atleta.';
     if (!name) return err.textContent = 'Informe o nome do pagador.';
     if (![11, 14].includes(doc.length)) return err.textContent = 'CPF (ou CNPJ) do pagador inválido.';
     if (!(value >= 500)) return err.textContent = 'Informe o valor mensal (mínimo R$ 5,00).';
+    const baseOverrideReason = $('#blOverride').value.trim();
+    if ((packageBase === null || value !== packageBase) && !baseOverrideReason) return err.textContent = 'Informe o motivo do valor individual ou selecione um pacote no cadastro do atleta.';
     if (!(day >= 1 && day <= 28)) return err.textContent = 'O vencimento deve ser entre os dias 1 e 28.';
     const a = ATHLETES.find(x => x.id === ath);
     const btn = $('#blSave'); btn.disabled = true; btn.textContent = 'Criando…';
     try {
-      const { data, error } = await financeDbClient().functions.invoke('billing-asaas', { body: { action: 'create', athleteId: ath, method, valueCents: value, dueDay: day,
+      const { data, error } = await financeDbClient().functions.invoke('billing-asaas', { body: { action: 'create', athleteId: ath, method, valueCents: value, dueDay: day, baseOverrideReason,
         description: `Mensalidade Apollo · ${a.name} · ${teamOf(a.teamId)?.name || ''}`.trim(),
         payer: { name, cpfCnpj: doc, email: $('#blEmail').value.trim(), phone: digits($('#blPhone').value) } } });
       if (error) { let msg = error.message; try { msg = (await error.context.json()).error || msg; } catch { } throw new Error(msg); }
       closeDialog(); await billingLoad(true);
       const link = data.checkoutUrl || data.invoiceUrl;
-      toast(method === 'PIX' ? `Mensalidade criada. Primeiro vencimento em ${data.nextDueDate.split('-').reverse().join('/')}.` : 'Mensalidade criada. Envie o link para o responsável cadastrar o cartão.');
+      toast(method === 'PIX_AUTOMATIC' ? 'Mensalidade preparada. O pagador deverá autorizar o Pix Automático na Área do atleta.' : method === 'PIX' ? `Mensalidade criada. Primeiro vencimento em ${data.nextDueDate.split('-').reverse().join('/')}.` : 'Mensalidade criada. Envie o link para o responsável cadastrar o cartão.');
       if (link) billingShare(BILL.subs.find(s => s.id === data.id), link);
     } catch (e) { err.textContent = e.message; btn.disabled = false; btn.innerHTML = `${icon('check')} Criar mensalidade`; }
   };

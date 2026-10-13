@@ -1,0 +1,77 @@
+.portal-billing { min-width: 0; }
+.billing-section-heading,.billing-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.billing-section-heading h2,.billing-card h4 { margin: 0; }
+.billing-group { margin-top: 26px; }
+.billing-group h3 { font-size: 16px; margin-bottom: 12px; }
+.billing-count { color: #526172; font-size: 13px; }
+.billing-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,310px),1fr)); gap: 14px; }
+.billing-card { border: 1px solid #dbe2e9; border-radius: 14px; padding: 18px; background: #fff; min-width: 0; }
+.billing-card-heading { align-items: flex-start; }
+.billing-card-heading h4 { font-size: 16px; overflow-wrap: anywhere; }
+.billing-card-heading p { margin: 5px 0 0; }
+.billing-status { padding: 5px 9px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+.billing-status.is-paid { color: #14532d; background: #dcfce7; }
+.billing-status.is-pending { color: #78350f; background: #fef3c7; }
+.billing-status.is-canceled { color: #374151; background: #f1f5f9; }
+.billing-note { color: #526172; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.billing-composition { margin: 16px 0; font-size: 14px; }
+.billing-composition div { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; }
+.billing-composition dd { margin: 0; white-space: nowrap; }
+.billing-composition div:last-child { border-top: 1px solid #dbe2e9; margin-top: 6px; padding-top: 12px; font-weight: 700; font-size: 16px; }
+.billing-warning { padding: 12px; color: #78350f; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; font-size: 14px; line-height: 1.5; }
+.billing-invoices { border-top: 1px solid #dbe2e9; padding-top: 14px; margin: 14px 0; font-size: 13px; }
+.billing-invoices > div + div { margin-top: 16px; }
+.billing-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.portal-billing .btn:disabled { opacity: .65; cursor: wait; }
+.portal-billing .btn:focus-visible,#billingDialog .btn:focus-visible,#billingDialog textarea:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 3px; }
+#billingDialog { width: min(560px,calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; border: 1px solid #dbe2e9; border-radius: 18px; padding: 0; color: #182536; background: #fff; }
+#billingDialog::backdrop { background: #0f172a99; }
+.billing-dialog-content { padding: 24px; }
+.billing-dialog-content > .btn { margin: 10px 0; }
+.billing-pix { display: grid; justify-items: start; gap: 12px; margin: 20px 0; }
+.billing-pix img { max-width: 100%; height: auto; border: 1px solid #dbe2e9; padding: 8px; background: #fff; }
+.billing-pix textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 10px; border: 1px solid #94a3b8; border-radius: 8px; font: inherit; font-size: 12px; overflow-wrap: anywhere; color: #182536; background: #fff; }
+.billing-pix p { margin: 0; }
+.billing-method-options { display: grid; gap: 14px; margin: 18px 0; }
+.billing-method-options h3 { margin: 0; }
+.billing-method-options .btn { width: 100%; min-height: 44px; }
+.billing-history { margin-top: 24px; }
+@media(max-width:480px) { .billing-card { padding: 14px; } .billing-dialog-content { padding: 18px; } .billing-section-heading .btn { width: 100%; } .billing-actions .btn { min-height: 44px; } }
+
+
+.billing-month-stack{display:flex;flex-direction:column;gap:12px;margin-top:18px;}
+.billing-month-card{border:1px solid #dbe2e9;border-radius:12px;background:#fff;overflow:hidden;}
+.billing-month-summary{display:grid;grid-template-columns:minmax(170px,1fr) 130px minmax(180px,220px) 175px;gap:16px;align-items:center;padding:16px 20px;}
+.billing-month-title h3{font-size:19px;margin:0 0 9px;color:#0f172a;}
+.billing-month-due{display:flex;flex-direction:column;gap:7px;font-size:13px;}
+.billing-month-due>span,.billing-month-total>span{font-size:11px;color:#64748b;}
+.billing-month-due>strong{font-weight:500;color:#334155;}
+.billing-month-identity{display:flex;align-items:center;gap:12px;justify-self:start;width:100%;}
+.billing-advance{background:#2563eb;color:#fff;border-color:#2563eb;}.billing-advance:hover{background:#1d4ed8;border-color:#1d4ed8;}
+.billing-status-icon{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;flex-shrink:0;}
+.billing-status-icon svg{width:31px;height:31px;}
+.billing-status-icon.is-green{color:#15803d;background:#dcfce7;}.billing-status-icon.is-red{color:#dc2626;background:#fee2e2;}.billing-status-icon.is-blue{color:#2563eb;background:#dbeafe;}.billing-status-icon.is-gray{color:#64748b;background:#f1f5f9;}
+.billing-month-total{padding-left:64px;display:flex;flex-direction:column;gap:5px;}
+.billing-month-total>strong{font-size:24px;letter-spacing:-.04em;white-space:nowrap;color:#0f172a;}
+.billing-month-action{font-size:12px;text-align:right;}
+.billing-month-action>.btn{width:100%;font-size:12px;min-height:40px;}
+.billing-month-card .billing-status.is-overdue{color:#b91c1c;background:#fee2e2;}.billing-month-card .billing-status.is-pending{color:#1d4ed8;background:#dbeafe;}
+.billing-month-details{border-top:1px solid #edf0f4;}
+.billing-month-details>summary{cursor:pointer;padding:9px 20px;color:#64748b;font-size:12px;}
+.billing-month-details>summary:focus-visible{outline:3px solid #2563eb;outline-offset:-3px;}
+.billing-charge{padding:18px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;}
+.billing-charge>h4{margin:0;font-size:15px;}
+.billing-charge .billing-composition{max-width:620px;}
+.billing-month-details>.billing-invoices{padding:12px 20px;margin:0;}
+.billing-forecast{margin:22px 0 0;max-width:720px;}.billing-forecast h4{margin:0;font-size:15px;}
+.billing-forecast-list>div{display:flex;justify-content:space-between;gap:20px;padding:12px 0;border-bottom:1px solid #e2e8f0;font-size:13px;}.billing-forecast-list>div>span:last-child{text-align:right;}.billing-forecast-list small{display:block;color:#64748b;margin-top:5px;font-size:12px;}
+.billing-auto-note{margin:0;text-align:left;color:#166534;line-height:1.4;}.billing-auto-note>strong{display:block;font-size:12px;}.billing-auto-note>span{display:block;font-size:11px;margin-top:5px;color:#526172;}.billing-auto-failed{font-size:11px;margin:0 0 6px;color:#b91c1c;}
+#billingRestrictionDialog{width:min(520px,calc(100vw - 32px));padding:0;border:1px solid #fecaca;border-radius:16px;background:#fff;color:#182536;max-height:calc(100dvh - 32px);overflow:auto;}#billingRestrictionDialog::backdrop{background:#0f172a77;}.billing-restriction-content{padding:24px;}.billing-restriction-content h2{font-size:20px;color:#b91c1c;margin:0;}.billing-restriction-content p{font-size:14px;line-height:1.6;}.billing-pix-optin{margin-top:16px;padding:16px 20px;border:1px solid #dbe2e9;border-radius:12px;font-size:13px;}.billing-pix-optin h3{margin:0 0 8px;font-size:15px;}
+@media(max-width:850px){.billing-month-summary{grid-template-columns:1fr 1fr;gap:16px;padding:16px;}.billing-month-identity{grid-column:1;grid-row:1;justify-self:start;}.billing-month-due{grid-column:2;grid-row:1;text-align:right;}.billing-month-total{padding-left:0;}.billing-month-action{max-width:240px;justify-self:end;}.billing-month-title h3{font-size:17px;}.billing-month-identity{gap:8px;}.billing-month-total>strong{font-size:22px;}.billing-status-icon{width:46px;height:46px;}.billing-status-icon svg{width:28px;height:28px;}.billing-month-action>.btn{font-size:12px;}.billing-month-details>summary{padding:9px 16px;}}
+@media(max-width:380px){.billing-month-summary{gap:12px;}.billing-month-identity{gap:7px;}.billing-month-title h3{font-size:15px;}.billing-status-icon{width:38px;height:38px;}.billing-month-total>strong{font-size:20px;}}
+
+.billing-consent-check{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;margin:20px 0;}.billing-consent-check input{margin-top:4px;flex-shrink:0;}
+
+.billing-due{background:#facc15;color:#422006;border-color:#eab308;}.billing-due:hover{background:#eab308;border-color:#ca8a04;}
+.billing-status-icon.is-yellow{color:#a16207;background:#fef08a;}
+.billing-month-card .billing-status.is-due{color:#854d0e;background:#fef08a;}

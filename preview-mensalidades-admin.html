@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+  <title>Apollo · Administração · regras de cobrança</title>
+  <link rel="icon" href="assets/apollo-huddle.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="atleta.css">
+  <link rel="stylesheet" href="portal-billing.css">
+  <link rel="stylesheet" href="billing-rules.css?v=3">
+  <style>
+    .preview-banner { background:#fffbeb; border-bottom:1px solid #fcd34d; color:#78350f; padding:12px 20px; text-align:center; font-size:13px; line-height:1.55; }
+    .preview-banner strong { display:block; }
+    .preview-controls { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; align-items:center; }
+    .preview-controls p { margin:0; color:#526172; font-size:13px; }
+    .preview-controls .btn { margin-left:auto; }
+    .preview-banner-dialog { margin:16px 24px 0; }
+    @media(max-width:600px) { .preview-controls .btn { width:100%; margin-left:0; } }
+  </style>
+</head>
+<body>
+  <div class="preview-banner" role="note"><strong>PRÉVIA LOCAL · dados e percentuais ilustrativos</strong>Sem conexão com Supabase ou Asaas, sem cobranças reais e sem gravação. Os links de checkout e NFS-e estão desativados nesta demonstração.</div>
+  <header class="ah"><div class="ah-inner"><div class="ah-top"><img src="assets/apollo-logo.svg" alt="Apollo"><span class="tagline">ADMINISTRAÇÃO · PRÉVIA</span></div><div class="ah-hello"><div class="eyebrow">Painel administrativo · exemplo fictício</div><h1>Regras de cobrança</h1><p>Configuração administrativa dos percentuais e encargos de mensalidades.</p></div><nav class="atabs" aria-label="Seção demonstrada"><button class="on">Mensalidades</button></nav></div></header>
+  <main class="amain"><div class="preview-controls"><p>Exemplo: base R$ 200 · Pix 0% · cartão +5% · multa fixa R$ 4 (2% da base de R$ 200) · juros progressivos de 2%, 5%, 7% e 10% ao mês.</p><button class="btn" data-billing-rules>Ver regras e simulador</button></div><div id="main" aria-live="polite"><section class="panel panel-pad"><h2>Política de mensalidades</h2><p>Abra “Ver regras e simulador” para configurar os ajustes por forma de pagamento, a multa, os juros e visualizar seus efeitos em cada faixa de atraso.</p><p class="muted small">Demonstração local: as alterações não são salvas.</p></section></div></main>
+  <dialog id="billingDialog" aria-labelledby="billingDialogTitle"></dialog>
+  <dialog id="dlg" aria-labelledby="dlgTitle"></dialog>
+  <div id="toast" class="toast hide" role="status" aria-live="polite"></div>
+  <script>
+    'use strict';
+    const PORTAL = { selected: 'demo-ana', tab: 'pay', athletes: [{ id: 'demo-ana', full_name: 'Ana Oliveira' }, { id: 'demo-pedro', full_name: 'Pedro Oliveira' }] };
+    const portalEsc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    const esc = portalEsc;
+    const $ = selector => document.querySelector(selector);
+    const portalCurrent = () => PORTAL.athletes.find(a => a.id === PORTAL.selected);
+    const portalMoney = value => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0) / 100);
+    const money = portalMoney;
+    const portalDate = value => value ? new Date(String(value).slice(0,10) + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    const demoPolicy = { enabled: true, methods: { PIX: 0, CREDIT_CARD: 5 }, graceDays: 0, fine: { type: 'FIXED', value: 400 }, tiers: [{ fromDay: 1, rate: 2, period: 'month' }, { fromDay: 8, rate: 5, period: 'month' }, { fromDay: 15, rate: 7, period: 'month' }, { fromDay: 31, rate: 10, period: 'month' }] };
+    let demoEngine, demoData;
+    const demoReady = import('./js/billing-rules.mjs').then(engine => {
+      demoEngine = engine;
+      engine.validatePolicy(demoPolicy);
+      const current = demoQuote('PIX', 15), paid = demoQuote('PIX', 0);
+      demoData = {
+        subscriptions: PORTAL.athletes.map(a => ({ id: 'sub-' + a.id, athlete_id: a.id, method: 'PIX', package_name: 'Vôlei · 2 treinos por semana' })),
+        payments: [
+          { id:'demo-overdue', athlete_id:'demo-ana', subscription_id:'sub-demo-ana', asaas_payment_id:'demo-pay-overdue', package_name:'Vôlei · 2 treinos por semana', reference_month:'2026-09-01', due_date:'2026-09-27', billing_type:'PIX', status:'OVERDUE', demo_days:15, ...current },
+          { id:'demo-upcoming', athlete_id:'demo-ana', subscription_id:'sub-demo-ana', asaas_payment_id:'demo-pay-upcoming', package_name:'Vôlei · 2 treinos por semana', reference_month:'2026-10-01', due_date:'2026-10-20', billing_type:'PIX', status:'PENDING', demo_days:0, ...paid },
+          { id:'demo-paid', athlete_id:'demo-ana', asaas_payment_id:'demo-pay-paid', package_name:'Vôlei · 2 treinos por semana', reference_month:'2026-08-01', due_date:'2026-08-20', paid_at:'2026-08-19', billing_type:'PIX', status:'RECEIVED', ...paid },
+          { id:'demo-canceled', athlete_id:'demo-ana', asaas_payment_id:'demo-pay-canceled', package_name:'Treino adicional · exemplo cancelado', reference_month:'2026-08-01', due_date:'2026-08-15', billing_type:'PIX', status:'CANCELED', value_cents:5000 },
+          { id:'demo-legacy', athlete_id:'demo-ana', asaas_payment_id:'demo-pay-legacy', package_name:'Mensalidade anterior sem composição', reference_month:'2026-07-01', due_date:'2026-07-20', paid_at:'2026-07-20', billing_type:'PIX', status:'RECEIVED', value_cents:18000, quote_state:'legacy' },
+          { id:'demo-pedro-pending', athlete_id:'demo-pedro', subscription_id:'sub-demo-pedro', asaas_payment_id:'demo-pay-pedro', package_name:'Vôlei · 2 treinos por semana', reference_month:'2026-10-01', due_date:'2026-10-20', billing_type:'PIX', status:'PENDING', demo_days:0, ...paid }
+        ],
+        invoices: [{ asaas_invoice_id:'demo-nf-1', asaas_payment_id:'demo-pay-paid', status:'AUTHORIZED', number:'000123 · exemplo', effective_date:'2026-08-19', pdf_url:'https://sandbox.asaas.com/DEMONSTRACAO-nf.pdf', xml_url:'https://sandbox.asaas.com/DEMONSTRACAO-nf.xml', status_description:'Documento fictício para visualizar a apresentação. Os links não abrem nesta prévia.' }]
+      };
+    });
+    function demoQuote(method, days) {
+      const q = demoEngine.calculateQuote(20000, method, demoPolicy, days);
+      return { method, quote_state:'current', base_cents:q.baseCents, method_adjustment_percent:demoPolicy.methods[method], method_adjustment_cents:q.methodAdjustmentCents, principal_cents:q.principalCents, fine_cents:q.fineCents, interest_cents:q.interestCents, value_cents:q.totalCents, total_cents:q.totalCents };
+    }
+    function financeDbClient() {
+      return {
+        async rpc(name) {
+          await demoReady;
+          if (name === 'billing_portal_data') return { data: structuredClone(demoData), error:null };
+          if (name === 'billing_get_policy') return { data:{ version:'DEMO LOCAL', policy:structuredClone(demoPolicy), workerReady:true }, error:null };
+          if (name === 'billing_policy_history') return { data:[{ version:'DEMO LOCAL', created_at:'2026-10-12T12:00:00-03:00', policy:structuredClone(demoPolicy) }], error:null };
+          return { data:null, error:{ message:'Gravação bloqueada: esta página é apenas uma demonstração local.' } };
+        },
+        functions: { async invoke(name, input) {
+          await demoReady;
+          if (name !== 'billing-portal') return { error:{ message:'Ação indisponível na demonstração.' } };
+          const row = demoData.payments.find(p => p.id === input.body.paymentId && p.athlete_id === PORTAL.selected);
+          if (!row || !['PENDING','OVERDUE'].includes(row.status)) return { error:{ message:'Cobrança indisponível.' } };
+          if (input.body.action === 'preview') return { data:{ canChangeMethod:true, quotes:['PIX','CREDIT_CARD'].map(method => demoQuote(method,row.demo_days)) } };
+          if (input.body.action !== 'payment') return { error:{ message:'Ação indisponível.' } };
+          const method = input.body.method || row.billing_type;
+          if (!['PIX','CREDIT_CARD'].includes(method)) return { error:{ message:'Forma inválida.' } };
+          const quote = { ...demoQuote(method,row.demo_days), status:row.status };
+          return { data:{ paid:false, quote, invoiceUrl:'https://sandbox.asaas.com/DEMONSTRACAO-checkout', pix:method === 'PIX' ? { payload:'EXEMPLO ILUSTRATIVO — não é um código Pix válido e não deve ser usado para pagar.', encodedImage:null } : null } };
+        } }
+      };
+    }
+    function canEdit() { return true; }
+    function toast(text) { const el=$('#toast'); el.textContent=text; el.classList.remove('hide'); }
+    function dHead(label,title,subtitle='') { return `<div class="d-head"><div class="eyebrow">${esc(label)} · PRÉVIA LOCAL</div><h2 id="dlgTitle">${esc(title)}</h2><p class="hint">${esc(subtitle)}</p></div>`; }
+    function openDialog(html, classes='') { const dialog=$('#dlg'); dialog.className=classes; dialog.innerHTML=html; if (!dialog.open) dialog.showModal(); }
+    function closeDialog() { $('#dlg').close(); }
+    function portalRender() {
+      $('#previewAthletes').innerHTML=PORTAL.athletes.map(a=>`<button class="dep ${a.id === PORTAL.selected ? 'on' : ''}" data-demo-athlete="${esc(a.id)}"><span class="avatar">${esc(a.full_name[0])}</span><span><strong>${esc(a.full_name)}</strong><small>Vôlei · família de exemplo</small></span></button>`).join('');
+      $('#main').innerHTML=window.PortalBilling.render(portalCurrent()) + '<section class="panel panel-pad billing-history"><h2>Histórico Tecnofit</h2><p class="muted small">Exemplo de exportação manual identificada separadamente das cobranças atuais.</p><div class="stat-line"><span><b>Mensalidade histórica</b><br><small>Recebido em 20/06/2026 · dados fictícios</small></span><b>R$ 180,00 · Recebido</b></div></section>';
+    }
+    document.addEventListener('click', event => {
+      const link=event.target.closest('a[href]');
+      if (link) { event.preventDefault(); event.stopImmediatePropagation(); toast('Link demonstrativo desativado. Nenhum checkout ou documento real é acessado.'); return; }
+      const athlete=event.target.closest('[data-demo-athlete]');
+      if (athlete) { PORTAL.selected=athlete.dataset.demoAthlete; portalRender(); }
+      if (event.target.closest('[data-act="close-dialog"]')) closeDialog();
+    },true);
+    new MutationObserver(() => {
+      // Replace demonstration destinations so context-menu or middle-click also stays local.
+      document.querySelectorAll('a[href^="https:"]').forEach(link => {
+        link.dataset.demoDestination=link.href; link.href='#preview-link-disabled'; link.removeAttribute('target');
+      });
+      const save=$('#brSave');
+      if (save && !save.disabled) { save.disabled=true; save.textContent='Prévia · salvar desativado'; }
+      const form=$('#billingRulesForm');
+      if (form && !form.querySelector('[data-preview-note]')) {
+        const note=document.createElement('p'); note.dataset.previewNote=''; note.className='banner note'; note.textContent='Prévia interativa · Experimente os campos. As alterações não são salvas.'; form.prepend(note);
+      }
+    }).observe(document.body,{ childList:true,subtree:true });
+  </script>
+  <script src="js/portal-billing.js"></script>
+  <script src="js/billing-rules-ui.js?v=3"></script>
+  <script>
+    demoReady.then(async () => { await billingRulesForm(); }).catch(error => { $('#main').textContent='Não foi possível carregar a prévia local: '+error.message; });
+  </script>
+</body>
+</html>

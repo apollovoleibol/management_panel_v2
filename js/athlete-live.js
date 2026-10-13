@@ -1,7 +1,7 @@
 /* Real athlete/guardian portal. All reads are scoped by database RLS. */
 'use strict';
 const PORTAL = { athletes: [], teams: [], locations: [], attendance: [], competitions: [], invoices: [], notices: [], blocked: [],
-  selected: null, tab: 'home', error: '' };
+  selected: null, tab: 'home', error: '', historyError: '' };
 const portal$ = selector => document.querySelector(selector);
 const portalEsc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const portalDate = value => value ? new Date(`${String(value).slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR') : '—';
@@ -44,13 +44,18 @@ async function portalLoad() {
     portalRead('competitions', 'id,team_id,name,scheduled_at,venue_name,status'),
     portalRead('v2_portal_notices', 'id,athlete_id,kind,subject_date,value,created_at'),
     portalRead('v2_training_cancellations', 'team_id,training_date'),
-    financeDbClient().rpc('v2_my_invoices').then(({ data, error }) => { if (error) throw error; return data || []; })
+    financeDbClient().rpc('v2_my_invoices').then(({ data, error }) => {
+      PORTAL.historyError = error ? 'Histórico Tecnofit indisponível no momento.' : '';
+      return error ? [] : data || [];
+    }).catch(() => { PORTAL.historyError = 'Histórico Tecnofit indisponível no momento.'; return []; })
   ]);
   PORTAL.athletes = athletes.filter(a => ids.includes(a.id) && a.is_active);
   PORTAL.teams = teams; PORTAL.locations = locations; PORTAL.attendance = attendance;
   PORTAL.competitions = competitions; PORTAL.notices = notices; PORTAL.blocked = blocked; PORTAL.invoices = invoices;
   if (!PORTAL.athletes.some(a => a.id === PORTAL.selected)) PORTAL.selected = PORTAL.athletes[0]?.id || null;
   portalRender();
+  await window.PortalBilling.load();
+  if (PORTAL.tab === 'pay') portalRender();
 }
 function portalClearSkeleton() {
   portal$('#main').setAttribute('aria-busy', 'false');
@@ -126,10 +131,12 @@ function portalEvolution(athlete) {
     <p class="hint">Avaliações técnicas e scout aparecerão aqui quando forem vinculados ao cadastro do atleta.</p></section>`;
 }
 function portalPayments(athlete) {
+  return window.PortalBilling.render(athlete) + portalPaymentHistory(athlete);
+}
+function portalPaymentHistory(athlete) {
   const rows = portalInvoices(athlete);
-  if (!rows.length) return `<section class="panel panel-pad"><h2>Mensalidades</h2><p>Não há cobranças vinculadas a este atleta no último conjunto de relatórios importados.</p>
-    <p class="hint">A secretaria precisa vincular o código de cliente Tecnofit ao cadastro e manter os relatórios atualizados. Para pagar, use os canais oficiais informados pela Apollo.</p></section>`;
-  return `<section class="panel panel-pad"><h2>Mensalidades</h2><p class="muted small">Espelho das exportações manuais do Tecnofit. Confirme o pagamento na plataforma antes de agir.</p>
+  if (!rows.length) return `<section class="panel panel-pad billing-history"><h2>Histórico Tecnofit</h2><p>${PORTAL.historyError || 'Nenhum registro histórico vinculado a este atleta no último conjunto de relatórios importados.'}</p></section>`;
+  return `<section class="panel panel-pad billing-history"><h2>Histórico Tecnofit</h2><p class="muted small">Espelho das exportações manuais do Tecnofit. Registros históricos; pagamentos devem ser consultados nos canais oficiais da Apollo.</p>
     ${rows.map(invoice => { const r = invoice.data || {}; const open = invoice.reportType === 'open';
       return `<div class="stat-line"><span><b>${portalEsc(r.item || 'Mensalidade')}</b><br><small>${open ? `Vencimento: ${portalDate(r.due)}` : `Recebido em: ${portalDate(r.date)}`}</small></span>
         <b>${portalMoney(open ? r.open : r.gross)} · ${open ? 'Em aberto' : 'Recebido'}</b></div>`; }).join('')}</section>`;
@@ -159,8 +166,8 @@ async function portalNotice(kind, subjectDate, value) {
 document.addEventListener('click', async event => {
   const target = event.target.closest('[data-tab],[data-athlete],[data-absence],[data-event],[data-consent]');
   if (!target) return;
-  if (target.dataset.tab) { PORTAL.tab = target.dataset.tab; portalRender(); return; }
-  if (target.dataset.athlete) { PORTAL.selected = target.dataset.athlete; portalRender(); return; }
+  if (target.dataset.tab) { PORTAL.tab = target.dataset.tab; portalRender(); if(PORTAL.tab==='pay')window.PortalBilling.notify(); return; }
+  if (target.dataset.athlete) { PORTAL.selected = target.dataset.athlete; portalRender(); window.PortalBilling.notify(); return; }
   try {
     if (target.dataset.absence) {
       // O motivo aparece para o técnico na chamada do Manager App (já marcada como justificada)

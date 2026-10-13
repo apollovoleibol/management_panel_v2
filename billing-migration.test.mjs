@@ -1,0 +1,25 @@
+import {PGlite} from './.verification/node_modules/@electric-sql/pglite/dist/index.js';
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const db=new PGlite();
+await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;create schema private;
+create table auth.users(id uuid primary key);create table public.athletes(id uuid primary key);
+create function auth.uid() returns uuid language sql as $$select null::uuid$$;
+create function private.v2_can(text,text) returns boolean language sql as $$select coalesce(current_setting('test.staff',true),'false')='true'$$;
+create function private.v2_portal_link(uuid) returns boolean language sql as $$select $1::text=current_setting('test.athlete',true)$$;`);
+let baseline=readFileSync('supabase/migrations/030_billing_asaas.sql','utf8');baseline=baseline.slice(0,baseline.indexOf('-- Página'))+'commit;';await db.exec(baseline);
+await db.exec(readFileSync('supabase/migrations/031_billing_policy_portal.sql','utf8'));
+await db.exec("set test.staff='true'");
+const policy={enabled:false,methods:{PIX:0,CREDIT_CARD:5},graceDays:0,fine:{type:'PERCENTAGE',value:2},tiers:[{fromDay:1,rate:1,period:'month'},{fromDay:15,rate:2,period:'month'}]};
+await db.query('select billing_save_policy($1::jsonb)',[JSON.stringify(policy)]);
+assert.equal((await db.query('select billing_get_policy() as p')).rows[0].p.version,2);
+await assert.rejects(db.query('select billing_save_policy($1::jsonb)',[JSON.stringify({...policy,enabled:true})]),/processamento periódico/);
+await assert.rejects(db.query('select billing_save_policy($1::jsonb)',[JSON.stringify({...policy,methods:{PIX:0,CREDIT_CARD:101}})]),/Percentual/);
+await db.exec("set test.staff='false'");await assert.rejects(db.query('select billing_get_policy()'),/Acesso negado/);
+const a='11111111-1111-1111-1111-111111111111',b='22222222-2222-2222-2222-222222222222',c='33333333-3333-3333-3333-333333333333';
+await db.query('insert into athletes values($1),($2)',[a,b]);await db.query("insert into billing_customers(id,name,cpf_cnpj) values($1,'Demo','000')",[c]);
+for(const id of [a,b]){await db.query("insert into billing_subscriptions(id,athlete_id,customer_id,method,value_cents,due_day,description) values($1,$1,$2,'PIX',20000,10,'Demo')",[id,c]);await db.query("insert into billing_payments(asaas_payment_id,subscription_id,athlete_id,status,value_cents) values($1,$2,$2,'PENDING',20000)",['pay_'+id,id]);await db.query("insert into billing_invoices(asaas_invoice_id,env,asaas_payment_id,status) values($1,'sandbox',$2,'AUTHORIZED')",['inv_'+id,'pay_'+id]);}
+await db.exec(`set test.athlete='${a}'`);const family=(await db.query('select billing_portal_data() as p')).rows[0].p;assert.equal(family.payments.length,1);assert.equal(family.subscriptions.length,1);assert.equal(family.invoices.length,1);assert.equal(family.payments[0].athlete_id,a);
+await assert.rejects(db.query("insert into billing_subscriptions(athlete_id,customer_id,method,value_cents,due_day,description) values($1,$2,'PIX',20000,10,'Duplicate')",[a,c]),/billing_one_open_per_athlete/);
+const payment=family.payments[0].id,lock='44444444-4444-4444-4444-444444444444';assert.ok((await db.query('select billing_claim_payment($1,$2) as p',[payment,lock])).rows[0].p);assert.equal((await db.query('select billing_claim_payment($1,$2) as p',[payment,c])).rows[0].p,null);await db.query('select billing_release_payment($1,$2)',[payment,lock]);
+await db.close();console.log('SQL migration executed in PostgreSQL: policy validation, worker guard, staff denial, family invoice/payment scope, duplicate guard and lock contention passed.');
