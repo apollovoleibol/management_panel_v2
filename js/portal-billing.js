@@ -77,6 +77,17 @@ window.PortalBilling = (() => {
     dialog.innerHTML = `<div class="billing-dialog-content pbd-success"><svg class="pbd-check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg><h2 id="billingDialogTitle">Pagamento confirmado!</h2><p>${row ? `${esc(monthName(monthKey(row)))} · ${amount(total(row)) ? portalMoney(total(row)) : ''}` : 'Mensalidade quitada.'}</p><p class="pbd-foot">Obrigado! O comprovante e a nota fiscal ficam no histórico.</p><button class="btn primary pb-cta" data-billing-close>Fechar</button></div>`;
     openSheet(dialog);
   }
+  // Volta do checkout do Asaas (?pagamento=ok|cancelado|expirado): confirma uma única vez
+  function returnNotice() {
+    const params = new URLSearchParams(location.search), result = params.get('pagamento');
+    if (!result) return;
+    params.delete('pagamento'); history.replaceState(null, '', location.pathname + (params.toString() ? `?${params}` : '') + location.hash);
+    if (result === 'ok') {
+      const dialog = document.querySelector('#billingDialog'); if (!dialog) return;
+      dialog.innerHTML = `<div class="billing-dialog-content pbd-success"><svg class="pbd-check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg><h2 id="billingDialogTitle">Cartão cadastrado!</h2><p>As próximas mensalidades serão cobradas automaticamente no cartão.</p><button class="btn primary pb-cta" data-billing-close>Ver mensalidades</button></div>`;
+      openSheet(dialog);
+    } else message(result === 'expirado' ? 'O link de cadastro do cartão expirou. Toque em "Cadastrar cartão" para gerar outro.' : 'O cadastro do cartão foi cancelado. Você pode tentar de novo quando quiser.');
+  }
   const dialogHead = (title, sub='') => `<div class="pbd-head"><div><h2 id="billingDialogTitle">${title}</h2>${sub ? `<p>${sub}</p>` : ''}</div><button class="pbd-x" data-billing-close aria-label="Fechar">×</button></div>`;
   function paymentContext(row) {
     return `<p class="billing-payment-context">Competência: <strong>${esc(monthName(monthKey(row)))}</strong> · Vencimento: ${portalDate(row.due_date)}</p>`;
@@ -224,7 +235,8 @@ window.PortalBilling = (() => {
     }catch(error){message(error.message);}finally{state.busy=false;target.disabled=false;loading(target,false);}
   }
   function render(athlete) {
-    const rows=state.payments.filter(p=>p.athlete_id===athlete.id);
+    // Cobranças removidas pelo sistema (ex.: troca de forma de pagamento) não fazem parte do histórico
+    const rows=state.payments.filter(p=>p.athlete_id===athlete.id && up(p)!=='DELETED');
     const open=rows.filter(p=>payable.has(up(p))).sort((a,b)=>String(a.due_date||'').localeCompare(String(b.due_date||'')));
     const overdue=open.filter(isOverdue);
     const rest=rows.filter(p=>!payable.has(up(p))).sort((a,b)=>String(b.due_date||'').localeCompare(String(a.due_date||'')));
@@ -238,6 +250,7 @@ window.PortalBilling = (() => {
       : `<section class="pb-hero is-ok"><div class="pb-hero-top"><span>Situação</span></div><div class="pb-hero-amount pb-ok">Tudo em dia</div><p class="pb-hero-sub">${rows.length ? 'Nenhuma mensalidade em aberto.' : 'Nenhuma mensalidade lançada para este atleta ainda.'}</p></section>`;
     const others=open.slice(1);
     setTimeout(countUp, 0);
+    setTimeout(returnNotice, 0);
     return `<section class="portal-billing pb" aria-labelledby="billingTitle">
       <div class="pb-head"><h2 id="billingTitle">Mensalidades</h2><button class="btn sm ghost" data-billing-refresh ${state.busy || state.loading ? 'disabled' : ''} aria-label="Atualizar mensalidades">↻ Atualizar</button></div>
       <div id="billingMessage" class="pb-message" role="status" aria-live="polite">${state.error ? `<p class="billing-warning">${esc(state.error)}</p>` : ''}</div>
