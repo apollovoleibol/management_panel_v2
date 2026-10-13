@@ -3,6 +3,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { mergePayment } from '../_shared/billing-webhook-merge.mjs';
 import {applyPixAutomaticEvent,firstPaymentContext,reconcileFirstPayment} from '../_shared/billing-pix-automatic.mjs';
+import {finishReplacement} from '../_shared/billing-replace.mjs';
 
 const BASE = Deno.env.get('ASAAS_BASE_URL') || 'https://api-sandbox.asaas.com/v3';
 const ENV = BASE.includes('sandbox') ? 'sandbox' : 'production';
@@ -137,6 +138,8 @@ Deno.serve(async request => {
           // Recupera cobranças recebidas antes do vínculo da assinatura.
           await admin.from('billing_payments').update({ subscription_id: target.id, athlete_id: target.athlete_id, updated_at: now })
             .eq('env', ENV).eq('asaas_subscription_id', s.id).is('subscription_id', null).throwOnError();
+          // Troca de forma de pagamento: encerra a mensalidade anterior
+          await finishReplacement(admin, target.id, ENV);
         }
       }
       if (['SUBSCRIPTION_DELETED', 'SUBSCRIPTION_INACTIVATED'].includes(evt.event))

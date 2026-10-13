@@ -105,6 +105,7 @@ export async function refreshAuthorization(admin,api,row,env) {
   if(ready) {
     await admin.from('billing_payments').update({subscription_id:sub.id,athlete_id:sub.athlete_id})
       .eq('env',env).eq('asaas_subscription_id',a.subscriptionId).is('subscription_id',null).throwOnError();
+    if(sub.replaces_id){const {finishReplacement}=await import('./billing-replace.mjs');await finishReplacement(admin,sub.id,env);}
   }
   await reconcileFirstPayment(admin,saved,sub,env);
   return saved;

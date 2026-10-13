@@ -140,13 +140,16 @@ window.PortalBilling = (() => {
     if(choice) return `<section class="pb-auto pb-choose"><span class="pb-auto-icon is-off" aria-hidden="true">★</span><div><strong>Escolha como pagar as mensalidades</strong><p>${portalMoney(choice.base_cents ?? choice.value_cents)} por mês, todo dia ${esc(choice.due_day)}. Com cartão ou Pix Automático, você não precisa entrar aqui todo mês.</p><div class="pb-auto-actions"><button class="btn primary" data-billing-choose="${esc(choice.id)}">Escolher forma de pagamento</button></div></div></section>`;
     if(state.subscriptions.some(s=>s.athlete_id===athlete.id && s.status==='choosing')) return `<section class="pb-auto"><span class="pb-auto-icon is-wait" aria-hidden="true">…</span><div><strong>Registrando sua escolha</strong><p>Isso leva só alguns segundos. Atualize em instantes.</p></div></section>`;
     const pendingCard=state.subscriptions.find(s=>s.athlete_id===athlete.id && s.method==='CREDIT_CARD' && s.status==='pending' && s.checkout_url);
-    if(pendingCard) return `<section class="pb-auto"><span class="pb-auto-icon is-wait" aria-hidden="true">…</span><div><strong>Falta cadastrar o cartão</strong><p>Abra a página segura do Asaas e cadastre o cartão uma única vez. As próximas mensalidades serão cobradas automaticamente.</p><div class="pb-auto-actions"><a class="btn primary" href="${esc(safeUrl(pendingCard.checkout_url,true))}" target="_blank" rel="noopener noreferrer" data-billing-card-open>Cadastrar cartão</a></div></div></section>`;
+    const activeSub=state.subscriptions.find(s=>s.athlete_id===athlete.id && s.status==='active');
+    const changeBtn=activeSub ? `<button class="btn sm ghost" data-billing-change="${esc(activeSub.id)}">Trocar forma de pagamento</button>` : '';
+    if(pendingCard) return `<section class="pb-auto"><span class="pb-auto-icon is-wait" aria-hidden="true">…</span><div><strong>Falta cadastrar o cartão</strong><p>Abra a página segura do Asaas e cadastre o cartão uma única vez. As próximas mensalidades serão cobradas automaticamente.${activeSub ? ' Até lá, continua valendo a forma atual.' : ''}</p><div class="pb-auto-actions"><a class="btn primary" href="${esc(safeUrl(pendingCard.checkout_url,true))}" target="_blank" rel="noopener noreferrer" data-billing-card-open>Cadastrar cartão</a>${changeBtn}</div></div></section>`;
     const a=autoState(athlete);
-    if(a.on) return `<section class="pb-auto is-on"><span class="pb-auto-icon" aria-hidden="true">✓</span><div><strong>Pagamento automático ativo</strong><p>${esc(a.label)}. As próximas mensalidades são cobradas sem você precisar entrar aqui.</p></div>${a.cancel ? `<button class="btn sm ghost" data-billing-auto-cancel="${esc(a.sub.id)}">Cancelar</button>` : ''}</section>`;
+    if(a.on) return `<section class="pb-auto is-on"><span class="pb-auto-icon" aria-hidden="true">✓</span><div><strong>Pagamento automático ativo</strong><p>${esc(a.label)}. As próximas mensalidades são cobradas sem você precisar entrar aqui.</p><div class="pb-auto-actions">${changeBtn}</div></div></section>`;
     if(a.waiting) return `<section class="pb-auto"><span class="pb-auto-icon is-wait" aria-hidden="true">…</span><div><strong>Aguardando confirmação do banco</strong><p>Você iniciou a autorização do Pix Automático. Assim que o banco confirmar, os débitos passam a ser automáticos.</p></div><button class="btn sm" data-billing-auto-status="${esc(a.sub.id)}">Consultar</button></section>`;
     if(!a.any) return '';
     const options=[a.pix ? `<button class="btn" data-billing-auto-prepare="${esc(a.pix.id)}">Ativar Pix Automático</button>` : '', a.card ? `<button class="btn" data-billing-card-activate="${esc(a.card.id)}">Cadastrar cartão de crédito</button>` : ''].filter(Boolean).join('');
-    return `<section class="pb-auto"><span class="pb-auto-icon is-off" aria-hidden="true">↻</span><div><strong>Pague sem precisar entrar todo mês</strong><p>${options ? 'Ative uma vez e as próximas mensalidades são cobradas automaticamente.' : 'O pagamento automático (cartão ou Pix Automático) será liberado pela administração em breve. Enquanto isso, pague cada mês por aqui.'}</p>${options ? `<div class="pb-auto-actions">${options}</div>` : ''}</div></section>`;
+    if(activeSub && !a.pix) return `<section class="pb-auto"><span class="pb-auto-icon is-off" aria-hidden="true">↻</span><div><strong>Forma atual: Pix mensal</strong><p>Todo mês a cobrança aparece aqui para você pagar. Prefere não precisar entrar todo mês? Troque para cartão${state.pixAutoOffered ? ' ou Pix Automático' : ''}.</p><div class="pb-auto-actions">${changeBtn}</div></div></section>`;
+    return `<section class="pb-auto"><span class="pb-auto-icon is-off" aria-hidden="true">↻</span><div><strong>Pague sem precisar entrar todo mês</strong><p>${options ? 'Ative uma vez e as próximas mensalidades são cobradas automaticamente.' : 'O pagamento automático (cartão ou Pix Automático) será liberado pela administração em breve. Enquanto isso, pague cada mês por aqui.'}</p><div class="pb-auto-actions">${options}${changeBtn}</div></div></section>`;
   }
   function overdueAlert(athlete, overdue) {
     if(!overdue.length) return '';
@@ -326,8 +329,11 @@ window.PortalBilling = (() => {
     try {
       const {data,error}=await financeDbClient().functions.invoke('billing-asaas',{body:{action:'choice_quote',subscriptionId:id}});
       if(error || !data || data.error || !Array.isArray(data.options)) throw new Error(data?.error || 'Não foi possível carregar as opções agora. Tente atualizar.');
-      const first=data.options[0].method;
-      dialog.innerHTML=`<div class="billing-dialog-content">${dialogHead('Como você quer pagar?', `Mensalidade de ${esc(portalCurrent()?.full_name || '')} · todo dia ${esc(data.dueDay)}`)}<div class="pbd-options" role="radiogroup" aria-label="Forma de pagamento">${data.options.map(o=>{const [n,d,tag]=choiceLabel[o.method];return `<label class="pbd-option"><input type="radio" name="pbdChoice" value="${esc(o.method)}" ${o.method===first?'checked':''}><span class="pbd-option-main"><strong>${n}${tag?` <em class="pbd-tag">${tag}</em>`:''}</strong><small>${d}</small></span><b>${portalMoney(o.totalCents)}<small>/mês</small></b></label>`;}).join('')}</div><div id="billingDialogMessage" class="pbd-msg" role="status" aria-live="polite"></div><button class="btn primary pb-cta" data-billing-choose-confirm="${esc(id)}">Confirmar</button><p class="pbd-foot">Você pode pedir à administração para mudar a forma depois.</p></div>`;
+      const first=data.options[0]?.method;
+      if(!first) throw new Error('Não há outra forma de pagamento disponível no momento.');
+      const names={PIX_AUTOMATIC:'Pix Automático',CREDIT_CARD:'Cartão de crédito',PIX:'Pix mensal'};
+      const changing=!!data.current;
+      dialog.innerHTML=`<div class="billing-dialog-content">${dialogHead(changing ? 'Trocar forma de pagamento' : 'Como você quer pagar?', changing ? `Forma atual: <b>${names[data.current] || 'Pix mensal'}</b> · todo dia ${esc(data.dueDay)}` : `Mensalidade de ${esc(portalCurrent()?.full_name || '')} · todo dia ${esc(data.dueDay)}`)}<div class="pbd-options" role="radiogroup" aria-label="Forma de pagamento">${data.options.map(o=>{const [n,d,tag]=choiceLabel[o.method];return `<label class="pbd-option"><input type="radio" name="pbdChoice" value="${esc(o.method)}" ${o.method===first?'checked':''}><span class="pbd-option-main"><strong>${n}${tag?` <em class="pbd-tag">${tag}</em>`:''}</strong><small>${d}</small></span><b>${portalMoney(o.totalCents)}<small>/mês</small></b></label>`;}).join('')}</div><div id="billingDialogMessage" class="pbd-msg" role="status" aria-live="polite"></div><button class="btn primary pb-cta" data-billing-choose-confirm="${esc(id)}">${changing ? 'Trocar' : 'Confirmar'}</button><p class="pbd-foot">${changing ? 'A forma atual continua valendo até a nova ser confirmada. Nada é cobrado em dobro.' : 'Você pode trocar a forma de pagamento quando quiser.'}</p></div>`;
       openSheet(dialog);
     } catch(e) { message(e.message); }
     finally { loading(trigger,false); trigger.disabled=false; }
@@ -347,17 +353,18 @@ window.PortalBilling = (() => {
         openSheet(dialog);
       } else if(method==='PIX_AUTOMATIC'){
         state.busy=false; dialog.close();
-        const btn=document.querySelector(`[data-billing-auto-prepare="${CSS.escape(id)}"]`); if(btn) await automaticAction(btn);
+        const target=body.subscriptionId || id;
+        const btn=document.querySelector(`[data-billing-auto-prepare="${CSS.escape(target)}"]`); if(btn) await automaticAction(btn);
       } else {
-        dialog.innerHTML=`<div class="billing-dialog-content pbd-success"><svg class="pbd-check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg><h2 id="billingDialogTitle">Tudo certo!</h2><p>Todo mês a mensalidade aparece aqui com o Pix pronto para pagar.${body.nextDueDate ? ` Primeiro vencimento: ${portalDate(body.nextDueDate)}.` : ''}</p><button class="btn primary pb-cta" data-billing-close>Ver mensalidade</button></div>`;
+        dialog.innerHTML=`<div class="billing-dialog-content pbd-success"><svg class="pbd-check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg><h2 id="billingDialogTitle">${body.changed ? 'Forma de pagamento trocada!' : 'Tudo certo!'}</h2><p>Todo mês a mensalidade aparece aqui com o Pix pronto para pagar.${body.nextDueDate ? ` Primeiro vencimento: ${portalDate(body.nextDueDate)}.` : ''}</p><button class="btn primary pb-cta" data-billing-close>Ver mensalidade</button></div>`;
         openSheet(dialog);
       }
     } catch(e) { message(e.message); }
     finally { state.busy=false; loading(trigger,false); trigger.disabled=false; }
   }
   document.addEventListener('click', async event => {
-    const choose=event.target.closest('[data-billing-choose],[data-billing-choose-confirm]');
-    if(choose){ event.preventDefault(); if(choose.hasAttribute('data-billing-choose')) await chooseOpen(choose.dataset.billingChoose, choose); else await chooseConfirm(choose.dataset.billingChooseConfirm, choose); return; }
+    const choose=event.target.closest('[data-billing-choose],[data-billing-choose-confirm],[data-billing-change]');
+    if(choose){ event.preventDefault(); if(choose.hasAttribute('data-billing-choose-confirm')) await chooseConfirm(choose.dataset.billingChooseConfirm, choose); else await chooseOpen(choose.dataset.billingChoose || choose.dataset.billingChange, choose); return; }
   });
   document.addEventListener('click', async event => {
     const target = event.target.closest('[data-billing-refresh],[data-billing-pay],[data-billing-confirm],[data-billing-close],[data-billing-copy],[data-billing-return],[data-billing-dismiss-notice],[data-billing-view-debts],[data-billing-auto-prepare],[data-billing-auto-consent],[data-billing-auto-status],[data-billing-auto-cancel],[data-billing-auto-cancel-confirm]');

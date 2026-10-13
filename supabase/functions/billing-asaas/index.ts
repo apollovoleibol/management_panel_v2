@@ -6,6 +6,7 @@ import { LOGO_BASE64 } from './logo.ts';
 import {calculateQuote,validatePolicy} from '../_shared/billing-rules.mjs';
 import {mergePayment} from '../_shared/billing-webhook-merge.mjs';
 import {assertEnabled} from '../_shared/billing-pix-automatic.mjs';
+import {finishReplacement} from '../_shared/billing-replace.mjs';
 
 const origin = 'https://apollovoleibol.github.io';
 const cors = { 'Access-Control-Allow-Origin': origin,
@@ -65,8 +66,8 @@ async function ensureAsaasCustomer(admin: any, customer: any, athleteId: string)
   return data;
 }
 // deno-lint-ignore no-explicit-any
-async function startPix(admin: any, sub: any, customer: any) {
-  const policy = validatePolicy(sub.policy_snapshot), quote = calculateQuote(sub.base_cents, 'PIX', policy, 0), due = nextDue(sub.due_day);
+async function startPix(admin: any, sub: any, customer: any, start?: string) {
+  const policy = validatePolicy(sub.policy_snapshot), quote = calculateQuote(sub.base_cents, 'PIX', policy, 0), due = start || nextDue(sub.due_day);
   const c = await ensureAsaasCustomer(admin, customer, sub.athlete_id);
   const s = await asaas('/subscriptions', { method: 'POST', body: JSON.stringify({ customer: c.asaas_id, billingType: 'PIX', value: quote.principalCents / 100,
     nextDueDate: due, cycle: 'MONTHLY', description: sub.description, externalReference: sub.id,
@@ -78,8 +79,8 @@ async function startPix(admin: any, sub: any, customer: any) {
   return { nextDueDate: due, invoiceUrl: pays?.data?.[0]?.invoiceUrl || null };
 }
 // deno-lint-ignore no-explicit-any
-async function startCard(admin: any, sub: any) {
-  const policy = validatePolicy(sub.policy_snapshot), quote = calculateQuote(sub.base_cents, 'CREDIT_CARD', policy, 0), due = nextDue(sub.due_day);
+async function startCard(admin: any, sub: any, start?: string) {
+  const policy = validatePolicy(sub.policy_snapshot), quote = calculateQuote(sub.base_cents, 'CREDIT_CARD', policy, 0), due = start || nextDue(sub.due_day);
   const ck = await asaas('/checkouts', { method: 'POST', body: JSON.stringify({
     billingTypes: ['CREDIT_CARD'], chargeTypes: ['RECURRENT'], minutesToExpire: 1440, externalReference: sub.id,
     callback: { successUrl: `${PANEL}/area-do-atleta.html?pagamento=ok`, cancelUrl: `${PANEL}/area-do-atleta.html?pagamento=cancelado`, expiredUrl: `${PANEL}/area-do-atleta.html?pagamento=expirado` },
@@ -90,6 +91,20 @@ async function startCard(admin: any, sub: any) {
     asaas_checkout_id: ck.id, checkout_url: link, updated_at: new Date().toISOString() }).eq('id', sub.id).throwOnError();
   return { checkoutUrl: link, nextDueDate: due };
 }
+
+// deno-lint-ignore no-explicit-any
+async function changeStart(admin: any, old: any) {
+  const { data: pays } = await admin.from('billing_payments').select('due_date,status').eq('env', ENV).eq('subscription_id', old.id).not('status', 'in', '(DELETED,REFUNDED)');
+  const today = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+  const open = (pays || []).filter((p: any) => ['PENDING', 'OVERDUE'].includes(p.status)).map((p: any) => String(p.due_date)).sort();
+  if (open.some((d: string) => d < today)) throw new Error('Pague a mensalidade em atraso antes de trocar a forma de pagamento.');
+  if (open.length) return open[0];
+  const last = (pays || []).map((p: any) => String(p.due_date)).sort().pop();
+  let next = nextDue(old.due_day);
+  if (last && next <= last) { const d = new Date(`${last}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1, old.due_day); next = ymd(d); }
+  return next;
+}
+const methodKey = (s: any) => s.automatic_mode === 'PIX_AUTOMATIC' ? 'PIX_AUTOMATIC' : s.method;
 
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
@@ -115,15 +130,47 @@ Deno.serve(async request => {
     if (!allowed) return json(403, { error: 'Mensalidade não vinculada a esta conta.' });
     try {
       const { data: sub } = await admin.from('billing_subscriptions').select('*').eq('id', input.subscriptionId).eq('env', ENV).single().throwOnError();
-      if (sub.status !== 'awaiting_choice') return json(409, { error: 'A forma de pagamento desta mensalidade já foi escolhida.' });
+      const changing = sub.status !== 'awaiting_choice';
+      if (changing && !['active', 'pending'].includes(sub.status)) return json(409, { error: 'Esta mensalidade não está ativa.' });
+      const current = changing ? methodKey(sub) : null;
       const policy = validatePolicy(sub.policy_snapshot);
       const { data: config } = await admin.from('billing_pix_automatic_config').select('*').eq('env', ENV).maybeSingle();
       let pixAuto = false; try { assertEnabled(config); pixAuto = true; } catch { pixAuto = false; }
       if (input.action === 'choice_quote') {
-        return json(200, { dueDay: sub.due_day, baseCents: sub.base_cents, options: [
+        const { data: inFlight } = await admin.from('billing_subscriptions').select('id,method,automatic_mode,checkout_url').eq('replaces_id', sub.id).eq('env', ENV).in('status', ['pending', 'choosing']).maybeSingle();
+        return json(200, { dueDay: sub.due_day, baseCents: sub.base_cents, current, pending: inFlight ? { method: methodKey(inFlight), checkoutUrl: inFlight.checkout_url } : null, options: [
           ...(pixAuto ? [{ method: 'PIX_AUTOMATIC', totalCents: calculateQuote(sub.base_cents, 'PIX', policy, 0).totalCents }] : []),
           { method: 'CREDIT_CARD', totalCents: calculateQuote(sub.base_cents, 'CREDIT_CARD', policy, 0).totalCents },
-          { method: 'PIX', totalCents: calculateQuote(sub.base_cents, 'PIX', policy, 0).totalCents }] });
+          { method: 'PIX', totalCents: calculateQuote(sub.base_cents, 'PIX', policy, 0).totalCents }].filter(o => o.method !== current) });
+      }
+      if (changing) {
+        if (!['PIX', 'CREDIT_CARD', 'PIX_AUTOMATIC'].includes(input.method) || input.method === current) return json(400, { error: 'Escolha uma forma diferente da atual.' });
+        if (input.method === 'PIX_AUTOMATIC' && !pixAuto) return json(409, { error: 'O Pix Automático ainda não está disponível.' });
+        const start = await changeStart(admin, sub);
+        // Uma troca por vez: a anterior que ainda não foi concluída é descartada
+        const { data: prev } = await admin.from('billing_subscriptions').select('*').eq('replaces_id', sub.id).eq('env', ENV).in('status', ['pending', 'choosing']);
+        for (const p of prev || []) {
+          if (p.asaas_checkout_id) { try { await asaas(`/checkouts/${encodeURIComponent(p.asaas_checkout_id)}/cancel`, { method: 'POST' }); } catch { /* checkout já expirado */ } }
+          await admin.from('billing_subscriptions').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('id', p.id);
+        }
+        const { data: next } = await admin.from('billing_subscriptions').insert({ env: ENV, athlete_id: sub.athlete_id, customer_id: sub.customer_id,
+          method: input.method === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX', value_cents: sub.value_cents, base_cents: sub.base_cents, base_override_reason: sub.base_override_reason,
+          package_name: sub.package_name, policy_version: sub.policy_version, policy_snapshot: sub.policy_snapshot, due_day: sub.due_day, description: sub.description,
+          created_by: u.user.id, status: 'choosing', replaces_id: sub.id }).select().single().throwOnError();
+        try {
+          if (input.method === 'PIX') {
+            const { data: customer } = await admin.from('billing_customers').select('*').eq('id', sub.customer_id).single().throwOnError();
+            const r = await startPix(admin, next, customer, start);
+            await finishReplacement(admin, next.id, ENV);
+            return json(200, { ok: true, changed: true, method: 'PIX', ...r });
+          }
+          if (input.method === 'CREDIT_CARD') return json(200, { ok: true, changed: true, method: 'CREDIT_CARD', ...(await startCard(admin, next, start)) });
+          await admin.from('billing_subscriptions').update({ automatic_mode: 'PIX_AUTOMATIC', status: 'pending', updated_at: new Date().toISOString() }).eq('id', next.id).throwOnError();
+          return json(200, { ok: true, changed: true, method: 'PIX_AUTOMATIC', subscriptionId: next.id, authorizationRequired: true });
+        } catch (e) {
+          await admin.from('billing_subscriptions').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('id', next.id).is('asaas_subscription_id', null);
+          throw e;
+        }
       }
       // Trava a escolha: só uma requisição passa de 'awaiting_choice' para 'choosing'
       const { data: locked } = await admin.from('billing_subscriptions').update({ status: 'choosing', updated_at: new Date().toISOString() })

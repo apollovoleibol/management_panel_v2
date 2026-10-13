@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const mergeModule = import('./supabase/functions/_shared/billing-webhook-merge.mjs');
 const pixModule = import('./supabase/functions/_shared/billing-pix-automatic.mjs');
+const replaceModule = import('./supabase/functions/_shared/billing-replace.mjs');
 
 const source = stripTypeScriptTypes(fs.readFileSync(`${__dirname}/supabase/functions/billing-webhook/index.ts`, 'utf8').replace(/^import .*;\r?\n/gm, ''));
 
@@ -74,7 +75,7 @@ function harness(failures = [], paymentExtra = {}) {
   const env = { ASAAS_WEBHOOK_TOKEN: 'test-secret', SUPABASE_URL: 'https://example.invalid', SUPABASE_SERVICE_ROLE_KEY: 'fake' };
   const providerFetch=async url=>{const body=state.provider.get(String(url));if(!body)throw new Error(`Unexpected provider lookup ${url}`);return new Response(JSON.stringify(body),{status:200});};
   vm.runInNewContext(source, { Response, Request, fetch:providerFetch, Date, AbortSignal, createClient: () => admin, mergePayment: (...args) => mergeModule.then(m => m.mergePayment(...args)),
-    applyPixAutomaticEvent:(...args)=>pixModule.then(m=>m.applyPixAutomaticEvent(...args)),
+    applyPixAutomaticEvent:(...args)=>pixModule.then(m=>m.applyPixAutomaticEvent(...args)),finishReplacement:(...args)=>replaceModule.then(m=>m.finishReplacement(...args)),
     firstPaymentContext:(...args)=>pixModule.then(m=>m.firstPaymentContext(...args)),reconcileFirstPayment:(...args)=>pixModule.then(m=>m.reconcileFirstPayment(...args)),
     Deno: { env: { get: key => env[key] }, serve: handler => { handle = handler; } } });
   const event = { id: 'evt-test', event: 'PAYMENT_RECEIVED', payment: { id: 'pay-test', value: 105.9, status: 'RECEIVED', paymentDate: '2026-10-12', ...paymentExtra } };
