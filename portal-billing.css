@@ -39,39 +39,128 @@
 @media(max-width:480px) { .billing-card { padding: 14px; } .billing-dialog-content { padding: 18px; } .billing-section-heading .btn { width: 100%; } .billing-actions .btn { min-height: 44px; } }
 
 
-.billing-month-stack{display:flex;flex-direction:column;gap:12px;margin-top:18px;}
-.billing-month-card{border:1px solid #dbe2e9;border-radius:12px;background:#fff;overflow:hidden;}
-.billing-month-summary{display:grid;grid-template-columns:minmax(170px,1fr) 130px minmax(180px,220px) 175px;gap:16px;align-items:center;padding:16px 20px;}
-.billing-month-title h3{font-size:19px;margin:0 0 9px;color:#0f172a;}
-.billing-month-due{display:flex;flex-direction:column;gap:7px;font-size:13px;}
-.billing-month-due>span,.billing-month-total>span{font-size:11px;color:#64748b;}
-.billing-month-due>strong{font-weight:500;color:#334155;}
-.billing-month-identity{display:flex;align-items:center;gap:12px;justify-self:start;width:100%;}
-.billing-advance{background:#2563eb;color:#fff;border-color:#2563eb;}.billing-advance:hover{background:#1d4ed8;border-color:#1d4ed8;}
-.billing-status-icon{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;flex-shrink:0;}
-.billing-status-icon svg{width:31px;height:31px;}
-.billing-status-icon.is-green{color:#15803d;background:#dcfce7;}.billing-status-icon.is-red{color:#dc2626;background:#fee2e2;}.billing-status-icon.is-blue{color:#2563eb;background:#dbeafe;}.billing-status-icon.is-gray{color:#64748b;background:#f1f5f9;}
-.billing-month-total{padding-left:64px;display:flex;flex-direction:column;gap:5px;}
-.billing-month-total>strong{font-size:24px;letter-spacing:-.04em;white-space:nowrap;color:#0f172a;}
-.billing-month-action{font-size:12px;text-align:right;}
-.billing-month-action>.btn{width:100%;font-size:12px;min-height:40px;}
-.billing-month-card .billing-status.is-overdue{color:#b91c1c;background:#fee2e2;}.billing-month-card .billing-status.is-pending{color:#1d4ed8;background:#dbeafe;}
-.billing-month-details{border-top:1px solid #edf0f4;}
-.billing-month-details>summary{cursor:pointer;padding:9px 20px;color:#64748b;font-size:12px;}
-.billing-month-details>summary:focus-visible{outline:3px solid #2563eb;outline-offset:-3px;}
-.billing-charge{padding:18px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;}
-.billing-charge>h4{margin:0;font-size:15px;}
-.billing-charge .billing-composition{max-width:620px;}
-.billing-month-details>.billing-invoices{padding:12px 20px;margin:0;}
-.billing-forecast{margin:22px 0 0;max-width:720px;}.billing-forecast h4{margin:0;font-size:15px;}
-.billing-forecast-list>div{display:flex;justify-content:space-between;gap:20px;padding:12px 0;border-bottom:1px solid #e2e8f0;font-size:13px;}.billing-forecast-list>div>span:last-child{text-align:right;}.billing-forecast-list small{display:block;color:#64748b;margin-top:5px;font-size:12px;}
-.billing-auto-note{margin:0;text-align:left;color:#166534;line-height:1.4;}.billing-auto-note>strong{display:block;font-size:12px;}.billing-auto-note>span{display:block;font-size:11px;margin-top:5px;color:#526172;}.billing-auto-failed{font-size:11px;margin:0 0 6px;color:#b91c1c;}
-#billingRestrictionDialog{width:min(520px,calc(100vw - 32px));padding:0;border:1px solid #fecaca;border-radius:16px;background:#fff;color:#182536;max-height:calc(100dvh - 32px);overflow:auto;}#billingRestrictionDialog::backdrop{background:#0f172a77;}.billing-restriction-content{padding:24px;}.billing-restriction-content h2{font-size:20px;color:#b91c1c;margin:0;}.billing-restriction-content p{font-size:14px;line-height:1.6;}.billing-pix-optin{margin-top:16px;padding:16px 20px;border:1px solid #dbe2e9;border-radius:12px;font-size:13px;}.billing-pix-optin h3{margin:0 0 8px;font-size:15px;}
-@media(max-width:850px){.billing-month-summary{grid-template-columns:1fr 1fr;gap:16px;padding:16px;}.billing-month-identity{grid-column:1;grid-row:1;justify-self:start;}.billing-month-due{grid-column:2;grid-row:1;text-align:right;}.billing-month-total{padding-left:0;}.billing-month-action{max-width:240px;justify-self:end;}.billing-month-title h3{font-size:17px;}.billing-month-identity{gap:8px;}.billing-month-total>strong{font-size:22px;}.billing-status-icon{width:46px;height:46px;}.billing-status-icon svg{width:28px;height:28px;}.billing-month-action>.btn{font-size:12px;}.billing-month-details>summary{padding:9px 16px;}}
-@media(max-width:380px){.billing-month-summary{gap:12px;}.billing-month-identity{gap:7px;}.billing-month-title h3{font-size:15px;}.billing-status-icon{width:38px;height:38px;}.billing-month-total>strong{font-size:20px;}}
-
 .billing-consent-check{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;margin:20px 0;}.billing-consent-check input{margin-top:4px;flex-shrink:0;}
 
-.billing-due{background:#facc15;color:#422006;border-color:#eab308;}.billing-due:hover{background:#eab308;border-color:#ca8a04;}
-.billing-status-icon.is-yellow{color:#a16207;background:#fef08a;}
-.billing-month-card .billing-status.is-due{color:#854d0e;background:#fef08a;}
+
+
+/* ─── Mensalidades (Área do atleta): resumo, pagamento automático, em aberto e histórico ─── */
+.pb{display:flex;flex-direction:column;gap:14px}
+.pb-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pb-head h2{margin:0;font-size:20px}
+.pb-message:empty{display:none}
+.pb-alert{border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);background:var(--brand-soft);color:var(--brand-ink);border-radius:var(--radius);padding:12px 14px;font-size:14px}
+.pb-alert p{margin:4px 0 0;color:var(--ink-2);font-size:13px}
+.pb-hero{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+.pb-hero.is-bad{border-color:color-mix(in srgb,var(--brand) 45%,var(--line))}
+.pb-hero-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.pb-hero-amount{font-size:34px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin:8px 0 2px;font-variant-numeric:tabular-nums}
+.pb-hero-amount.pb-ok{color:var(--ok);font-size:28px}
+.pb-hero-sub{margin:0 0 14px;color:var(--ink-2);font-size:14px}
+.pb-cta{width:100%;min-height:48px;font-size:15px;justify-content:center}
+.pb-hero-more{margin-top:12px}
+.pb-hero-more>summary,.pb-row>summary{cursor:pointer;list-style:none}
+.pb-hero-more>summary{color:var(--muted);font-size:13px;text-align:center}
+.pb-hero-more>summary::-webkit-details-marker,.pb-row>summary::-webkit-details-marker{display:none}
+.pb-hero-more .billing-charge{background:transparent;border:0;padding:12px 0 0}
+.pb-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;text-transform:none;letter-spacing:0}
+.pb-chip.is-ok{color:var(--ok);background:var(--ok-soft)}
+.pb-chip.is-bad{color:var(--brand-ink);background:var(--brand-soft)}
+.pb-chip.is-warn{color:var(--warn);background:var(--warn-soft)}
+.pb-chip.is-muted{color:var(--muted);background:var(--surface-3)}
+.pb-auto{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius);padding:14px}
+.pb-auto.is-on{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 30%,transparent)}
+.pb-auto>div{flex:1;min-width:0}
+.pb-auto strong{display:block;font-size:14px;color:var(--ink)}
+.pb-auto p{margin:3px 0 0;font-size:13px;color:var(--ink-2);line-height:1.45}
+.pb-auto-icon{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:800;background:var(--ok);color:#fff}
+.pb-auto-icon.is-off{background:var(--surface-3);color:var(--ink-2)}
+.pb-auto-icon.is-wait{background:var(--warn-soft);color:var(--warn)}
+.pb-auto-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.pb-auto-line{margin:0;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ok);font-weight:600}
+.pb-auto-line.is-bad{color:var(--brand-ink);margin-bottom:8px}
+.pb-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+.pb-title{margin:6px 0 -4px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.pb-list{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden}
+.pb-open,.pb-row>summary{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.pb-open+.pb-open,.pb-row+.pb-row{border-top:1px solid var(--line-2)}
+.pb-row-month{width:52px;flex:none;font-size:12px;font-weight:700;text-transform:uppercase;color:var(--muted)}
+.pb-row-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.pb-row-main strong{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pb-row-main small{font-size:12px;color:var(--muted)}
+.pb-row-end{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.pb-row-end b{font-size:14px;font-variant-numeric:tabular-nums}
+.pb-row-body{padding:0 14px 12px}
+.pb-row-body .billing-charge{background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;padding:12px 14px}
+.pb-row[open]>summary{background:var(--surface-2)}
+.pb .billing-charge>h4{font-size:14px}
+.pb .billing-composition{font-size:13px;margin:10px 0}
+@media(max-width:420px){.pb-hero-amount{font-size:30px}.pb-row-month{width:44px}}
+.pb-open .btn{flex:none;min-width:86px}
+
+/* ─── Diálogos de pagamento ─── */
+.pbd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.pbd-head h2{margin:0;font-size:19px}
+.pbd-head p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.pbd-x{border:0;background:var(--surface-3);color:var(--ink-2);width:32px;height:32px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer;flex:none}
+.pbd-options{display:grid;gap:10px}
+.pbd-option{display:flex;align-items:center;gap:12px;border:1.5px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;background:var(--surface)}
+.pbd-option:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
+.pbd-option input{accent-color:var(--brand);width:18px;height:18px;flex:none}
+.pbd-option-main{flex:1;display:flex;flex-direction:column}
+.pbd-option-main small{color:var(--muted);font-size:12px}
+.pbd-option b{font-size:16px;font-variant-numeric:tabular-nums}
+.pbd-more{margin:12px 0}
+.pbd-more>summary{cursor:pointer;color:var(--muted);font-size:13px}
+.pbd-comp{margin-top:10px}
+.pbd-msg:empty{display:none}
+.pbd-msg{font-size:13px;color:var(--ink-2);margin-bottom:8px}
+.pbd-foot{margin:10px 0 0;text-align:center;color:var(--muted);font-size:12px}
+.pbd-pix{justify-items:center;margin:4px 0 12px;gap:10px}
+.pbd-hint{text-align:center;color:var(--ink-2);font-size:13px}
+.pbd-link{width:100%;justify-content:center}
+.pbd-return{width:100%;justify-content:center;margin-top:4px}
+#billingDialog{background:var(--surface);color:var(--ink);border-color:var(--line)}
+
+/* ─── Microinterações ─── */
+.pb-hero,.pb-auto,.pb-list,.pb-alert{animation:pb-rise .45s cubic-bezier(.2,.8,.2,1) both}
+.pb-auto{animation-delay:.06s}.pb-list{animation-delay:.1s}
+@keyframes pb-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.pb .btn,.pbd-option,#billingDialog .btn{transition:transform .12s ease,background-color .2s,border-color .2s,box-shadow .2s}
+.pb .btn:active:not(:disabled),#billingDialog .btn:active:not(:disabled){transform:scale(.97)}
+.pb-cta{box-shadow:0 6px 16px -8px color-mix(in srgb,var(--brand) 70%,transparent)}
+.pb-hero.is-bad .pb-chip.is-bad::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:6px;animation:pb-pulse 1.6s ease-in-out infinite}
+@keyframes pb-pulse{50%{opacity:.25;transform:scale(.7)}}
+.btn.is-loading{position:relative;color:transparent!important;pointer-events:none}
+.btn.is-loading::after{content:"";position:absolute;inset:0;margin:auto;width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-color:#fff #fff #fff0 #fff0;animation:pb-spin .7s linear infinite}
+.btn:not(.primary).is-loading::after{border-color:var(--ink-2) var(--ink-2) transparent transparent}
+@keyframes pb-spin{to{transform:rotate(360deg)}}
+.pbd-option{transition:transform .15s ease,border-color .2s,background-color .2s}
+.pbd-option:hover{border-color:color-mix(in srgb,var(--brand) 40%,var(--line))}
+.pbd-option:has(input:checked){animation:pb-pop .25s ease}
+@keyframes pb-pop{40%{transform:scale(1.02)}}
+.btn.is-done{background:var(--ok)!important;border-color:var(--ok)!important;color:#fff!important}
+.pb-row>summary{transition:background-color .2s}
+.pb-row[open] .pb-row-body{animation:pb-rise .3s ease both}
+#billingDialog.pbd-in{animation:pbd-fade .28s cubic-bezier(.2,.8,.2,1)}
+#billingDialog.pbd-in::backdrop{animation:pbd-backdrop .28s ease}
+@keyframes pbd-fade{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes pbd-backdrop{from{opacity:0}}
+@media(max-width:600px){
+  #billingDialog{margin:auto 0 0;width:100vw;max-width:100vw;border-radius:20px 20px 0 0;border-bottom:0;max-height:92dvh}
+  #billingDialog.pbd-in{animation:pbd-sheet .32s cubic-bezier(.2,.8,.2,1)}
+  @keyframes pbd-sheet{from{transform:translateY(100%)}to{transform:none}}
+}
+.pbd-success{text-align:center;padding-top:28px}
+.pbd-success h2{margin:14px 0 4px;font-size:21px}
+.pbd-success p{margin:0;color:var(--ink-2)}
+.pbd-check{width:76px;height:76px;margin:0 auto;display:block}
+.pbd-check circle{fill:var(--ok-soft);stroke:var(--ok);stroke-width:2.5;stroke-dasharray:151;stroke-dashoffset:151;animation:pb-draw .5s ease forwards}
+.pbd-check path{fill:none;stroke:var(--ok);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:pb-draw .35s .45s ease forwards}
+@keyframes pb-draw{to{stroke-dashoffset:0}}
+.pbd-success .pb-cta{margin-top:18px}
+@media(prefers-reduced-motion:reduce){.pb *,.pb,#billingDialog,#billingDialog *{animation:none!important;transition:none!important}.pbd-check circle,.pbd-check path{stroke-dashoffset:0}}
+.pbd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.pbd-actions .btn{flex:1;justify-content:center}
+.pbd-tag{font-style:normal;font-size:10.5px;font-weight:700;color:var(--ok);background:var(--ok-soft);padding:2px 7px;border-radius:999px;margin-left:4px;vertical-align:1px}
+.pbd-option b small{font-size:11px;font-weight:500;color:var(--muted)}
+.pb-choose{border-color:color-mix(in srgb,var(--brand) 35%,var(--line));background:var(--surface)}
+.pb-choose .pb-auto-icon{background:var(--brand-soft);color:var(--brand)}

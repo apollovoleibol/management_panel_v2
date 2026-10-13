@@ -66,6 +66,26 @@ function billingRulesRead(form) {
   };
 }
 
+// Pacotes cadastrados (valor praticado) para a prévia; sem pacotes, volta ao valor digitado
+function billingRulesPackages() {
+  const list = typeof PLANS !== 'undefined' && Array.isArray(PLANS) ? PLANS.filter(p => p.value > 0) : [];
+  const seen = new Map();
+  for (const p of list) {
+    const key = `${p.days}|${p.value}`, teams = (p.teams || []).map(id => typeof teamOf === 'function' ? teamOf(id)?.name : '').filter(Boolean);
+    if (!seen.has(key)) seen.set(key, { days: p.days, value: p.value, teams: [] });
+    seen.get(key).teams.push(...teams);
+  }
+  return [...seen.values()].sort((a, b) => a.value - b.value);
+}
+function billingRulesPackageField() {
+  const pkgs = billingRulesPackages();
+  if (!pkgs.length) return '<div class="field"><label for="brSimBase">Mensalidade (R$)</label><input class="input" id="brSimBase" name="simBase" inputmode="decimal" value="200,00"></div>';
+  const fmt = c => (c / 100).toFixed(2).replace('.', ',');
+  return `<div class="field br-pkg"><label for="brSimBase">Pacote</label><select class="select" id="brSimBase" name="simBase">${pkgs.map((p, i) => {
+    const teams = [...new Set(p.teams)], who = teams.length ? ` · ${teams.slice(0, 2).join(', ')}${teams.length > 2 ? ` +${teams.length - 2}` : ''}` : '';
+    return `<option value="${fmt(p.value)}" ${i === 0 ? 'selected' : ''}>${p.days ? `${p.days}x por semana · ` : ''}${money(p.value)}${esc(who)}</option>`; }).join('')}</select></div>`;
+}
+
 function billingRulesTier(tier, index) {
   return `<div class="billing-tier" data-tier><div class="field"><label for="brFrom${index}">A partir do dia</label><input class="input" id="brFrom${index}" data-from type="number" min="1" step="1" value="${esc(tier.fromDay)}" required></div>
     <div class="field"><label for="brRate${index}">Juros (%)</label><input class="input" id="brRate${index}" data-rate inputmode="decimal" value="${esc(tier.rate)}" required></div>
@@ -125,7 +145,7 @@ function billingRulesSimulation(form) {
 
 async function billingRulesForm() {
   if (!canEdit('billing')) return toast('Seu perfil não pode alterar regras de cobrança.', true);
-  openDialog(dHead('Mensalidades', 'Regras de cobrança', 'Ajustes comerciais e encargos para futuras cobranças.') + '<div class="d-body" role="status">Carregando a política do servidor…</div>', 'wide billing-rules-dialog');
+  openDialog(dHead('Mensalidades', 'Regras de cobrança') + '<div class="d-body" role="status">Carregando as regras…</div>', 'drawer wide billing-rules-dialog');
   let policy, failure = '';
   try { policy = await billingRulesLoad(); }
   catch (e) {
@@ -137,12 +157,12 @@ async function billingRulesForm() {
     policy = structuredClone(BILL_RULES.engine.DEFAULT_POLICY);
   }
   if (!$('#dlg').open || !$('#dlg').classList.contains('billing-rules-dialog')) return;
-  openDialog(`<header class="br-header"><div class="br-brand"><img src="assets/apollo-logo.svg" alt="Apollo"><span>FINANCEIRO <span aria-hidden="true">/</span> MENSALIDADES</span></div><button class="btn" data-act="close-dialog" aria-label="Fechar regras de mensalidade">Fechar</button></header><div class="br-intro"><div><p class="br-eyebrow">CONFIGURAÇÃO DE COBRANÇAS</p><h2 id="dlgTitle">Regras de mensalidade</h2><p>Defina os valores e os encargos. Confira o resultado enquanto edita.</p></div><span class="br-version" id="brVersion">${BILL_RULES.record && !failure ? `Versão ${esc(BILL_RULES.record.version)}` : 'Nova política'}</span></div><form id="billingRulesForm" class="billing-rules-body" novalidate>
+  openDialog(dHead('Mensalidades', 'Regras de cobrança', 'Valem para as próximas cobranças. Mensalidades já emitidas mantêm as regras de quando foram criadas.') + `<div class="br-versionbar"><span class="tag nodot" id="brVersion">${BILL_RULES.record && !failure ? `Versão ${esc(BILL_RULES.record.version)} em uso` : 'Nova política'}</span></div><form id="billingRulesForm" class="d-body billing-rules-body" novalidate>
     <div class="br-notices">${failure ? `<div class="banner warn" role="alert">${esc(failure)} Salvar está desativado.</div>` : billingRulesWorkerNote()}</div>
     <div class="br-editor">
       <section class="br-section" aria-labelledby="brMethodsTitle"><div class="br-section-heading"><span class="br-step">01</span><div><h3 id="brMethodsTitle">Formas de pagamento</h3><p>Acréscimo ou desconto sobre o valor do pacote.</p></div></div>
-        <div class="br-method-grid"><div class="br-method-card"><div class="br-method-name"><span class="br-method-icon" aria-hidden="true">◇</span><div><strong>Pix</strong><small>Pagamento direto</small></div></div><label for="brPix">Ajuste sobre o pacote</label><div class="br-input-unit"><input class="input" id="brPix" name="pix" inputmode="decimal" value="${esc(policy.methods.PIX)}" required><span>%</span></div></div>
-        <div class="br-method-card"><div class="br-method-name"><span class="br-method-icon" aria-hidden="true">▤</span><div><strong>Cartão de crédito</strong><small>Pagamento com cartão</small></div></div><label for="brCard">Ajuste sobre o pacote</label><div class="br-input-unit"><input class="input" id="brCard" name="card" inputmode="decimal" value="${esc(policy.methods.CREDIT_CARD)}" required><span>%</span></div></div></div>
+        <div class="br-method-grid"><div class="br-method-card"><div class="br-method-name"><span class="br-method-icon" aria-hidden="true">${icon('money')}</span><div><strong>Pix</strong><small>Pagamento direto</small></div></div><label for="brPix">Ajuste sobre o pacote</label><div class="br-input-unit"><input class="input" id="brPix" name="pix" inputmode="decimal" value="${esc(policy.methods.PIX)}" required><span>%</span></div></div>
+        <div class="br-method-card"><div class="br-method-name"><span class="br-method-icon" aria-hidden="true">${icon('wallet')}</span><div><strong>Cartão de crédito</strong><small>Pagamento com cartão</small></div></div><label for="brCard">Ajuste sobre o pacote</label><div class="br-input-unit"><input class="input" id="brCard" name="card" inputmode="decimal" value="${esc(policy.methods.CREDIT_CARD)}" required><span>%</span></div></div></div>
         <p class="br-help">Use 0 para manter o preço, um valor positivo para acrescentar ou negativo para descontar.</p>
       </section>
       <section class="br-section" aria-labelledby="brLateTitle"><div class="br-section-heading"><span class="br-step">02</span><div><h3 id="brLateTitle">Atraso no pagamento</h3><p>Uma multa única, seguida dos juros por período.</p></div></div>
@@ -153,9 +173,9 @@ async function billingRulesForm() {
       <section class="br-section" aria-labelledby="brInterestTitle"><div class="br-section-heading"><span class="br-step">03</span><div><h3 id="brInterestTitle">Juros progressivos</h3><p>Defina quando cada faixa começa e sua taxa.</p></div><button type="button" class="btn sm br-add" data-add-tier>+ Adicionar faixa</button></div><div data-tiers>${policy.tiers.map(billingRulesTier).join('')}</div><p class="br-help">Cada taxa vale apenas para os dias de sua faixa, após a tolerância. Cálculo proporcional, sem juros sobre juros.</p></section>
       <details class="billing-rule-history" id="brHistory"><summary>Histórico de alterações</summary><div data-history role="status" aria-live="polite"><p class="hint">Abra para consultar as versões registradas.</p></div></details>
     </div>
-    <aside class="br-preview" aria-labelledby="brPreviewTitle"><div class="br-preview-heading"><span class="br-live-dot" aria-hidden="true"></span><span>PRÉVIA EM TEMPO REAL</span></div><h3 id="brPreviewTitle">Como fica para o atleta</h3><p class="br-help">Experimente um valor e um prazo de atraso.</p><div class="br-preview-controls"><div class="field"><label for="brSimBase">Mensalidade-base (R$)</label><input class="input" id="brSimBase" name="simBase" inputmode="decimal" value="200,00"></div><div class="field"><label for="brSimDays">Dias de atraso</label><input class="input" id="brSimDays" name="simDays" type="number" min="0" step="1" value="15"></div></div><div class="err" data-simulation-error role="status" aria-live="polite"></div><div data-live-preview aria-live="polite"></div><p class="br-preview-note">Simulação ilustrativa. O valor-base não é salvo na política.</p></aside>
+    <aside class="br-preview" aria-labelledby="brPreviewTitle"><div class="br-preview-heading"><span class="br-live-dot" aria-hidden="true"></span><span>PRÉVIA EM TEMPO REAL</span></div><h3 id="brPreviewTitle">Como fica para o atleta</h3><p class="br-help">Escolha um pacote e um prazo de atraso.</p><div class="br-preview-controls">${billingRulesPackageField()}<div class="field"><label for="brSimDays">Dias de atraso</label><input class="input" id="brSimDays" name="simDays" type="number" min="0" step="1" value="15"></div></div><div class="err" data-simulation-error role="status" aria-live="polite"></div><div data-live-preview aria-live="polite"></div><p class="br-preview-note">Simulação com os pacotes cadastrados. Nada é cobrado nem salvo aqui.</p></aside>
     <details class="br-comparison"><summary>Comparar valores por dias de atraso <span>Pix e cartão, lado a lado</span></summary><div data-simulation></div></details><div class="err br-wide" id="brError" role="alert"></div>
-  </form><footer class="br-footer"><p><strong>Válido para as próximas cobranças</strong><span>Mensalidades já emitidas mantêm suas regras.</span></p><div><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" id="brSave" data-edit ${failure ? 'disabled' : ''}>Salvar regras</button></div></footer>`, 'wide billing-rules-dialog');
+  </form><div class="d-foot"><span class="hint br-foot-note">Válido para as próximas cobranças.</span><button class="btn" data-act="close-dialog">Cancelar</button><button class="btn primary" id="brSave" data-edit ${failure ? 'disabled' : ''}>Salvar regras</button></div>`, 'drawer wide billing-rules-dialog');
   const form = $('#billingRulesForm'); let sequence = policy.tiers.length, saving = false;
   const history = form.querySelector('#brHistory'); let historyLoaded = false;
   history.addEventListener('toggle', () => {

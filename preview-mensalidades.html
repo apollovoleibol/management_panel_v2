@@ -18,11 +18,12 @@
     .preview-controls .btn { margin-left:auto; }
     .preview-banner-dialog { margin:16px 24px 0; }
     @media(max-width:600px) { .preview-controls .btn { width:100%; margin-left:0; } }
+  .preview-scenarios{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px;font-size:12px;color:#c3c6d9}.preview-scenarios button{border:1px solid #ffffff33;background:transparent;color:#fff;border-radius:999px;padding:5px 10px;font-size:12px;cursor:pointer}.preview-scenarios button.on{background:#fff;color:#0f1332}
   </style>
 </head>
 <body>
   <div class="preview-banner" role="note"><strong>PRÉVIA LOCAL · dados e percentuais ilustrativos</strong>Sem conexão com Supabase ou Asaas, sem cobranças reais e sem gravação. Os links de checkout e NFS-e estão desativados nesta demonstração.</div>
-  <header class="ah"><div class="ah-inner"><div class="ah-top"><img src="assets/apollo-logo.svg" alt="Apollo"><span class="tagline">ÁREA DO ATLETA · PRÉVIA</span></div><div class="ah-hello"><div class="eyebrow">Família Apollo · exemplo fictício</div><h1>Olá, Marina</h1><p>Mensalidades da família, composição dos valores e documentos fiscais.</p></div><div class="deps" id="previewAthletes"></div><nav class="atabs" aria-label="Seção demonstrada"><button class="on">Mensalidades</button></nav></div></header>
+  <header class="ah"><div class="ah-inner"><div class="ah-top"><img src="assets/apollo-logo.svg" alt="Apollo"><span class="tagline">ÁREA DO ATLETA · PRÉVIA</span></div><div class="ah-hello"><div class="eyebrow">Área do atleta</div><h1>Olá, Marina</h1><p>Responsável por Ana Oliveira · Sub-15 Feminino</p></div><div class="preview-scenarios" id="previewAthletes" aria-label="Situação de demonstração"></div><nav class="atabs" aria-label="Seção demonstrada"><button class="on">Mensalidades</button></nav></div></header>
   <main class="amain"><div id="main" aria-live="polite"><section class="panel panel-pad">Carregando a demonstração local…</section></div></main>
   <dialog id="billingRestrictionDialog" role="alertdialog" aria-labelledby="billingRestrictionTitle"></dialog>
 <dialog id="billingDialog" aria-labelledby="billingDialogTitle"></dialog>
@@ -30,7 +31,7 @@
   <div id="toast" class="toast hide" role="status" aria-live="polite"></div>
   <script>
     'use strict';
-    const PORTAL = { selected: 'demo-ana', tab: 'pay', athletes: [{ id: 'demo-ana', full_name: 'Ana Oliveira' }, { id: 'demo-pedro', full_name: 'Pedro Oliveira' }, {id:'demo-julia',full_name:'Júlia Oliveira'}] };
+    const PORTAL = { selected: 'demo-ana', tab: 'pay', athletes: [{ id: 'demo-ana', full_name: 'Ana Oliveira' }, { id: 'demo-pedro', full_name: 'Ana Oliveira' }, {id:'demo-julia',full_name:'Ana Oliveira'}] };
     const portalEsc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
     const esc = portalEsc;
     const $ = selector => document.querySelector(selector);
@@ -47,7 +48,7 @@
       const overdueDays=Math.max(0,Math.floor((Date.parse(demoToday+'T00:00:00Z')-Date.parse('2026-09-27T00:00:00Z'))/86400000));
       const current = demoQuote('PIX', overdueDays), paid = demoQuote('PIX', 0);
       demoData = {
-        subscriptions: PORTAL.athletes.map(a => ({ id: 'sub-' + a.id, athlete_id: a.id, method: 'PIX',status:a.id==='demo-julia'?'pending':'active',automatic_mode:a.id==='demo-ana'?'MANUAL':'PIX_AUTOMATIC',pix_authorization_available:a.id==='demo-julia',pix_authorization_status:a.id==='demo-pedro'?'ACTIVE':null,pix_automatic_ready:a.id==='demo-pedro', package_name: 'Vôlei · 2 treinos por semana' })),
+        subscriptions: PORTAL.athletes.map(a => ({ id: 'sub-' + a.id, athlete_id: a.id, method: 'PIX',status:a.id==='demo-julia'?'awaiting_choice':'active',base_cents:20000,due_day:20,automatic_mode:a.id==='demo-ana'?'MANUAL':'PIX_AUTOMATIC',pix_authorization_available:a.id==='demo-julia',pix_authorization_status:a.id==='demo-pedro'?'ACTIVE':null,pix_automatic_ready:a.id==='demo-pedro', package_name: 'Vôlei · 2 treinos por semana' })),
         payments: [
           { id:'demo-overdue', athlete_id:'demo-ana', subscription_id:'sub-demo-ana', asaas_payment_id:'demo-pay-overdue', package_name:'Vôlei · 2 treinos por semana', reference_month:'2026-09-01', due_date:'2026-09-27', billing_type:'PIX', status:'OVERDUE', demo_days:overdueDays, ...current },
           { id:'demo-next-month', athlete_id:'demo-ana', subscription_id:'sub-demo-ana', asaas_payment_id:'demo-pay-next-month', package_name:'Vôlei · 2 treinos por semana', reference_month:'2026-11-01', due_date:'2026-11-20', billing_type:'PIX', status:'PENDING', demo_days:0, ...paid },
@@ -75,6 +76,13 @@
         },
         functions: { async invoke(name, input) {
           await demoReady;
+          if(name==='billing-asaas') {
+            const sub=demoData.subscriptions.find(s=>s.id===input.body.subscriptionId);
+            if(input.body.action==='choice_quote')return {data:{dueDay:20,baseCents:20000,options:[{method:'PIX_AUTOMATIC',totalCents:20000},{method:'CREDIT_CARD',totalCents:21000},{method:'PIX',totalCents:20000}]}};
+            if(input.body.action==='choose'){ if(input.body.method==='CREDIT_CARD'){sub.status='pending';sub.method='CREDIT_CARD';sub.checkout_url='https://sandbox.asaas.com/DEMONSTRACAO-cartao';return {data:{ok:true,method:'CREDIT_CARD',checkoutUrl:sub.checkout_url}};}
+              if(input.body.method==='PIX_AUTOMATIC'){sub.status='pending';sub.automatic_mode='PIX_AUTOMATIC';sub.pix_authorization_available=true;return {data:{ok:true,method:'PIX_AUTOMATIC'}};}
+              sub.status='active';return {data:{ok:true,method:'PIX',nextDueDate:'2026-11-20'}}; }
+          }
           if(name==='billing-pix-automatic') {
             const sub=demoData.subscriptions.find(s=>s.id===input.body.subscriptionId && s.athlete_id===PORTAL.selected);
             if(!sub)return {error:{message:'Assinatura indisponível na demonstração.'}};
@@ -98,7 +106,8 @@
     }
     function toast(text) { const el=$('#toast'); el.textContent=text; el.classList.remove('hide'); }
     function portalRender() {
-      $('#previewAthletes').innerHTML=PORTAL.athletes.map(a=>`<button class="dep ${a.id === PORTAL.selected ? 'on' : ''}" data-demo-athlete="${esc(a.id)}"><span class="avatar">${esc(a.full_name[0])}</span><span><strong>${esc(a.full_name)}</strong><small>Vôlei · família de exemplo</small></span></button>`).join('');
+      const scen={'demo-ana':'Mensalidade em atraso','demo-pedro':'Pagamento automático ativo','demo-julia':'Escolher forma de pagamento'};
+      $('#previewAthletes').innerHTML='<span>Situação de exemplo:</span>'+PORTAL.athletes.map(a=>`<button class="${a.id === PORTAL.selected ? 'on' : ''}" data-demo-athlete="${esc(a.id)}">${scen[a.id]}</button>`).join('');
       $('#main').innerHTML=window.PortalBilling.render(portalCurrent()) + '<section class="panel panel-pad billing-history"><h2>Histórico Tecnofit</h2><p class="muted small">Exemplo de exportação manual identificada separadamente das cobranças atuais.</p><div class="stat-line"><span><b>Mensalidade histórica</b><br><small>Recebido em 20/06/2026 · dados fictícios</small></span><b>R$ 180,00 · Recebido</b></div></section>';
     }
     document.addEventListener('click', event => {

@@ -55,6 +55,42 @@ async function upsertPayments(admin: any, sub: any, list: any[]) {
   }
 }
 
+// ─── Ativação da forma de pagamento (usada quando a família escolhe na Área do atleta) ───
+// deno-lint-ignore no-explicit-any
+async function ensureAsaasCustomer(admin: any, customer: any, athleteId: string) {
+  if (customer.asaas_id) return customer;
+  const c = await asaas('/customers', { method: 'POST', body: JSON.stringify({ name: customer.name, cpfCnpj: customer.cpf_cnpj,
+    email: customer.email || undefined, mobilePhone: customer.phone || undefined, externalReference: athleteId, notificationDisabled: false }) });
+  const { data } = await admin.from('billing_customers').update({ asaas_id: c.id }).eq('id', customer.id).select().single().throwOnError();
+  return data;
+}
+// deno-lint-ignore no-explicit-any
+async function startPix(admin: any, sub: any, customer: any) {
+  const policy = validatePolicy(sub.policy_snapshot), quote = calculateQuote(sub.base_cents, 'PIX', policy, 0), due = nextDue(sub.due_day);
+  const c = await ensureAsaasCustomer(admin, customer, sub.athlete_id);
+  const s = await asaas('/subscriptions', { method: 'POST', body: JSON.stringify({ customer: c.asaas_id, billingType: 'PIX', value: quote.principalCents / 100,
+    nextDueDate: due, cycle: 'MONTHLY', description: sub.description, externalReference: sub.id,
+    fine: { value: 0, type: 'PERCENTAGE' }, interest: { value: 0, type: 'PERCENTAGE' }, discount: { value: 0, type: 'PERCENTAGE' } }) });
+  await admin.from('billing_subscriptions').update({ method: 'PIX', automatic_mode: null, value_cents: quote.principalCents, asaas_subscription_id: s.id,
+    status: 'active', updated_at: new Date().toISOString() }).eq('id', sub.id).throwOnError();
+  const pays = await asaas(`/subscriptions/${s.id}/payments`);
+  await upsertPayments(admin, { ...sub, asaas_subscription_id: s.id }, pays?.data || []);
+  return { nextDueDate: due, invoiceUrl: pays?.data?.[0]?.invoiceUrl || null };
+}
+// deno-lint-ignore no-explicit-any
+async function startCard(admin: any, sub: any) {
+  const policy = validatePolicy(sub.policy_snapshot), quote = calculateQuote(sub.base_cents, 'CREDIT_CARD', policy, 0), due = nextDue(sub.due_day);
+  const ck = await asaas('/checkouts', { method: 'POST', body: JSON.stringify({
+    billingTypes: ['CREDIT_CARD'], chargeTypes: ['RECURRENT'], minutesToExpire: 1440, externalReference: sub.id,
+    callback: { successUrl: `${PANEL}/area-do-atleta.html?pagamento=ok`, cancelUrl: `${PANEL}/area-do-atleta.html?pagamento=cancelado`, expiredUrl: `${PANEL}/area-do-atleta.html?pagamento=expirado` },
+    items: [{ name: 'Mensalidade Apollo', description: String(sub.description || '').slice(0, 150), quantity: 1, value: quote.principalCents / 100, imageBase64: LOGO_BASE64 }],
+    subscription: { cycle: 'MONTHLY', nextDueDate: `${due} 00:00:00` } }) });
+  const link = ck.link || ck.url || ck.checkoutUrl || null;
+  await admin.from('billing_subscriptions').update({ method: 'CREDIT_CARD', automatic_mode: null, value_cents: quote.principalCents, status: 'pending',
+    asaas_checkout_id: ck.id, checkout_url: link, updated_at: new Date().toISOString() }).eq('id', sub.id).throwOnError();
+  return { checkoutUrl: link, nextDueDate: due };
+}
+
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
@@ -68,18 +104,58 @@ Deno.serve(async request => {
     auth: { persistSession: false, autoRefreshToken: false } });
   const { data: u } = await caller.auth.getUser(token);
   if (!u?.user) return json(401, { error: 'Sessão inválida. Entre novamente.' });
-  const { data: access } = await caller.rpc('v2_my_access');
-  if (access?.pages?.billing?.edit !== true) return json(403, { error: 'Apenas administração e financeiro gerenciam mensalidades.' });
-  const admin = createClient(url, secret!, { auth: { persistSession: false, autoRefreshToken: false } });
-
   let input: any;
   try { input = await request.json(); } catch { return json(400, { error: 'JSON inválido' }); }
+  const admin = createClient(url, secret!, { auth: { persistSession: false, autoRefreshToken: false } });
+
+  // Escolha feita por quem paga (atleta adulto ou responsável), dentro da Área do atleta
+  if (input.action === 'choice_quote' || input.action === 'choose') {
+    if (typeof input.subscriptionId !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.subscriptionId)) return json(400, { error: 'Solicitação inválida.' });
+    const { data: allowed } = await caller.rpc('billing_portal_can_manage_subscription', { p_subscription_id: input.subscriptionId });
+    if (!allowed) return json(403, { error: 'Mensalidade não vinculada a esta conta.' });
+    try {
+      const { data: sub } = await admin.from('billing_subscriptions').select('*').eq('id', input.subscriptionId).eq('env', ENV).single().throwOnError();
+      if (sub.status !== 'awaiting_choice') return json(409, { error: 'A forma de pagamento desta mensalidade já foi escolhida.' });
+      const policy = validatePolicy(sub.policy_snapshot);
+      const { data: config } = await admin.from('billing_pix_automatic_config').select('*').eq('env', ENV).maybeSingle();
+      let pixAuto = false; try { assertEnabled(config); pixAuto = true; } catch { pixAuto = false; }
+      if (input.action === 'choice_quote') {
+        return json(200, { dueDay: sub.due_day, baseCents: sub.base_cents, options: [
+          ...(pixAuto ? [{ method: 'PIX_AUTOMATIC', totalCents: calculateQuote(sub.base_cents, 'PIX', policy, 0).totalCents }] : []),
+          { method: 'CREDIT_CARD', totalCents: calculateQuote(sub.base_cents, 'CREDIT_CARD', policy, 0).totalCents },
+          { method: 'PIX', totalCents: calculateQuote(sub.base_cents, 'PIX', policy, 0).totalCents }] });
+      }
+      // Trava a escolha: só uma requisição passa de 'awaiting_choice' para 'choosing'
+      const { data: locked } = await admin.from('billing_subscriptions').update({ status: 'choosing', updated_at: new Date().toISOString() })
+        .eq('id', sub.id).eq('status', 'awaiting_choice').select('id').throwOnError();
+      if (!locked?.length) return json(409, { error: 'A escolha já está sendo processada.' });
+      try {
+        const { data: customer } = await admin.from('billing_customers').select('*').eq('id', sub.customer_id).single().throwOnError();
+        if (input.method === 'PIX') return json(200, { ok: true, method: 'PIX', ...(await startPix(admin, sub, customer)) });
+        if (input.method === 'CREDIT_CARD') return json(200, { ok: true, method: 'CREDIT_CARD', ...(await startCard(admin, sub)) });
+        if (input.method === 'PIX_AUTOMATIC') {
+          if (!pixAuto) throw new Error('O Pix Automático ainda não está disponível.');
+          await admin.from('billing_subscriptions').update({ method: 'PIX', automatic_mode: 'PIX_AUTOMATIC', status: 'pending', updated_at: new Date().toISOString() }).eq('id', sub.id).throwOnError();
+          return json(200, { ok: true, method: 'PIX_AUTOMATIC', authorizationRequired: true });
+        }
+        throw new Error('Forma de pagamento inválida.');
+      } catch (e) {
+        // Devolve a mensalidade para a escolha se nada foi criado no Asaas
+        const { data: now } = await admin.from('billing_subscriptions').select('asaas_subscription_id,asaas_checkout_id').eq('id', sub.id).single();
+        if (!now?.asaas_subscription_id && !now?.asaas_checkout_id) await admin.from('billing_subscriptions').update({ status: 'awaiting_choice' }).eq('id', sub.id).eq('status', 'choosing');
+        throw e;
+      }
+    } catch (e) { return json(409, { error: e instanceof Error ? e.message : String(e) }); }
+  }
+
+  const { data: access } = await caller.rpc('v2_my_access');
+  if (access?.pages?.billing?.edit !== true) return json(403, { error: 'Apenas administração e financeiro gerenciam mensalidades.' });
 
   try {
     if (input.action === 'create') {
       const payer = input.payer || {};
       const doc = digits(payer.cpfCnpj), value = Math.round(Number(input.valueCents));
-      const day = Number(input.dueDay), automatic = input.method === 'PIX_AUTOMATIC', method = automatic ? 'PIX' : String(input.method);
+      const day = Number(input.dueDay), family = !input.method || input.method === 'FAMILY', automatic = input.method === 'PIX_AUTOMATIC', method = automatic || family ? 'PIX' : String(input.method);
       const name = String(payer.name || '').trim(), description = String(input.description || '').trim().slice(0, 200);
       if (!input.athleteId || ![11, 14].includes(doc.length) || !name || !Number.isSafeInteger(Number(input.valueCents)) || !(value >= 500 && value <= 2147483647) || !Number.isInteger(day) || !(day >= 1 && day <= 28)
         || !['PIX', 'CREDIT_CARD'].includes(method) || !description) return json(400, { error: 'Dados da mensalidade incompletos ou inválidos.' });
@@ -95,19 +171,19 @@ Deno.serve(async request => {
       if(automatic){const {data:config}=await admin.from('billing_pix_automatic_config').select('*').eq('env',ENV).single().throwOnError();assertEnabled(config);}
       if(quote.totalCents<500 || quote.totalCents>2147483647)return json(400,{error:'Preço final fora dos limites da cobrança.'});
       const { data: open } = await admin.from('billing_subscriptions').select('id').eq('athlete_id', athlete.id)
-        .eq('env', ENV).in('status', ['pending', 'active']).limit(1).throwOnError();
-      if (open?.length) return json(409, { error: 'Este atleta já tem uma mensalidade ativa ou aguardando o cartão.' });
+        .eq('env', ENV).in('status', ['pending', 'active', 'awaiting_choice', 'choosing']).limit(1).throwOnError();
+      if (open?.length) return json(409, { error: 'Este atleta já tem uma mensalidade ativa ou aguardando a escolha da forma de pagamento.' });
 
       // Pagador: reaproveita pelo CPF/CNPJ. No Pix já criamos o cliente no Asaas; no cartão, o próprio
       // checkout do Asaas coleta endereço e cria o cliente (vinculado depois pelo aviso de assinatura).
       let { data: customer } = await admin.from('billing_customers').select('*').eq('env', ENV).eq('cpf_cnpj', doc).maybeSingle().throwOnError();
-      if (!customer && method === 'CREDIT_CARD') {
+      if (!customer && (method === 'CREDIT_CARD' || family)) {
         const { data: saved, error } = await admin.from('billing_customers').insert({ env: ENV, name, cpf_cnpj: doc,
           email: payer.email || null, phone: digits(payer.phone) || null }).select().single();
         if (error) throw error;
         customer = saved;
       }
-      if (method === 'PIX' && !customer?.asaas_id) {
+      if (method === 'PIX' && !family && !customer?.asaas_id) {
         const c = await asaas('/customers', { method: 'POST', body: JSON.stringify({
           name, cpfCnpj: doc, email: payer.email || undefined, mobilePhone: digits(payer.phone) || undefined,
           externalReference: athlete.id, notificationDisabled: false }) });
@@ -119,12 +195,14 @@ Deno.serve(async request => {
 
       const { data: sub, error: subErr } = await admin.from('billing_subscriptions').insert({ env: ENV, athlete_id: athlete.id,
         customer_id: customer.id, method, value_cents: quote.principalCents,base_cents:value,base_override_reason:override||null,package_name:raw||'Valor individual',
-        policy_version:rule.version,policy_snapshot:policy,automatic_mode:automatic?'PIX_AUTOMATIC':null,due_day: day, description, created_by: u.user.id }).select().single();
+        policy_version:rule.version,policy_snapshot:policy,automatic_mode:automatic?'PIX_AUTOMATIC':null,due_day: day, description, created_by: u.user.id,
+        ...(family ? { status: 'awaiting_choice' } : {}) }).select().single();
       if (subErr) throw subErr;
       const due = nextDue(day);
       // Intent only: Journey 3 authorization is created later by the payer after
       // explicit first-payment/recurring-debit consent. Never create ordinary PIX.
       if(automatic)return json(200,{ok:true,id:sub.id,method:'PIX_AUTOMATIC',authorizationRequired:true});
+      if(family)return json(200,{ok:true,id:sub.id,method:'FAMILY',awaitingChoice:true,nextDueDate:due});
       try {
       if (method === 'PIX') {
         const s = await asaas('/subscriptions', { method: 'POST', body: JSON.stringify({ customer: customer.asaas_id,
@@ -160,6 +238,10 @@ Deno.serve(async request => {
       const { data: sub } = await admin.from('billing_subscriptions').select('*').eq('id', input.id).eq('env',ENV).maybeSingle().throwOnError();
       if (!sub) return json(404, { error: 'Mensalidade não encontrada.' });
       if(sub.automatic_mode==='PIX_AUTOMATIC' && input.action==='cancel')return json(409,{error:'Cancele pelo fluxo de autorização do Pix Automático para confirmar a interrupção no provedor.'});
+      if (input.action === 'cancel' && sub.status === 'awaiting_choice') {
+        await admin.from('billing_subscriptions').update({ status: 'canceled', updated_at: new Date().toISOString() }).eq('id', sub.id).throwOnError();
+        return json(200, { ok: true });
+      }
       if (input.action === 'cancel') {
         if (!sub.asaas_subscription_id && sub.asaas_checkout_id) {
           await asaas(`/checkouts/${encodeURIComponent(sub.asaas_checkout_id)}/cancel`,{method:'POST'});

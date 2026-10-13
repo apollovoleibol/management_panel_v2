@@ -62,7 +62,7 @@ document.addEventListener('click', async e => {
   if (el.dataset.need && !canEdit(el.dataset.need)) { e.preventDefault(); return toast('Seu perfil não pode editar ' + PAGES.find(p => p.id === el.dataset.need).label + '.', true); }
   if (el.tagName === 'INPUT' && el.type === 'checkbox' && !a.startsWith('fd-visible') && !a.startsWith('pay-approve')) return;
   switch (a) {
-    case 'bl-new': case 'bl-reload': case 'bl-goto-payroll': case 'bl-copy': case 'bl-wa': case 'bl-sync': case 'bl-cancel': e.preventDefault(); return billingAction(a, el);
+    case 'bl-new': case 'bl-tab': case 'bl-reload': case 'bl-goto-payroll': case 'bl-copy': case 'bl-wa': case 'bl-sync': case 'bl-cancel': e.preventDefault(); return billingAction(a, el);
     case 'service-queue': return openServiceQueue();
     case 'service-replied': return serviceRecordReply(id);
     case 'service-refresh': await serviceMetricsLoad(); return render();
