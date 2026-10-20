@@ -110,7 +110,7 @@ document.addEventListener('click', async e => {
     case 'goto-team': closeDialog(); S.page = 'teams'; render(); return teamEditor(id);
     /* agendamentos */
     case 'bk-kpi': S.bk.kpi = S.bk.kpi === el.dataset.k ? '' : el.dataset.k; if (S.bk.kpi) S.bk.status = ''; return render();
-    case 'bk-arch': S.bk.archived = el.dataset.v === '1'; return render();
+    case 'bk-arch': S.bk.archived = el.dataset.v === 'all' ? 'all' : el.dataset.v === '1'; return render();
     case 'bk-sort': { const c = el.dataset.col; S.bk.sort = { col: c, dir: S.bk.sort.col === c && S.bk.sort.dir === 'asc' ? 'desc' : 'asc' }; return render(); }
     case 'bk-clear': Object.assign(S.bk, { q: '', status: '', team: '', kpi: '', pending: '' }); S.bk.sel.clear(); return render();
     case 'booking-open': return openBooking(id);

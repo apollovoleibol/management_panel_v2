@@ -220,7 +220,7 @@ function renderBookings() {
       <div class="search">${icon('search')}<input class="input" id="bkQ" type="search" placeholder="Buscar por nome ou WhatsApp..." value="${esc(S.bk.q)}" aria-label="Buscar agendamento"></div>
       <select class="select" id="bkStatus" aria-label="Filtrar status"><option value="">Todos os status</option>${STATUS.map(s => `<option ${S.bk.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
       <select class="select" id="bkTeam" aria-label="Filtrar equipe"><option value="">Todas as equipes</option>${teams.map(t => `<option value="${t.id}" ${S.bk.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>
-      <div class="seg" role="group" aria-label="Visão"><button class="${S.bk.archived ? '' : 'on'}" data-act="bk-arch" data-v="0">Ativos</button><button class="${S.bk.archived ? 'on' : ''}" data-act="bk-arch" data-v="1">${icon('archive')} Arquivados <span class="muted">${BOOKINGS.filter(b => b.archived).length}</span></button></div>
+      <div class="seg" role="group" aria-label="Visão"><button class="${S.bk.archived === 'all' ? 'on' : ''}" data-act="bk-arch" data-v="all">Todos <span class="muted">${BOOKINGS.length}</span></button><button class="${S.bk.archived === false ? 'on' : ''}" data-act="bk-arch" data-v="0">Ativos <span class="muted">${BOOKINGS.filter(b => !b.archived).length}</span></button><button class="${S.bk.archived === true ? 'on' : ''}" data-act="bk-arch" data-v="1">${icon('archive')} Arquivados <span class="muted">${BOOKINGS.filter(b => b.archived).length}</span></button></div>
     </div>
     <div id="bkTable">${bookingsTable()}</div>
   </section>`;
@@ -238,6 +238,7 @@ const BOOKING_FILTERS = {
 // Ficha de atleta correspondente ao agendamento: mesmo nome (sem acentos) ou mesmo telefone com o mesmo primeiro nome
 const normName = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 function bookingAthlete(b) {
+  if (b.athleteId) { const linked = ATHLETES.find(a => a.id === b.athleteId); if (linked) return linked; }
   const n = normName(b.nomeMenor || b.nome), tel = digits(b.whatsapp).slice(-8);
   return ATHLETES.find(a => normName(a.name) === n
     || (tel.length === 8 && [a.phone, a.parentPhone].some(p => digits(p).slice(-8) === tel) && normName(a.name).split(' ')[0] === n.split(' ')[0]));
@@ -247,12 +248,12 @@ function bookingsFiltered() {
   const q = S.bk.q.toLowerCase().trim();
   const mine = myTeamIds();
   const pending = BOOKING_FILTERS[S.bk.pending];
-  return BOOKINGS.filter(b => mine.includes(b.teamId) && (pending ? pending[1](b) : S.bk.kpi ? true : (S.bk.archived ? b.archived : !b.archived))
+  return BOOKINGS.filter(b => mine.includes(b.teamId) && (pending ? pending[1](b) : S.bk.kpi || S.bk.archived === 'all' ? true : (S.bk.archived ? b.archived : !b.archived))
     && (!q || [b.nome, b.nomeMenor, b.whatsapp, fmtPhone(b.whatsapp)].some(v => String(v || '').toLowerCase().includes(q)))
     && (!S.bk.status || b.status === S.bk.status) && (!S.bk.team || b.teamId === S.bk.team)
     && (!S.bk.kpi || ((S.bk.kpi === 'reag' ? b.reag > 0 : b.status.toLowerCase() === S.bk.kpi) && inRange(parseLocal(b.date), monthRange(0)))));
 }
-const bookingsSelectable = () => canEdit('bookings') && !S.bk.archived;
+const bookingsSelectable = () => canEdit('bookings') && S.bk.archived !== true;
 function bookingsTable() {
   const list = bookingsFiltered();
   const pending = BOOKING_FILTERS[S.bk.pending];
@@ -269,13 +270,13 @@ function bookingsTable() {
   const sel = bookingsSelectable();
   const row = b => {
     const t = teamOf(b.teamId), minor = !!b.nomeMenor, dup = bookingGuardianDuplicated(b);
-    return `<tr class="rowlink ${in48(b) ? 'soon' : ''}" data-act="booking-open" data-id="${b.id}" tabindex="0">
+    return `<tr class="rowlink ${in48(b) ? 'soon' : ''} ${b.archived && S.bk.archived === 'all' ? 'is-archived' : ''}" data-act="booking-open" data-id="${b.id}" tabindex="0">
       ${sel ? `<td class="sel" data-stop><input type="checkbox" data-bk-sel="${b.id}" ${S.bk.sel.has(b.id) ? 'checked' : ''} aria-label="Selecionar ${esc(bookingName(b))}"></td>` : ''}
       <td class="c-main"><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(displayName(b.nome))}</span><div><strong>${esc(bookingName(b))}</strong>${minor ? `<small${dup ? ' style="color:var(--warn)"' : ''}>${dup ? 'Responsável a confirmar' : 'Resp.: ' + esc(displayName(b.nome))}</small>` : `<small>${fmtPhone(b.whatsapp)}</small>`}</div></div></td>
       <td class="c-act"><button class="btn sq wa-ghost" data-act="booking-wa" data-id="${b.id}" title="Mensagem no WhatsApp" aria-label="Mensagem no WhatsApp para ${esc(bookingName(b))}">${icon('whatsapp')}</button></td>
       <td class="c-sub" data-label="Teste"><div style="display:flex;align-items:center;gap:8px;white-space:nowrap;flex-wrap:wrap">${fmtDT(b.date)}${b.reag ? `<span class="reag" title="${b.reag} reagendamento(s)">${b.reag}</span>` : ''}${in48(b) ? '<span class="tag st-ok nodot">em 48h</span>' : ''}</div></td>
       <td class="c-sub" data-label="Equipe"><strong style="font-size:13px">${esc(t.name)}</strong><div class="hint">${esc(nucleusOf(t.n)?.venue || '')}</div></td>
-      <td class="c-status">${stTag(b.status)}</td></tr>`;
+      <td class="c-status">${stTag(b.status)}${b.archived && S.bk.archived === 'all' ? `<div class="hint">${icon('archive')} Arquivado</div>` : ''}</td></tr>`;
   };
   const th = (c, l) => `<th><button class="sort ${col === c ? 'on' : ''}" data-act="bk-sort" data-col="${c}" aria-label="Ordenar por ${l}">${l} ${icon('sort')}</button></th>`;
   const allOn = sel && list.length && list.every(b => S.bk.sel.has(b.id));
@@ -283,7 +284,7 @@ function bookingsTable() {
   return `${banner}<div class="table-wrap"><table class="cards"><thead><tr>${sel ? `<th class="sel"><input type="checkbox" data-bk-all ${allOn ? 'checked' : ''} aria-label="Selecionar todos os ${list.length} agendamentos"></th>` : ''}${th('nome', 'Atleta / Resp.')}<th><span class="sr">Contato</span></th>${th('data', 'Data do teste')}${th('equipe', 'Equipe / Local')}<th>Status</th></tr></thead><tbody>
     ${fut.map(row).join('')}${fut.length && past.length ? `<tr class="sep"><td colspan="${cols}">Agendamentos passados</td></tr>` : ''}${past.map(row).join('')}</tbody></table></div>
     ${S.bk.sel.size ? `<div class="bulk-bar" role="region" aria-label="Ações em lote"><b>${S.bk.sel.size} selecionado(s)</b><select class="select" id="bkBulkStatus" aria-label="Novo status"><option value="">Mudar status para…</option>${BOOKING_QUICK.concat([['Agendado', 'Agendado']]).map(([st, l]) => `<option value="${st}">${l}</option>`).join('')}</select><button class="btn primary sm" data-act="bk-bulk-status" data-edit>Aplicar</button><button class="btn sm" data-act="bk-bulk-archive" data-edit>${icon('archive')} Arquivar</button><span class="spacer"></span><button class="btn sm" data-act="bk-bulk-clear">Limpar seleção</button></div>` : ''}
-    <div class="panel-foot"><span>${list.length} agendamento${list.length > 1 ? 's' : ''}${S.bk.archived ? ' arquivados' : ''}</span><span>${sel ? 'Marque várias linhas para mudar o status ou arquivar de uma vez.' : 'Clique em uma linha para ver detalhes, conversa e ações.'}</span></div>`;
+    <div class="panel-foot"><span>${list.length} agendamento${list.length > 1 ? 's' : ''}${S.bk.archived === true ? ' arquivados' : S.bk.archived === false ? ' ativos' : ''}</span><span>${sel ? 'Marque várias linhas para mudar o status ou arquivar de uma vez.' : 'Clique em uma linha para ver detalhes, conversa e ações.'}</span></div>`;
 }
 function bookingsTableRefresh() {
   const el = $('#bkTable'); if (!el) return;
@@ -346,16 +347,23 @@ function bookingForm(id, preset = {}) {
   const draw = () => {
     const t = teamOf(st.team), minor = isMinorTeam(t);
     const body = $('#bkFormBody');
+    body.querySelector('#fbPeople').classList.toggle('hide', !t);
+    body.querySelector('#fbPickHint').classList.toggle('hide', !!t);
     body.querySelector('#fbNomeLbl').textContent = minor ? 'Nome do responsável *' : 'Nome do atleta *';
+    body.querySelector('#fbNomeHint').textContent = minor ? 'Pai, mãe ou responsável legal. É o contato do agendamento.' : '';
+    body.querySelector('#fbWppLbl').textContent = minor ? 'WhatsApp do responsável *' : 'WhatsApp do atleta *';
     body.querySelector('#fbMenorBox').classList.toggle('hide', !minor);
+    body.querySelector('#fbAudience').textContent = !t ? '' : minor ? 'Equipe de base/escolinha: informe o atleta menor de idade e um responsável.' : 'Equipe adulta: informe apenas o atleta.';
     body.querySelector('#fbDate').value = st.date ? fmtDT(st.date) : '';
     body.querySelector('#fbCal').innerHTML = t ? miniCal({ id: 'fbMcal', month: st.month, selected: st.date.slice(0, 10), isEnabled: d => d >= TODAY && t.schedule.some(s => s.day === d.getDay()) && !t.blocked.includes(ymd(d)) && !t.cancelled?.includes(ymd(d)), cls: d => (t.blocked.includes(ymd(d)) || t.cancelled?.includes(ymd(d))) && t.schedule.some(s => s.day === d.getDay()) ? 'block' : t.schedule.some(s => s.day === d.getDay()) && d >= TODAY ? 'train' : '' }) + `<div class="hint" style="margin-top:6px">Dias em verde: treinos de ${esc(t.name)} (${t.schedule.map(schedText).join(', ')}). O horário é preenchido automaticamente.</div>` : '<div class="preview muted small">Selecione a equipe para ver os dias de treino disponíveis.</div>';
   };
   openDialog(dHead(id ? 'Editar agendamento' : 'Novo agendamento', id ? esc(b.nomeMenor || b.nome) : 'Agendar teste', id ? '' : 'O agendamento é criado com status Agendado e aparece para o técnico no Manager.') + `<form id="bkForm" class="d-body" novalidate><div id="bkFormBody">
     <div class="field"><label for="fbTeam">Equipe / Local *</label><select class="select" id="fbTeam" required><option value="">Selecione uma equipe...</option>${NUCLEI.map(n => `<optgroup label="Núcleo ${esc(n.name)}">${teams.filter(t => t.n === n.id).map(t => `<option value="${t.id}" ${st.team === t.id ? 'selected' : ''}>${esc(t.name)} — ${esc(n.venue)}</option>`).join('')}</optgroup>`).join('')}</select></div>
-    <div class="field"><label for="fbNome" id="fbNomeLbl">Nome do atleta *</label><input class="input" id="fbNome" required value="${esc(b ? b.nome : '')}"></div>
-    <div class="field" id="fbMenorBox"><label for="fbMenor">Nome do atleta menor *</label><input class="input" id="fbMenor" value="${esc(b ? b.nomeMenor : '')}"><span class="hint">Equipe de base: o responsável é o contato; o nome do atleta é obrigatório.</span></div>
-    <div class="field"><label for="fbWpp">WhatsApp *</label><input class="input" id="fbWpp" inputmode="tel" placeholder="(XX) XXXXX-XXXX" value="${esc(b ? fmtPhone(b.whatsapp) : '')}"><span class="err hide" id="fbWppErr">Número inválido — informe DDD e número.</span></div>
+    <p class="hint" id="fbPickHint">Escolha a equipe para ver os campos do atleta.</p>
+    <div id="fbPeople"><p class="hint" id="fbAudience" style="margin:-6px 0 12px"></p>
+    <div class="field" id="fbMenorBox"><label for="fbMenor">Nome do atleta (menor de idade) *</label><input class="input" id="fbMenor" value="${esc(b ? b.nomeMenor : '')}"></div>
+    <div class="field"><label for="fbNome" id="fbNomeLbl">Nome do atleta *</label><input class="input" id="fbNome" required value="${esc(b ? b.nome : '')}"><span class="hint" id="fbNomeHint"></span></div>
+    <div class="field"><label for="fbWpp" id="fbWppLbl">WhatsApp *</label><input class="input" id="fbWpp" inputmode="tel" placeholder="(XX) XXXXX-XXXX" value="${esc(b ? fmtPhone(b.whatsapp) : '')}"><span class="err hide" id="fbWppErr">Número inválido — informe DDD e número.</span></div></div>
     <div class="field"><label for="fbDate">Data e hora *</label><input class="input" id="fbDate" readonly placeholder="Escolha no calendário abaixo"><div id="fbCal"></div></div>
     ${id ? `<div class="field"><label for="fbStatus">Status</label><select class="select" id="fbStatus">${[...STATUS, ...(STATUS.includes(b.status) ? [] : [b.status])].map(s => `<option ${b.status === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></div>` : ''}
     <div class="err" id="fbErr" role="alert"></div>

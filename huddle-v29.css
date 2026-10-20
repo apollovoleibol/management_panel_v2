@@ -265,3 +265,7 @@ svg.i.i-fill{fill:currentColor;stroke:none}
 .service-metrics .service-metric>small{grid-area:note;font-size:11.5px;line-height:1.35}
 .section-title .seg{margin-left:auto}
 .service-metrics{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+
+/* Agendamentos: arquivados aparecem esmaecidos na visão "Todos" */
+tr.is-archived td{opacity:.62}
+tr.is-archived:hover td{opacity:1}

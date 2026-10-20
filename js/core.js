@@ -202,7 +202,8 @@ let BOOKINGS = [];
 const teamOf = id => TEAMS.find(t => t.id === id);
 const nucleusOf = id => NUCLEI.find(n => n.id === id);
 const coachOf = id => COACHES.find(c => c.id === id);
-const isMinorTeam = t => !!t && t.ageMin !== null && t.ageMin !== undefined && t.ageMin !== '' && Number(t.ageMin) < 18;
+// Público menor de idade: categorias de base e escolinha. Equipes da categoria Adulto nunca pedem responsável.
+const isMinorTeam = t => !!t && !/^adulto/i.test(String(t.category || '')) && t.ageMin !== null && t.ageMin !== undefined && t.ageMin !== '' && Number(t.ageMin) < 18;
 const ageRange = t => t.ageMin == null || t.ageMin === '' ? 'Não definida' : t.ageMax ? `${t.ageMin} a ${t.ageMax} anos` : `${t.ageMin}+ anos`;
 const genderLabel = g => ({ F: 'Feminino', M: 'Masculino', Misto: 'Misto' }[g] || 'Não definido');
 const schedText = s => `${DOW[s.day]} ${s.start}–${s.end}`;
@@ -368,7 +369,7 @@ let FEEDER = {
 const S = {
   page: 'overview', userId: 'u1', previewRole: '', theme: 'light',
   cal: { cursor: TODAY, nuclei: new Set(NUCLEI.map(n => n.id)), showTests: true },
-  bk: { q: '', status: '', team: '', archived: false, sort: { col: 'data', dir: 'asc' }, kpi: '', pending: '', sel: new Set() },
+  bk: { q: '', status: '', team: '', archived: 'all', sort: { col: 'data', dir: 'asc' }, kpi: '', pending: '', sel: new Set() },
   at: { q: '', status: '', team: '', n: '', pending: '' },
   tm: { n: 'all', q: '' },
   pk: { n: 'all', q: '', freq: 'all' },

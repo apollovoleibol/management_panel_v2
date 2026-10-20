@@ -76,7 +76,7 @@ async function liveLoadPanel() {
       liveAll('teams', teamColumns),
       liveAll('team_coaches', 'team_id,coach_id,is_head'),
       liveAll('athletes', athleteColumns),
-      liveAll('tryouts', 'id,name,minor_name,whatsapp_phone,scheduled_at,target_team,team_id,status,reschedule_count,archived_at,created_at,approved_at'),
+      liveAll('tryouts', 'id,name,minor_name,whatsapp_phone,scheduled_at,target_team,team_id,status,reschedule_count,archived_at,created_at,approved_at,athlete_id'),
       isAdmin ? liveAll('profiles', 'id,full_name,email,phone,role,is_active') : liveAll('profiles', 'id,full_name,email,phone,role,is_active'),
       liveAll('team_unavailable_dates', 'team_id,date'),
       liveAll('v2_training_cancellations', 'team_id,training_date'),
@@ -162,7 +162,7 @@ async function liveLoadPanel() {
         || TEAMS.find(t => String(b.target_team || '').startsWith(`${t.name} - `))?.id || null,
       date: b.scheduled_at ? b.scheduled_at.slice(0, 16) : '', status: statuses[String(b.status || '').toUpperCase()] || 'Pendente',
       reag: b.reschedule_count || 0, archived: !!b.archived_at, createdAt: (b.created_at || '').slice(0, 10),
-      approvedAt: b.approved_at || ''
+      approvedAt: b.approved_at || '', athleteId: b.athlete_id || null
     })).filter(b => b.teamId && b.date);
     const attendanceByLog = new Map();
     attendance.forEach(a => { if (!attendanceByLog.has(a.log_id)) attendanceByLog.set(a.log_id, {});
