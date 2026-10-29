@@ -234,6 +234,7 @@ const BOOKING_QUICK = [['Em avaliação', 'Compareceu'], ['Ausente', 'Faltou'], 
 const BOOKING_FILTERS = {
   stale: ['Testes que já aconteceram e estão sem resultado', b => !b.archived && parseLocal(b.date) < NOW && ['Agendado', 'Pendente', 'Em avaliação'].includes(b.status)],
   approved: ['Aprovados ainda sem cadastro', b => !b.archived && b.status === 'Em cadastro'],
+  guardian: ['Aguardando confirmação do responsável', b => !b.archived && !!b.nomeMenor && b.status === 'Pendente'],
   registered: ['Cadastros concluídos · inserir no Tecnofit', b => !b.archived && b.status === 'Tecnofit'],
 };
 // Ficha de atleta correspondente ao agendamento: mesmo nome (sem acentos) ou mesmo telefone com o mesmo primeiro nome
@@ -273,7 +274,7 @@ function bookingsTable() {
     const t = teamOf(b.teamId), minor = !!b.nomeMenor, dup = bookingGuardianDuplicated(b);
     return `<tr class="rowlink ${in48(b) ? 'soon' : ''} ${b.archived && S.bk.archived === 'all' ? 'is-archived' : ''}" data-act="booking-open" data-id="${b.id}" tabindex="0">
       ${sel ? `<td class="sel" data-stop><input type="checkbox" data-bk-sel="${b.id}" ${S.bk.sel.has(b.id) ? 'checked' : ''} aria-label="Selecionar ${esc(bookingName(b))}"></td>` : ''}
-      <td class="c-main"><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(displayName(b.nome))}</span><div><strong>${esc(bookingName(b))}</strong>${minor ? `<small${dup ? ' style="color:var(--warn)"' : ''}>${dup ? 'Responsável a confirmar' : 'Resp.: ' + esc(displayName(b.nome))}</small>` : `<small>${fmtPhone(b.whatsapp)}</small>`}</div></div></td>
+      <td class="c-main"><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(displayName(b.nome))}</span><div><strong>${esc(bookingName(b))}</strong>${minor ? `<small${dup ? ' style="color:var(--warn)"' : ''}>${dup ? 'Responsável a confirmar' : 'Resp.: ' + esc(displayName(b.nome))}</small>${bookingConsentMissing(b) ? '<small style="color:var(--warn)">Confirmação do responsável pendente</small>' : ''}` : `<small>${fmtPhone(b.whatsapp)}</small>`}</div></div></td>
       <td class="c-act"><button class="btn sq wa-ghost" data-act="booking-wa" data-id="${b.id}" title="Mensagem no WhatsApp" aria-label="Mensagem no WhatsApp para ${esc(bookingName(b))}">${icon('whatsapp')}</button></td>
       <td class="c-sub" data-label="Teste"><div style="display:flex;align-items:center;gap:8px;white-space:nowrap;flex-wrap:wrap">${fmtDT(b.date)}${b.reag ? `<span class="reag" title="${b.reag} reagendamento(s)">${b.reag}</span>` : ''}${in48(b) ? '<span class="tag st-ok nodot">em 48h</span>' : ''}</div></td>
       <td class="c-sub" data-label="Equipe"><strong style="font-size:13px">${esc(t.name)}</strong><div class="hint">${esc(nucleusOf(t.n)?.venue || '')}</div></td>
@@ -320,16 +321,18 @@ async function bookingQuickStatus(id, st, button) {
   } catch (error) { $$('#dlg .quick-status button').forEach(b => { b.disabled = false; }); toast(`Não foi possível atualizar: ${error.message}`, true); }
 }
 
+const bookingConsentMissing = b => !!b?.nomeMenor && !(b.bookingConsent?.state === 'CONFIRMED' && b.bookingConsent?.guardianConsent === true && b.bookingConsent?.confirmedAt);
 const bookingGuardianDuplicated = b => !!b?.nomeMenor && b.nome.trim().localeCompare(b.nomeMenor.trim(), 'pt-BR', { sensitivity: 'base' }) === 0;
 function openBooking(id) {
   const b = BOOKINGS.find(x => x.id === id), t = teamOf(b.teamId), n = nucleusOf(t.n), ed = canEdit('bookings');
   openDialog(dHead('Agendamento', esc(bookingName(b)), b.nomeMenor ? (bookingGuardianDuplicated(b) ? 'Responsável a confirmar' : 'Responsável: ' + esc(displayName(b.nome))) : '') + `<div class="d-body">
     ${bookingGuardianDuplicated(b) ? `<div class="banner note">${icon('alert')}<span>O nome do responsável foi gravado igual ao do atleta. Confirme o responsável pelo WhatsApp antes de corrigir o cadastro.</span></div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${stTag(b.status)}${b.reag ? `<span class="tag st-em-cadastro nodot">${b.reag} reagendamento(s)</span>` : ''}${b.archived ? '<span class="tag nodot">Arquivado</span>' : ''}</div>
+    ${bookingConsentMissing(b) ? '<div class="banner warn">A participação do menor depende da confirmação do responsável pelo atendimento. O contato que iniciou a conversa pode ser o próprio menor. Confirme com o responsável adulto e use Editar para registrar a autorização.</div>' : b.bookingConsent ? '<p class="hint">Declaração do adulto registrada · '+esc(b.bookingConsent.source === 'staff' ? 'confirmada pelo atendimento' : 'autodeclaração no assistente')+' · '+esc(fmtDT(b.bookingConsent.confirmedAt))+'</p>' : ''}
     ${ed && !b.archived ? `<h3 class="mt">Resultado do teste</h3><div class="quick-status" role="group" aria-label="Atualizar o status do agendamento">${BOOKING_QUICK.map(([st, label]) => `<button type="button" class="${b.status === st ? 'on' : ''}" aria-pressed="${b.status === st}" data-act="booking-status" data-id="${id}" data-status="${st}">${label}</button>`).join('')}</div><p class="hint" style="margin-top:2px">TECNOFIT indica cadastro concluído: o atendimento deve inserir o atleta manualmente no Tecnofit. O status também aparece para o técnico no Manager App.</p>` : ''}
     <div class="kv"><div><small>Data e hora</small><strong>${fmtDT(b.date)}</strong></div><div><small>WhatsApp</small><strong>${fmtPhone(b.whatsapp)}</strong></div><div><small>Equipe</small><strong>${esc(t.name)}</strong></div><div><small>Local</small><strong>${esc(n.venue)}</strong><div class="hint">${esc(n.address)}</div></div></div>
     <div class="grid g2" style="gap:8px">
-      <button class="btn" data-act="booking-edit" data-id="${id}" data-edit>${icon('edit')} Editar dados e data</button>
+      <button class="btn" data-act="booking-edit" data-id="${id}" data-edit>${icon(bookingConsentMissing(b) ? 'shield' : 'edit')} ${bookingConsentMissing(b) ? 'Registrar confirmação do responsável' : 'Editar dados e data'}</button>
       <button class="btn" data-act="booking-chat" data-id="${id}">${icon('chat')} Ver conversa com o assistente</button>
       <button class="btn wa" data-act="booking-wa" data-id="${id}">${icon('whatsapp')} Mensagem no WhatsApp</button>
       <button class="btn" data-act="${b.archived ? 'booking-unarchive' : 'booking-archive'}" data-id="${id}" data-edit>${icon(b.archived ? 'unarchive' : 'archive')} ${b.archived ? 'Restaurar' : 'Arquivar'}</button>
@@ -352,8 +355,11 @@ function bookingForm(id, preset = {}) {
     body.querySelector('#fbPickHint').classList.toggle('hide', !!t);
     body.querySelector('#fbNomeLbl').textContent = minor ? 'Nome do responsável *' : 'Nome do atleta *';
     body.querySelector('#fbNomeHint').textContent = minor ? 'Pai, mãe ou responsável legal. É o contato do agendamento.' : '';
-    body.querySelector('#fbWppLbl').textContent = minor ? 'WhatsApp do responsável *' : 'WhatsApp do atleta *';
+    body.querySelector('#fbWppLbl').textContent = minor ? 'WhatsApp do contato inicial *' : 'WhatsApp do atleta *';
     body.querySelector('#fbMenorBox').classList.toggle('hide', !minor);
+    body.querySelector('#fbGuardianConsentBox').classList.toggle('hide', !minor);
+    body.querySelector('#fbAdultConsentBox').classList.toggle('hide', !minor);
+    body.querySelector('#fbAdultConsentLabel').textContent = minor ? 'Confirmei com o contato informado que ele é maior de 18 anos e está conduzindo o agendamento como pai, mãe ou responsável legal.' : 'Confirmei que o atleta é maior de 18 anos e está conduzindo seu próprio agendamento.';
     body.querySelector('#fbAudience').textContent = !t ? '' : minor ? 'Equipe de base/escolinha: informe o atleta menor de idade e um responsável.' : 'Equipe adulta: informe apenas o atleta.';
     body.querySelector('#fbDate').value = st.date ? fmtDT(st.date) : '';
     body.querySelector('#fbCal').innerHTML = t ? miniCal({ id: 'fbMcal', month: st.month, selected: st.date.slice(0, 10), isEnabled: d => d >= TODAY && t.schedule.some(s => s.day === d.getDay()) && !t.blocked.includes(ymd(d)) && !t.cancelled?.includes(ymd(d)), cls: d => (t.blocked.includes(ymd(d)) || t.cancelled?.includes(ymd(d))) && t.schedule.some(s => s.day === d.getDay()) ? 'block' : t.schedule.some(s => s.day === d.getDay()) && d >= TODAY ? 'train' : '' }) + `<div class="hint" style="margin-top:6px">Dias em verde: treinos de ${esc(t.name)} (${t.schedule.map(schedText).join(', ')}). O horário é preenchido automaticamente.</div>` : '<div class="preview muted small">Selecione a equipe para ver os dias de treino disponíveis.</div>';
@@ -364,7 +370,9 @@ function bookingForm(id, preset = {}) {
     <div id="fbPeople"><p class="hint" id="fbAudience" style="margin:-6px 0 12px"></p>
     <div class="field" id="fbMenorBox"><label for="fbMenor">Nome do atleta (menor de idade) *</label><input class="input" id="fbMenor" value="${esc(b ? b.nomeMenor : '')}"></div>
     <div class="field"><label for="fbNome" id="fbNomeLbl">Nome do atleta *</label><input class="input" id="fbNome" required value="${esc(b ? b.nome : '')}"><span class="hint" id="fbNomeHint"></span></div>
-    <div class="field"><label for="fbWpp" id="fbWppLbl">WhatsApp *</label><input class="input" id="fbWpp" inputmode="tel" placeholder="(XX) XXXXX-XXXX" value="${esc(b ? fmtPhone(b.whatsapp) : '')}"><span class="err hide" id="fbWppErr">Número inválido — informe DDD e número.</span></div></div>
+    <div class="field"><label for="fbWpp" id="fbWppLbl">WhatsApp *</label><input class="input" id="fbWpp" inputmode="tel" placeholder="(XX) XXXXX-XXXX" value="${esc(b ? fmtPhone(b.whatsapp) : '')}"><span class="err hide" id="fbWppErr">Número inválido — informe DDD e número.</span></div>
+    <div class="field" id="fbAdultConsentBox"><label style="display:flex;gap:9px;align-items:flex-start"><input type="checkbox" id="fbAdultConsent"><span id="fbAdultConsentLabel"></span></label></div>
+    <div id="fbGuardianConsentBox"><p class="hint">Deixe as confirmações desmarcadas para manter o pedido pendente. Preencha após falar com o responsável adulto. Salvar com ambas as confirmações marcadas libera o agendamento.</p><div class="field"><label for="fbGuardianPhone">WhatsApp do responsável que confirmou</label><input class="input" id="fbGuardianPhone" inputmode="tel" value="${esc(b?.bookingConsent?.guardianPhone || '')}" placeholder="DDD e número do responsável"></div><div class="field"><label for="fbGuardianRelationship">Relação do contato com o menor *</label><select class="select" id="fbGuardianRelationship"><option value="">Selecione</option><option value="PARENT">Pai ou mãe</option><option value="LEGAL_GUARDIAN">Responsável legal</option></select></div><div class="field"><label style="display:flex;gap:9px;align-items:flex-start"><input type="checkbox" id="fbGuardianConsent"><span>Obtive do pai, mãe ou responsável legal a autorização para agendar e permitir a participação do menor na aula experimental.</span></label></div></div></div>
     <div class="field"><label for="fbDate">Data e hora *</label><input class="input" id="fbDate" readonly placeholder="Escolha no calendário abaixo"><div id="fbCal"></div></div>
     ${id ? `<div class="field"><label for="fbStatus">Status</label><select class="select" id="fbStatus">${[...STATUS, ...(STATUS.includes(b.status) ? [] : [b.status])].map(s => `<option ${b.status === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></div>` : ''}
     <div class="err" id="fbErr" role="alert"></div>
@@ -389,14 +397,22 @@ async function saveBooking(id) {
   if (!st.team || !nome || !wpp || !st.date || (minor && !menor)) { $('#fbErr').textContent = 'Preencha todos os campos obrigatórios.'; return false; }
   if (wpp.length < 10) { $('#fbErr').textContent = 'Número de WhatsApp inválido.'; return false; }
   if (minor && nome.localeCompare(menor, 'pt-BR', { sensitivity: 'base' }) === 0) { $('#fbErr').textContent = 'Informe o nome do responsável; ele deve ser diferente do nome do atleta menor.'; return false; }
+  const guardianConfirmed = minor && $('#fbAdultConsent').checked && $('#fbGuardianConsent').checked
+    && ['PARENT','LEGAL_GUARDIAN'].includes($('#fbGuardianRelationship').value) && /^\d{10,13}$/.test(digits($('#fbGuardianPhone').value));
+  let selectedStatus = id ? BOOKING_DB_STATUS[$('#fbStatus').value] : (minor && !guardianConfirmed ? 'PENDING' : 'CONFIRMED');
+  if (minor && guardianConfirmed && selectedStatus === 'PENDING') selectedStatus = 'CONFIRMED';
+  if (minor && !guardianConfirmed && !['PENDING','CANCELLED','MISSED'].includes(selectedStatus)) {
+    $('#fbErr').textContent = 'Confirme com o responsável adulto, informe seu WhatsApp e registre a autorização; ou mantenha o pedido Pendente.'; return false;
+  }
+  const bookingConsent = {version:'2026-10-29',subjectType:minor?'MINOR':'SELF',state:minor?(guardianConfirmed?'CONFIRMED':'PENDING_GUARDIAN'):'NOT_REQUIRED',adultConfirmed:!!guardianConfirmed,guardianConsent:!!guardianConfirmed,guardianRelationship:guardianConfirmed?$('#fbGuardianRelationship').value:null,guardianPhone:guardianConfirmed?digits($('#fbGuardianPhone').value):null};
   const statuses = BOOKING_DB_STATUS;
   const before = id ? BOOKINGS.find(x => x.id === id) : null;
   if ((!before || before.date !== st.date) && (t.blocked.includes(st.date.slice(0, 10)) || t.cancelled?.includes(st.date.slice(0, 10)))) {
     $('#fbErr').textContent = 'Esta data não aceita novos testes. Escolha outro treino.'; return false;
   }
-  const payload = { name: nome, minor_name: minor ? menor : null, whatsapp_phone: wpp,
+  const payload = { name: nome, minor_name: minor ? menor : null, whatsapp_phone: wpp, booking_consent: bookingConsent,
     scheduled_at: st.date, target_team: t.name, target_location: nucleusOf(t.n)?.venue || '', team_id: t.id,
-    status: id ? statuses[$('#fbStatus').value] : 'CONFIRMED' };
+    status: selectedStatus };
   if (before && before.date !== st.date) payload.reschedule_count = before.reag + 1;
   try {
     await liveWrite('tryouts', payload, id);
@@ -407,14 +423,16 @@ async function saveBooking(id) {
 function waMessage(id) {
   const b = BOOKINGS.find(x => x.id === id), t = teamOf(b.teamId), n = nucleusOf(t.n), d = parseLocal(b.date);
   const tomorrow = ymd(d) === ymd(addDays(TODAY, 1)), hh = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  const greeting = bookingGuardianDuplicated(b) ? 'Olá!' : `Olá, ${b.nome}!`;
-  const text = tomorrow
+  const greeting = bookingGuardianDuplicated(b) || bookingConsentMissing(b) ? 'Olá!' : `Olá, ${b.nome}!`;
+  const text = bookingConsentMissing(b) ? `${greeting} Para autorizar a participação de ${bookingName(b)} no teste, precisamos confirmar com um responsável legal maior de idade. Você é o responsável? Caso não seja, pode nos informar como falar com ele?` : tomorrow
     ? `${greeting} Estou passando pra te lembrar que o seu agendamento está marcado para amanhã, às ${hh}. O endereço é ${n.address}. Até breve! 👋`
     : `${greeting} Tudo bem? O seu agendamento para fazer parte da nossa equipe está marcado para o dia ${fmtDate(d)}, às ${hh}. Relembro que o endereço é ${n.address}. Te aguardamos! Até breve 👋`;
-  const num = '55' + digits(b.whatsapp);
+  const contact = b.bookingConsent?.guardianPhone || b.whatsapp;
+  const contactDigits = digits(contact);
+  const num = contactDigits.length > 11 && contactDigits.startsWith('55') ? contactDigits : '55' + contactDigits;
   const d2 = $('#dlg2');
   d2.innerHTML = `<div class="d-head"><div><div class="eyebrow">${tomorrow ? 'Lembrete — o teste é amanhã' : 'Confirmação do agendamento'}</div><h2 id="dlg2Title">Mensagem para ${bookingGuardianDuplicated(b) ? 'o contato cadastrado' : esc(b.nome)}</h2></div></div>
-    <div class="d-body"><textarea class="input" id="waText" rows="6">${esc(text)}</textarea><p class="hint">A mensagem é copiada e o WhatsApp abre no número ${fmtPhone(b.whatsapp)}. Você ainda pode editar o texto antes de enviar.</p></div>
+    <div class="d-body"><textarea class="input" id="waText" rows="6">${esc(text)}</textarea><p class="hint">A mensagem é copiada e o WhatsApp abre no número ${fmtPhone(contact)}. Você ainda pode editar o texto antes de enviar.</p></div>
     <div class="d-foot"><button class="btn" data-r="close">Fechar</button><button class="btn" data-r="copy">${icon('copy')} Copiar</button><a class="btn wa" data-r="open" href="https://wa.me/${num}" target="_blank" rel="noopener">${icon('whatsapp')} Copiar e abrir WhatsApp</a></div>`;
   d2.onclick = e => { const r = e.target.closest('[data-r]'); if (!r) return; const txt = $('#waText').value; if (r.dataset.r !== 'close') { navigator.clipboard?.writeText(txt).catch(() => { }); toast('Mensagem copiada.'); } if (r.dataset.r === 'open') r.href = `https://wa.me/${num}?text=${encodeURIComponent(txt)}`; if (r.dataset.r !== 'copy') d2.close(); };
   d2.oncancel = null; d2.showModal();

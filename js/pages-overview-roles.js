@@ -153,6 +153,7 @@ function leadCardsHTML() {
   const cards = [
     ['stale', 'Teste feito, sem resultado', 'Registre presença, falta, aprovação ou reprovação', 'clock', 'warn', b => b.date],
     ['approved', 'Aprovados sem cadastro', 'Envie o link do cadastro e acompanhe', 'users', 'bad', b => b.approvedAt || b.date],
+    ['guardian', 'Confirmar responsável', 'Fale com um adulto responsável antes de liberar o teste', 'shield', 'warn', b => b.createdAt || b.date],
     ['registered', 'Inserir no Tecnofit', 'Cadastro concluído · atendimento faz a inserção manual', 'check', 'info', b => b.approvedAt || b.date],
   ].map(([k, title, hint, ic, tone, since]) => {
     const list = BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS[k][1](b));
@@ -171,7 +172,7 @@ function pendingHTML() {
   return `<div class="section-title" ${showsLeadCards() ? '' : 'style="margin-top:0"'}><h2>Pendências</h2></div><div class="pending">${items.map(i => `<button class="pending-item ${i.tone}" data-act="pending-go" data-k="${i.k}"><b>${i.n}</b><span>${i.label}<small>${i.hint}</small></span>${icon('arrow')}</button>`).join('')}</div>`;
 }
 function pendingGo(k) {
-  if (k === 'stale' || k === 'approved' || k === 'registered') { Object.assign(S.bk, { pending: k, q: '', status: '', team: '', kpi: '', archived: false }); S.bk.sel.clear(); return go('bookings'); }
+  if (k === 'stale' || k === 'approved' || k === 'registered' || k === 'guardian') { Object.assign(S.bk, { pending: k, q: '', status: '', team: '', kpi: '', archived: false }); S.bk.sel.clear(); return go('bookings'); }
   if (k === 'noplan' || k === 'nocontact') { Object.assign(S.at, { pending: k, q: '', status: '', team: '' }); return go('athletes'); }
   if (k === 'unlinked') { S.fin.tab = 'alerts'; S.fin.alertFilter = 'unlinked'; return go('finance'); }
   if (k === 'nocoach') { S.tm.n = 'all'; return go('teams'); }
