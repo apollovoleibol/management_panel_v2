@@ -73,8 +73,9 @@
 .pending-item.warn b{color:var(--warn)}
 .pending-item.bad b{color:var(--brand-ink)}
 .pending-item .i{width:16px;height:16px;color:var(--muted);margin-left:auto;flex-shrink:0}
-.filter-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 20px;background:var(--info-soft);color:var(--ink);font-size:13px;border-bottom:1px solid var(--line-2)}
-.filter-banner .btn{margin-left:auto}
+.filter-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 20px;background:var(--info-soft);color:var(--ink);font-size:13px;border-bottom:1px solid var(--line-2)}.filter-banner .btn{margin-left:auto}
+
+.lead-cards{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
 
 /* 4 · Resumo financeiro da Visão geral: 1 número principal + 2 secundários */
 .ov-fin{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:0;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
