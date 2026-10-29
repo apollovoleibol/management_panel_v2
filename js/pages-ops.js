@@ -34,7 +34,7 @@ function renderOverview() {
   const attended = recentBookings.filter(b => ['Em avaliação','Em cadastro','Tecnofit'].includes(b.status));
   const registering = recentBookings.filter(b => ['Em cadastro','Tecnofit'].includes(b.status));
   const enrolled = recentBookings.filter(b => b.status === 'Tecnofit');
-  const funnel = [['Agendamentos', recentBookings.length, 'Supabase'], ['Compareceram ao teste', attended.length, 'Supabase'], ['Em cadastro', registering.length, 'Supabase'], ['Matriculados', enrolled.length, 'Supabase']];
+  const funnel = [['Agendamentos', recentBookings.length, 'Supabase'], ['Compareceram ao teste', attended.length, 'Supabase'], ['Em cadastro', registering.length, 'Supabase'], ['Cadastros concluídos', enrolled.length, 'Supabase']];
 
   const months = lastMonths(6), labels = months.map(m => MON[m.getMonth()]);
   const realized = months.map(m => monthKey(m) === CUR_MONTH ? null : monthTotals(monthKey(m)).inn);
@@ -49,7 +49,7 @@ function renderOverview() {
   const svc = [
     ['Comparecimento', pct(showed, past.length), `${showed} de ${past.length} testes de ${R.label}`, 'check'],
     ['Reagendamentos', pct(recentBookings.filter(b => b.reag > 0).length, recentBookings.length), `dos agendamentos de ${R.label}`, 'refresh'],
-    ['Conversão em matrícula', pct(enrolled.length, recentBookings.length, 1), `agendamentos de ${R.label}`, 'target'],
+    ['Conversão em cadastro', pct(enrolled.length, recentBookings.length, 1), `agendamentos de ${R.label}`, 'target'],
     ['Aguardando avaliação', pastAll.filter(b => ['Agendado','Pendente','Em avaliação'].includes(b.status)).length, 'testes passados sem conclusão (todos)', 'clock'],
   ];
 
@@ -69,7 +69,7 @@ function renderOverview() {
     <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Agendamentos criados em ${R.label}${S.ov.month === 0 ? ' (até hoje)' : ''}</div></div><span class="tag nodot st-ok">Conversão total ${pct(enrolled.length, recentBookings.length, 1)}</span></div>
       <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}</span><div class="funnel-bar"><span style="width:${recentBookings.length ? v / recentBookings.length * 100 : 0}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
       ${(() => { const stale = BOOKINGS.filter(b => myTeamIds().includes(b.teamId) && BOOKING_FILTERS.stale[1](b)).length; return stale ? `<div class="banner warn mt" style="margin-bottom:0">${icon('alert')}<span class="small"><b>${stale} teste(s) já realizados ainda sem resultado.</b> As etapas depois do teste só ficam corretas quando o status é atualizado. <button class="btn sm" data-act="pending-go" data-k="stale" style="margin-left:6px">Registrar resultados</button></span></div>` : ''; })()}
-      <div class="grid g3 mt">${NUCLEI.map(n => { const local = recentBookings.filter(b => teamOf(b.teamId)?.n === n.id); const converted = local.filter(b => b.status === 'Tecnofit').length; const value = local.length ? Math.round(converted / local.length * 100) : 0; return `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n.id)}<b>${local.length ? value + '%' : '—'}</b></div><div class="bar"><span style="width:${value}%;background:var(--brand)"></span></div><div class="hint" style="margin-top:4px">agendamento → matrícula</div></div>`; }).join('')}</div></div>
+      <div class="grid g3 mt">${NUCLEI.map(n => { const local = recentBookings.filter(b => teamOf(b.teamId)?.n === n.id); const converted = local.filter(b => b.status === 'Tecnofit').length; const value = local.length ? Math.round(converted / local.length * 100) : 0; return `<div><div class="stat-line" style="border:0;padding:0 0 6px">${nTag(n.id)}<b>${local.length ? value + '%' : '—'}</b></div><div class="bar"><span style="width:${value}%;background:var(--brand)"></span></div><div class="hint" style="margin-top:4px">agendamento → cadastro concluído</div></div>`; }).join('')}</div></div>
     </section>
     <div><div class="service-metrics">${svc.map(([l, v, f, i]) => `<div class="service-metric">${kpiIcon(i)}${metricInfo(l)}<span>${l}</span><strong>${v}</strong><small>${f}</small></div>`).join('')}</div>
       ${serviceMetricsHTML()}</div>
@@ -228,12 +228,12 @@ function renderBookings() {
 const BOOKING_DB_STATUS = { 'Pendente': 'PENDING', 'Agendado': 'CONFIRMED', 'Em avaliação': 'IN_EVALUATION',
   'Em cadastro': 'IN_REGISTRATION', 'Tecnofit': 'TECNOFIT', 'Ausente': 'MISSED', 'Cancelado': 'CANCELLED' };
 // Resultado do teste em um clique (rótulo amigável → status do sistema)
-const BOOKING_QUICK = [['Em avaliação', 'Compareceu'], ['Ausente', 'Faltou'], ['Em cadastro', 'Aprovado · em cadastro'], ['Tecnofit', 'Matriculado'], ['Cancelado', 'Cancelado']];
+const BOOKING_QUICK = [['Em avaliação', 'Compareceu'], ['Ausente', 'Faltou'], ['Em cadastro', 'Aprovado · em cadastro'], ['Tecnofit', 'Cadastro concluído · inserir no Tecnofit'], ['Cancelado', 'Cancelado']];
 // Filtros abertos pelo bloco "Pendências" da Visão geral
 const BOOKING_FILTERS = {
   stale: ['Testes que já aconteceram e estão sem resultado', b => !b.archived && parseLocal(b.date) < NOW && ['Agendado', 'Pendente', 'Em avaliação'].includes(b.status)],
-  approved: ['Aprovados ainda sem cadastro', b => !b.archived && b.status === 'Em cadastro' && !bookingAthlete(b)],
-  registered: ['Cadastrados aguardando Tecnofit', b => !b.archived && b.status === 'Em cadastro' && !!bookingAthlete(b)],
+  approved: ['Aprovados ainda sem cadastro', b => !b.archived && b.status === 'Em cadastro'],
+  registered: ['Cadastros concluídos · inserir no Tecnofit', b => !b.archived && b.status === 'Tecnofit'],
 };
 // Ficha de atleta correspondente ao agendamento: mesmo nome (sem acentos) ou mesmo telefone com o mesmo primeiro nome
 const normName = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -325,7 +325,7 @@ function openBooking(id) {
   openDialog(dHead('Agendamento', esc(bookingName(b)), b.nomeMenor ? (bookingGuardianDuplicated(b) ? 'Responsável a confirmar' : 'Responsável: ' + esc(displayName(b.nome))) : '') + `<div class="d-body">
     ${bookingGuardianDuplicated(b) ? `<div class="banner note">${icon('alert')}<span>O nome do responsável foi gravado igual ao do atleta. Confirme o responsável pelo WhatsApp antes de corrigir o cadastro.</span></div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${stTag(b.status)}${b.reag ? `<span class="tag st-em-cadastro nodot">${b.reag} reagendamento(s)</span>` : ''}${b.archived ? '<span class="tag nodot">Arquivado</span>' : ''}</div>
-    ${ed && !b.archived ? `<h3 class="mt">Resultado do teste</h3><div class="quick-status" role="group" aria-label="Atualizar o status do agendamento">${BOOKING_QUICK.map(([st, label]) => `<button type="button" class="${b.status === st ? 'on' : ''}" aria-pressed="${b.status === st}" data-act="booking-status" data-id="${id}" data-status="${st}">${label}</button>`).join('')}</div><p class="hint" style="margin-top:2px">O status muda na hora e aparece para o técnico no Manager App.</p>` : ''}
+    ${ed && !b.archived ? `<h3 class="mt">Resultado do teste</h3><div class="quick-status" role="group" aria-label="Atualizar o status do agendamento">${BOOKING_QUICK.map(([st, label]) => `<button type="button" class="${b.status === st ? 'on' : ''}" aria-pressed="${b.status === st}" data-act="booking-status" data-id="${id}" data-status="${st}">${label}</button>`).join('')}</div><p class="hint" style="margin-top:2px">TECNOFIT indica cadastro concluído: o atendimento deve inserir o atleta manualmente no Tecnofit. O status também aparece para o técnico no Manager App.</p>` : ''}
     <div class="kv"><div><small>Data e hora</small><strong>${fmtDT(b.date)}</strong></div><div><small>WhatsApp</small><strong>${fmtPhone(b.whatsapp)}</strong></div><div><small>Equipe</small><strong>${esc(t.name)}</strong></div><div><small>Local</small><strong>${esc(n.venue)}</strong><div class="hint">${esc(n.address)}</div></div></div>
     <div class="grid g2" style="gap:8px">
       <button class="btn" data-act="booking-edit" data-id="${id}" data-edit>${icon('edit')} Editar dados e data</button>

@@ -1,0 +1,43 @@
+const {PGlite}=await import(process.env.PGLITE_MODULE || './.verification/node_modules/@electric-sql/pglite/dist/index.js');
+import {readFileSync,existsSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+const db=new PGlite();
+await db.exec(`create role anon;create role authenticated;create schema private;
+create table athletes(id uuid primary key default gen_random_uuid(),team_id uuid,full_name text,phone text,parent_phone text,terms_accepted boolean,raw_form_data jsonb,created_at timestamptz default now());
+create table tryouts(id uuid primary key default gen_random_uuid(),team_id uuid,name text,minor_name text,whatsapp_phone text,status text,created_at timestamptz default now(),updated_at timestamptz default now());
+create table finance_report_rows(data jsonb);create table v2_tecnofit_athlete_links(athlete_id uuid);`);
+await db.exec(`create schema auth; create function auth.uid() returns uuid language sql as $$select null::uuid$$;`);
+await db.exec(readFileSync('supabase/migrations/027_tryout_status_events_and_journey.sql','utf8').split('-- Histórico reconstruído')[0]+'commit;');
+await db.exec(readFileSync('supabase/migrations/037_tryout_athlete_link_tecnofit.sql','utf8'));
+const aid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
+await db.query("insert into tryouts(id,name,status) values($1,'Backfill','IN_REGISTRATION')",[tid]);
+await db.query(`insert into athletes(id,full_name,terms_accepted,raw_form_data) values($1,'Backfill',true,'{"nome_atleta":"Backfill"}')`,[aid]);
+const migration='supabase/migrations/039_registration_handoff.sql';
+if(existsSync(migration))await db.exec(readFileSync(migration,'utf8'));
+async function status(name){return (await db.query('select status from tryouts where name=$1',[name])).rows[0].status;}
+assert.equal(await status('Backfill'),'TECNOFIT','existing approved completed registration must advance without financial imports');
+async function booking(name,st='IN_REGISTRATION'){await db.query('insert into tryouts(name,status) values($1,$2)',[name,st]);}
+async function athlete(name,terms=true,raw={nome_atleta:name}){await db.query('insert into athletes(full_name,terms_accepted,raw_form_data) values($1,$2,$3::jsonb)',[name,terms,raw===null?null:JSON.stringify(raw)]);}
+await booking('Approval first');await athlete('Approval first');assert.equal(await status('Approval first'),'TECNOFIT');
+await booking('Form first','IN_EVALUATION');await athlete('Form first');assert.equal(await status('Form first'),'IN_EVALUATION');
+await db.exec("update tryouts set status='IN_REGISTRATION' where name='Form first'");assert.equal(await status('Form first'),'TECNOFIT');
+await booking('Pending terms');await athlete('Pending terms',false);assert.equal(await status('Pending terms'),'IN_REGISTRATION');
+await db.exec("update athletes set terms_accepted=true where full_name='Pending terms'");assert.equal(await status('Pending terms'),'TECNOFIT');
+await booking('Manual incomplete');await athlete('Manual incomplete',true,null);assert.equal(await status('Manual incomplete'),'IN_REGISTRATION');
+await db.exec(`insert into finance_report_rows values('{"name":"Manual incomplete"}')`);
+await db.exec("insert into v2_tecnofit_athlete_links select id from athletes where full_name='Manual incomplete'");assert.equal(await status('Manual incomplete'),'IN_REGISTRATION','financial imports cannot signal registration completion');
+await booking('Empty form');await athlete('Empty form',true,{});assert.equal(await status('Empty form'),'IN_REGISTRATION');
+await booking('Cancelled','CANCELLED');await athlete('Cancelled');assert.equal(await status('Cancelled'),'CANCELLED');
+await booking('Exact link');await athlete('Different name');await db.exec("update tryouts set athlete_id=(select id from athletes where full_name='Different name') where name='Exact link'");assert.equal(await status('Exact link'),'TECNOFIT');
+const events=await db.query("select e.status from tryout_status_events e join tryouts t on t.id=e.tryout_id where t.name='Form first' order by e.id");assert.deepEqual(events.rows.map(r=>r.status),['IN_EVALUATION','IN_REGISTRATION','TECNOFIT'],'approval and completion each recorded once');
+const result=await db.query('select private.tryouts_mark_tecnofit() as changed');assert.equal(result.rows[0].changed,0,'reconciliation is idempotent');
+await db.close();console.log('PostgreSQL: backfill, both event orders, exact link, completed form update, incomplete/empty forms, cancelled status, financial independence and idempotency passed.');
+const ops=readFileSync('js/pages-ops.js','utf8');
+const filterSource=ops.slice(ops.indexOf('const BOOKING_FILTERS ='),ops.indexOf('// Ficha de atleta correspondente'));
+const filters=vm.runInNewContext(filterSource+';BOOKING_FILTERS',{parseLocal:()=>0,NOW:1,bookingAthlete:()=>({id:'existing'})});
+assert.equal(filters.approved[1]({status:'Em cadastro',archived:false}),true,'incomplete linked records remain in registration queue');
+assert.equal(filters.registered[1]({status:'Tecnofit',archived:false}),true,'completed registrations enter staff queue');
+assert.equal(filters.registered[1]({status:'Em cadastro',archived:false}),false);
+assert.equal(filters.registered[1]({status:'Tecnofit',archived:true}),false);
+console.log('Panel queues: pending forms and staff handoff remain distinct; archived registrations excluded.');

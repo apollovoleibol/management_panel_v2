@@ -31,7 +31,7 @@ function athletesProjectionHTML() {
   const l30 = SESSIONS.filter(s => parseYmd(s.date) >= addDays(TODAY, -29));
   const recentBookings = BOOKINGS.filter(b => b.createdAt && parseYmd(b.createdAt) >= new Date(TODAY.getFullYear(), TODAY.getMonth(), 1));
   const enrolled = recentBookings.filter(b => b.status === 'Tecnofit').length;
-  const lines = [['Atletas ativos em 90 dias', `${proj.at(-1)} <span class="delta up">+${proj.at(-1) - real.at(-1)}</span>`], ['Novas matrículas por mês (média)', Math.round(growth)], ['Testes agendados no mês', recentBookings.length], ['Conversão teste → matrícula', pct(enrolled, recentBookings.length)], ['Presença média (30 dias)', (presencePct(l30) ?? '—') + '%']];
+  const lines = [['Atletas ativos em 90 dias', `${proj.at(-1)} <span class="delta up">+${proj.at(-1) - real.at(-1)}</span>`], ['Novas matrículas por mês (média)', Math.round(growth)], ['Testes agendados no mês', recentBookings.length], ['Conversão teste → cadastro', pct(enrolled, recentBookings.length)], ['Presença média (30 dias)', (presencePct(l30) ?? '—') + '%']];
   return `<div class="split-wide">
     <section class="panel"><div class="panel-head"><div><h2>Atletas atuais e projeção</h2><div class="sub">Coorte dos atletas ativos hoje; previsão simples pelo ritmo recente de entradas</div></div>
       <div class="legend"><span><i style="background:var(--ok)"></i>Atletas ativos</span><span><i class="dash" style="border-color:var(--info)"></i>Projeção</span></div></div>
@@ -153,7 +153,7 @@ function leadCardsHTML() {
   const cards = [
     ['stale', 'Teste feito, sem resultado', 'Registre presença, falta, aprovação ou reprovação', 'clock', 'warn', b => b.date],
     ['approved', 'Aprovados sem cadastro', 'Envie o link do cadastro e acompanhe', 'users', 'bad', b => b.approvedAt || b.date],
-    ['registered', 'Cadastrados aguardando Tecnofit', 'Conclua a matrícula no Tecnofit', 'check', 'info', b => b.approvedAt || b.date],
+    ['registered', 'Inserir no Tecnofit', 'Cadastro concluído · atendimento faz a inserção manual', 'check', 'info', b => b.approvedAt || b.date],
   ].map(([k, title, hint, ic, tone, since]) => {
     const list = BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS[k][1](b));
     const oldest = list.reduce((m, b) => Math.max(m, days(since(b)) ?? 0), 0);
