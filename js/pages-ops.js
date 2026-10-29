@@ -59,6 +59,7 @@ function renderOverview() {
 
   ${leadCardsHTML()}
   ${pendingHTML()}
+  ${dropoutRiskHTML()}
   ${fin ? `<div class="section-title" ${pendingItems().length ? '' : 'style="margin-top:0"'}><h2>Financeiro</h2></div>${ovFinanceHTML()}` : opsKpisHTML()}
 
   <div class="section-title"><h2>Agenda da semana</h2></div>

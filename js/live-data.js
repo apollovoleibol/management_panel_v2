@@ -168,7 +168,7 @@ async function liveLoadPanel() {
     attendance.forEach(a => { if (!attendanceByLog.has(a.log_id)) attendanceByLog.set(a.log_id, {});
       attendanceByLog.get(a.log_id)[a.athlete_id] = a.status; });
     // Horas de quem conduziu o treino (substituto) ou, sem registro, de quem confirmou
-    SESSIONS = logs.map(l => ({ teamId: l.team_id, coach: l.conducted_by || l.coach_id, date: l.started_at.slice(0, 10),
+    SESSIONS = logs.map(l => ({ teamId: l.team_id, coach: l.conducted_by || l.coach_id, startedAt: l.started_at, date: l.started_at.slice(0, 10),
       start: l.started_at.slice(11, 16), hours: (l.duration_minutes || 0) / 60,
       recorded: attendanceByLog.has(l.id), att: attendanceByLog.get(l.id) || {} }));
     COMPETITIONS.splice(0, COMPETITIONS.length, ...competitions.map(c => ({

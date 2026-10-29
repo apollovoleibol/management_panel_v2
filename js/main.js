@@ -130,6 +130,7 @@ document.addEventListener('click', async e => {
     /* atletas */
     case 'athlete-new': return athleteForm(null);
     case 'athlete-open': return athleteForm(id);
+    case 'dropout-deactivate': return dropoutDeactivate(id);
     case 'athlete-save': return saveAthlete(id || null);
     case 'athlete-delete': if (await confirmBox({ title: 'Excluir atleta?', text: 'O cadastro será removido. Prefira marcar como Inativo para preservar o histórico.', ok: 'Excluir', danger: true })) { try { await liveDelete('athletes', id); $('#dlg').dataset.dirty = '0'; closeDialog(); await liveReload(); toast('Atleta excluído.'); } catch (error) { toast(error.message, true); } } return;
     /* equipes e núcleos */
@@ -282,6 +283,7 @@ document.addEventListener('input', e => {
   if (t.id === 'simAge') { S.fd.simAge = t.value; clearTimeout(window._sq); window._sq = setTimeout(() => { render(); const i = $('#simAge'); i.focus(); }, 350); }
 });
 document.addEventListener('change', e => {
+  if (e.target.id === 'dropoutTeam') { dropoutTeam = e.target.value; render(); return; }
   const t = e.target;
   const map = { bkStatus: () => { S.bk.status = t.value; S.bk.kpi = ''; }, bkTeam: () => { S.bk.team = t.value; }, atStatus: () => { S.at.status = t.value; }, atTeam: () => { S.at.team = t.value; }, pkFreq: () => { S.pk.freq = t.value; }, payMonth: () => { S.pay.month = t.value; }, finMonth: () => { S.fin.month = t.value; }, simGender: () => { S.fd.simGender = t.value; } };
   if (map[t.id]) { map[t.id](); return render(); }
@@ -293,7 +295,7 @@ document.addEventListener('change', e => {
 });
 
 /* ─── Topo ─── */
-const PREVIEW_WRITE_ACTIONS = new Set(['bl-new','bl-cancel','bl-sync','pay-import-app','pay-reject','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
+const PREVIEW_WRITE_ACTIONS = new Set(['dropout-deactivate','bl-new','bl-cancel','bl-sync','pay-import-app','pay-reject','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
 $('#viewAs').addEventListener('change', event => {
   if (APOLLO_AUTH.access?.role !== 'admin') return;
   S.previewRole = event.target.value in ROLE_PRESETS && event.target.value !== 'Administrador' ? event.target.value : '';
