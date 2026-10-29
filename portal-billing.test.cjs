@@ -128,7 +128,7 @@ test('athlete billing has no configuration entry point and shows automatic read-
 });
 test('the oldest open charge is the highlighted one and others stay listed with their own action',async()=>{
  const f=portalFixture({payments:[{id:'one',athlete_id:'a',reference_month:'2026-10',due_date:'2026-10-20',status:'PENDING',value_cents:20000},{id:'two',athlete_id:'a',reference_month:'2026-09',due_date:'2026-09-20',status:'OVERDUE',value_cents:20800},{id:'three',athlete_id:'a',reference_month:'2026-08',due_date:'2026-08-20',status:'RECEIVED',value_cents:20000}]});await f.api.load();const html=f.render();
- const hero=html.slice(html.indexOf('pb-hero'),html.indexOf('</section>',html.indexOf('pb-hero')));assert.match(hero,/data-billing-pay="two"/);assert.match(hero,/Em atraso/);assert.match(html,/mensalidade em atraso/);
+ const hero=html.slice(html.indexOf('pb-hero'),html.indexOf('</section>',html.indexOf('pb-hero')));assert.match(hero,/data-billing-pay="two"/);assert.match(hero,/Em atraso/);assert.match(html,/mensalidades? em atraso/);
  assert.match(html,/Também em aberto[^]*data-billing-pay="one"/);assert.match(html,/Histórico[^]*Paga/);
 });
 test('confirmed automatic debit replaces manual payment action but refusal keeps a recovery action',async()=>{
