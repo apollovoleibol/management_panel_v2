@@ -153,7 +153,7 @@ function leadCardsHTML() {
   const cards = [
     ['stale', 'Teste feito, sem resultado', 'Registre presença, falta, aprovação ou reprovação', 'clock', 'warn', b => b.date],
     ['approved', 'Aprovados sem cadastro', 'Envie o link do cadastro e acompanhe', 'users', 'bad', b => b.approvedAt || b.date],
-    ['guardian', 'Confirmar responsável', 'Fale com um adulto responsável antes de liberar o teste', 'shield', 'warn', b => b.createdAt || b.date],
+    ['guardian', 'Completar responsável', 'Menores agendados sem o WhatsApp do responsável legal', 'shield', 'warn', b => b.createdAt || b.date],
     ['registered', 'Inserir no Tecnofit', 'Cadastro concluído · atendimento faz a inserção manual', 'check', 'info', b => b.approvedAt || b.date],
   ].map(([k, title, hint, ic, tone, since]) => {
     const list = BOOKINGS.filter(b => mine.includes(b.teamId) && BOOKING_FILTERS[k][1](b));
