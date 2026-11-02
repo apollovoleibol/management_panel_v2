@@ -10,11 +10,14 @@
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const pointer = { x: 0, y: 0, active: false };
   const layers = [
-    { speed: .0018, size: .6, opacity: .25, pull: .45 },
-    { speed: .0036, size: .9, opacity: .42, pull: .72 },
-    { speed: .0068, size: 1.3, opacity: .65, pull: 1 }
+    { speed: .011, size: .6, opacity: .25, pull: .45 },
+    { speed: .021, size: .9, opacity: .42, pull: .72 },
+    { speed: .041, size: 1.3, opacity: .65, pull: 1 }
   ];
   let width = 0, height = 0, stars = [], safeZones = [], frame = 0, previous = 0, elapsed = 0;
+  // spin: tempo orbital (desacelera perto do botão de login); near: 0 longe … 1 em cima do botão
+  let spin = 0, near = 0;
+  const NEAR_RANGE = 380, SLOW_MIN = .18;
   let exitStart = 0;
 
   function startExit() {
@@ -23,7 +26,7 @@
     const centerX = width / 2, centerY = height / 2;
     const travel = Math.max(width, height) * 2;
     for (const star of stars) {
-      const angle = star.angle + elapsed * star.layer.speed;
+      const angle = star.angle + spin * star.layer.speed;
       const x = centerX + Math.cos(angle) * star.radius + star.offsetX;
       const y = height * 1.04 + Math.sin(angle) * star.radius + star.offsetY;
       const dx = x - centerX, dy = y - centerY;
@@ -92,7 +95,7 @@
         ctx.fill();
         continue;
       }
-      const angle = star.angle + (animate ? elapsed * layer.speed : 0);
+      const angle = star.angle + (animate ? spin * layer.speed : 0);
       const orbitX = anchorX + Math.cos(angle) * star.radius;
       const orbitY = anchorY + Math.sin(angle) * star.radius;
       let targetX = 0, targetY = 0;
@@ -129,6 +132,19 @@
     const delta = previous ? Math.min((now - previous) / 1000, .05) : 0;
     previous = now;
     elapsed += delta;
+    const button = host.querySelector('#googleBtn, .btn-google');
+    let target = 0;
+    if (pointer.active && button && !reduced.matches) {
+      const root = host.getBoundingClientRect(), b = button.getBoundingClientRect();
+      const dx = Math.max(b.left - root.left - pointer.x, 0, pointer.x - (b.right - root.left));
+      const dy = Math.max(b.top - root.top - pointer.y, 0, pointer.y - (b.bottom - root.top));
+      const t = Math.max(0, 1 - Math.hypot(dx, dy) / NEAR_RANGE);
+      target = t * t * (3 - 2 * t);
+    }
+    near += (target - near) * (1 - Math.exp(-delta * 3));
+    spin += delta * (1 - (1 - SLOW_MIN) * near);
+    host.style.setProperty('--glow', near.toFixed(3));
+    if (elapsed < 2.8) updateSafeZones();
     draw(delta);
     frame = requestAnimationFrame(tick);
   }

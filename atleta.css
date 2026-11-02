@@ -3,7 +3,7 @@
 /* ─── Login ─── */
 .login{min-height:100vh;min-height:100svh;position:relative;background:#0f1332;overflow:hidden}
 .login-brand{position:absolute;inset:0;color:#fff;padding:48px 56px;display:grid;grid-template-rows:1fr auto 1fr;overflow:hidden}
-.login-brand::after{content:"";position:absolute;left:76%;bottom:-780px;width:1600px;height:1200px;transform:translateX(-50%);border-radius:50%;background:#ee4036;filter:blur(260px);opacity:.2;pointer-events:none;transition:opacity .85s ease,filter .85s ease}
+.login-brand::after{content:"";position:absolute;left:50%;bottom:-780px;width:1600px;height:1200px;transform:translateX(-50%);border-radius:50%;background:#ee4036;filter:blur(260px);opacity:calc(.2 + var(--glow,0) * .45);pointer-events:none;transition:opacity .85s ease,filter .85s ease}
 .login-brand::after{animation:login-nebula 32s ease-in-out infinite alternate;will-change:transform}
 .login-brand.motion-paused::after{animation-play-state:paused}
 .login.access-granted .login-brand::after{animation-play-state:paused;opacity:0}
@@ -11,13 +11,30 @@
 .login-stars{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
 .login-apollo,.login-lockup,.login-version,.login-side{transition:opacity .5s ease .25s}
 .login.access-granted .login-apollo,.login.access-granted .login-lockup,.login.access-granted .login-version,.login.access-granted .login-side{opacity:0;pointer-events:none}
-.login-apollo{position:relative;z-index:2;align-self:start;justify-self:center;width:108px;height:auto}
+.login{--logo-top:48px;--logo-y:calc(50vh - var(--logo-top) - 35.6px)}
+.login-apollo{position:relative;z-index:2;align-self:start;justify-self:center;width:130px;height:auto;animation:login-logo-in 2.2s backwards;will-change:transform,opacity,filter}
+.login-huddle{animation:login-rise .9s cubic-bezier(.22,1,.36,1) 1.3s backwards}
+.login-divider{animation:login-grow .8s cubic-bezier(.22,1,.36,1) 1.45s backwards;transform-origin:center}
+.login-description{animation:login-rise .9s cubic-bezier(.22,1,.36,1) 1.55s backwards}
+.login-card{animation:login-rise .9s cubic-bezier(.22,1,.36,1) 1.7s backwards}
+.login-brand .login-version{animation:login-rise .9s ease 2s backwards}
+/* Entrada do logo (igual no Huddle e no Manager): surge grande no centro, desfoca→nítido, e desliza até o topo.
+   Só transform/opacity/filter (sem recalcular layout). --logo-top = distância do topo; 35.6px = metade da altura do logo. */
+@keyframes login-logo-in {
+  0%   { opacity: 0; transform: translateY(var(--logo-y)) scale(1.5); filter: blur(12px); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+  30%  { opacity: 1; transform: translateY(var(--logo-y)) scale(1.69); filter: blur(0); animation-timing-function: linear; }
+  50%  { opacity: 1; transform: translateY(var(--logo-y)) scale(1.69); filter: blur(0); animation-timing-function: cubic-bezier(.65, 0, .2, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes login-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes login-grow { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: none; } }
+
 .login-lockup{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;justify-self:center;gap:15px;width:max-content;max-width:100%;text-align:center;font-family:'Chakra Petch',sans-serif}
 .login-huddle{margin:0;font-size:clamp(38px,4.4vw,68px);font-weight:400;letter-spacing:-.02em;line-height:1.1;color:#fff}
 .login-description{margin:0;font-size:clamp(17px,1.55vw,23px);line-height:1.4;color:#d9dceb;font-weight:400;white-space:nowrap}
 .login-divider{height:1px;width:82px;background:#fff6;flex:none}
-@keyframes login-nebula{from{transform:translate(-50%,0) scale(1)}to{transform:translate(-68%,-160px) scale(1.15)}}
-@media(prefers-reduced-motion:reduce){.login-brand::after{animation:none;will-change:auto}.login-brand::after,.login-apollo,.login-lockup,.login-version,.login-side{transition:none}}
+@keyframes login-nebula{from{transform:translate(-50%,0) scale(1)}to{transform:translate(-50%,-110px) scale(1.12)}}
+@media(prefers-reduced-motion:reduce){.login-apollo,.login-huddle,.login-divider,.login-description,.login-card,.login-brand .login-version{animation:none;will-change:auto}.login-brand::after{animation:none;will-change:auto}.login-brand::after,.login-apollo,.login-lockup,.login-version,.login-side{transition:none}}
 .login-brand .login-version{position:relative;z-index:1;align-self:end;color:#a4a8c4;font-size:12px}
 .login-side{position:absolute;z-index:3;top:68%;left:50%;transform:translate(-50%,-50%);width:min(280px,calc(100% - 40px));display:flex;align-items:center;justify-content:center}
 .login-side:has(.choice){top:61%}
@@ -27,14 +44,15 @@
 .login-card .btn.ghost{color:#dfe1ec}
 .login-card .btn.ghost:hover{background:#252b4b}
 .login-card .choice button{color:#0f1332;background:#fff;border-color:#e4e5eb}
-.gbtn{width:100%;justify-content:center;min-height:48px;font-size:14px;background:#fff;border-color:#747775;color:#1f1f1f;border-radius:12px;font-family:Arial,sans-serif;font-weight:600}
-.gbtn:hover{background:#f4f5f8;border-color:#aeb2c2}
-.gbtn:focus-visible{outline:2px solid #0f1332;outline-offset:3px}
+.gbtn{width:100%;justify-content:center;min-height:48px;font-size:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:12px;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:500;transition:all .2s ease}
+.gbtn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);transform:scale(1.02)}
+.gbtn:active{transform:scale(.95)}
+.gbtn:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .gbtn .google-icon{width:20px;height:20px;flex:none;object-fit:contain}
-.gbtn .google-spinner{display:none;width:16px;height:16px;border:2px solid #d7d9df;border-top-color:#1f1f1f;border-radius:50%;animation:login-spin .8s linear infinite}
+.gbtn .google-spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:login-spin .8s linear infinite}
 .gbtn.is-loading .google-icon{display:none}
 .gbtn.is-loading .google-spinner{display:block}
-.gbtn:disabled{opacity:1;cursor:progress}
+.gbtn:disabled{opacity:1;cursor:progress;transform:none}
 @keyframes login-spin{to{transform:rotate(360deg)}}
 .login-card #logoutBtn:not([hidden]){display:block;margin:14px auto 0;color:#fff}
 #loginMessage:empty{display:none}
@@ -192,8 +210,8 @@
 .consent .toggle{margin-left:auto;margin-top:2px}
 
 @media (max-width:900px){
+  .login{--logo-top:24px}
   .login-brand{padding:24px}
-  .login-apollo{width:96px}
   .login-lockup{gap:14px}
   .login-huddle{font-size:clamp(38px,5vw,58px)}
   .agrid{grid-template-columns:minmax(0,1fr)}
