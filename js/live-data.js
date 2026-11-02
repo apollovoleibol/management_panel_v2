@@ -91,7 +91,7 @@ async function liveLoadPanel() {
     for (const link of links) LIVE.teamCoachIds.set(link.team_id,
       [...(LIVE.teamCoachIds.get(link.team_id) || []), link.coach_id]);
     const ownProfile = coaches.find(p => p.id === user.id);
-    const roleNames = { admin: 'Administrador', finance: 'Financeiro', coordination: 'Coordenação técnica', attendance: 'Atendimento', coach: 'Técnico' };
+    const roleNames = { admin: 'Administrador', finance: 'Financeiro', coordination: 'Coordenação técnica', attendance: 'Atendimento', coach: 'Técnico', marketing: 'Marketing' };
     const staffById = new Map(staff.map(s => [s.user_id, s]));
     USERS = (isAdmin ? coaches : [ownProfile].filter(Boolean)).map(p => {
       const row = staffById.get(p.id);

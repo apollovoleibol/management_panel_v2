@@ -1,12 +1,12 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const origin = 'https://apollovoleibol.github.io';
-const pages = new Set(['overview', 'bookings', 'athletes', 'teams', 'packages', 'feeder', 'payments', 'finance', 'settings']);
+const pages = new Set(['overview', 'bookings', 'athletes', 'teams', 'packages', 'feeder', 'payments', 'finance', 'marketing', 'studio', 'settings']);
 const financePages = new Set(['packages', 'payments', 'finance']);
 // Administrator access is assigned to an existing active user by the reviewed
 // v2_admin_set_staff RPC. Invitations cannot create a legacy customer with
 // unintended v1 access while the old panel is still being isolated.
-const staffRoles = new Set(['finance', 'coordination', 'attendance', 'coach']);
+const staffRoles = new Set(['finance', 'coordination', 'attendance', 'coach', 'marketing']);
 const portalRoles = new Set(['guardian', 'athlete']);
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': origin,
@@ -49,7 +49,8 @@ Deno.serve(async request => {
   }
   for (const [page, mode] of Object.entries(portalRole ? {} : permissions as Record<string, unknown>)) {
     if (!pages.has(page) || !['none', 'view', 'edit'].includes(String(mode))
-      || (financePages.has(page) && !['admin', 'finance'].includes(role) && mode !== 'none')) {
+      || (financePages.has(page) && !['admin', 'finance'].includes(role) && mode !== 'none')
+      || (['marketing', 'studio'].includes(page) && !['admin', 'marketing'].includes(role) && mode !== 'none')) {
       return json(400, { error: 'Permissões de página inválidas.' });
     }
   }

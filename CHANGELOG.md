@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## Marketing — 2026-11-01
+
+- Novo perfil **Marketing** (só vê Planejamento e Estúdio de peças) e as páginas **Planejamento** (calendário mensal de posts e campanhas com orçamento de IA) e **Estúdio de peças**.
+- Estúdio: templates HTML com a marca da Apollo (Infield Block nos títulos, Gridnik nos textos; azul #0f1332, vermelho #ee4036), formatos feed 4:5, stories/reels 9:16, quadrado 1:1 e carrossel; edição por elemento (texto, cor, tamanho, mostrar/ocultar, foto) e exportação em PNG sem Photoshop/Illustrator.
+- IA (Gemini, pela Edge Function `marketing-ai`): textos, imagens, revisão da arte e vídeo curto. A IA nunca desenha texto, logo ou layout.
+- Calculadora de custo: estimativa antes de gerar (tokens, imagem, vídeo) e custo real registrado por peça e campanha; preços editáveis pela administração.
+- Aprovação: peça finalizada fica bloqueada e os administradores são avisados; só o administrador aprova ou reprova (regra no banco).
+- Migração 043; Edge Function `v2-invite-user` aceita o perfil Marketing.
+
 ## v2.9.7 — 2026-10-06
 
 - Pagamentos: horas atribuídas a quem conduziu o treino (substituto informado no Manager App); diárias de competição lançadas pelo técnico aparecem como "Lançado pelo técnico no app" e podem ser aprovadas ou reprovadas. Reprovados ficam fora dos totais.

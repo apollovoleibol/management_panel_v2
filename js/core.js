@@ -322,15 +322,18 @@ const PAGES = [
   { id: 'billing', label: 'Mensalidades', icon: 'money', group: 'FINANÇAS' },
   { id: 'payments', label: 'Folha dos técnicos', icon: 'wallet', group: 'FINANÇAS' },
   { id: 'finance', label: 'Financeiro', icon: 'chart', group: 'FINANÇAS' },
+  { id: 'marketing', label: 'Planejamento', icon: 'target', group: 'MARKETING' },
+  { id: 'studio', label: 'Estúdio de peças', icon: 'sparkle', group: 'MARKETING' },
   { id: 'settings', label: 'Configurações', icon: 'settings', group: 'SISTEMA' },
 ];
 const P = (...pairs) => Object.fromEntries(PAGES.map((p, i) => [p.id, pairs[i] || 'none']));
 const ROLE_PRESETS = {
-  'Administrador': P('edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit'),
+  'Administrador': P('edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit'),
   'Coordenação técnica': P('view', 'edit', 'edit', 'edit', 'none', 'edit', 'none', 'none', 'none', 'none'),
   'Financeiro': P('view', 'none', 'view', 'none', 'edit', 'none', 'edit', 'edit', 'edit', 'none'),
   'Atendimento': P('view', 'edit', 'view', 'view', 'none', 'view', 'none', 'none', 'none', 'none'),
   'Técnico': P('view', 'view', 'view', 'view', 'none', 'none', 'none', 'none', 'none', 'none'),
+  'Marketing': P('none', 'none', 'none', 'none', 'none', 'none', 'none', 'none', 'none', 'edit', 'edit'),
 };
 let USERS = [];
 

@@ -1,7 +1,7 @@
 /* Navegação, permissões e eventos */
 'use strict';
 
-const RENDER = { overview: renderOverview, bookings: renderBookings, athletes: renderAthletes, teams: renderTeams, packages: renderPackages, feeder: renderFeeder, billing: renderBilling, payments: renderPayments, finance: renderFinanceV3, settings: renderSettings };
+const RENDER = { overview: renderOverview, bookings: renderBookings, athletes: renderAthletes, teams: renderTeams, packages: renderPackages, feeder: renderFeeder, billing: renderBilling, payments: renderPayments, finance: renderFinanceV3, marketing: renderMarketing, studio: renderStudio, settings: renderSettings };
 
 function renderNav() {
   let html = '', group = '';

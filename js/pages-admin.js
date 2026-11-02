@@ -309,7 +309,7 @@ async function saveUser() {
   UE.name = $('#ueName').value.trim(); UE.email = $('#ueEmail').value.trim(); UE.active = $('#ueActive').checked;
   if (!UE.name || !/^\S+@\S+\.\S+$/.test(UE.email)) { $('#ueErr').textContent = 'Informe nome e um e-mail válido.'; return; }
   if (!FIN_ROLES.includes(UE.role)) FIN_PAGES.forEach(p => { UE.perms[p] = 'none'; });
-  const role = { Administrador: 'admin', Financeiro: 'finance', 'Coordenação técnica': 'coordination', Atendimento: 'attendance', 'Técnico': 'coach' }[UE.role];
+  const role = { Administrador: 'admin', Financeiro: 'finance', 'Coordenação técnica': 'coordination', Atendimento: 'attendance', 'Técnico': 'coach', Marketing: 'marketing' }[UE.role];
   if (UE.isNew && role === 'admin') { $('#ueErr').textContent = 'Convide primeiro a pessoa e depois promova a conta ativa.'; return; }
   const button = $('#dlg [data-act="user-save"]'); button.disabled = true;
   $('#ueErr').textContent = '';
