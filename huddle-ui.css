@@ -21,7 +21,7 @@
 .service-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
 .service-metric{position:relative;padding:14px 10px 18px;border-bottom:1px solid var(--line);min-width:0}
 .service-metric .kpi-icon{margin-bottom:8px}
-.service-metric>span,.service-metric>small{display:block;color:var(--muted);font-size:11px}
+.service-metric>span:not(.kpi-icon),.service-metric>small{display:block;color:var(--muted);font-size:11px}
 .service-metric>strong{display:block;color:var(--ink);font-size:25px;line-height:1.2;margin:4px 0}
 .measurement-gap{padding:16px 10px;color:var(--ink-2);font-size:12px}
 .measurement-gap summary{cursor:pointer;font-weight:650}
