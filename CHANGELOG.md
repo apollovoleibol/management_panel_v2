@@ -1,5 +1,21 @@
 # Histórico de versões
 
+## Marketing · Estúdio v2 — 2026-11-02
+
+- Logos oficiais do kit nas peças: assinatura azul, branca, vermelha e cinza, selo azul, selo contorno e selo contorno com foguete. Por padrão a assinatura é escolhida pelo fundo (branca em fundo escuro, azul em fundo claro).
+- Editor refeito em tela cheia: biblioteca à esquerda (Layouts, Texto, Fotos, Marca, Elementos, Pincel, IA, Camadas), arte no centro, propriedades do que está selecionado à direita e lâminas no rodapé.
+- Edição direta na arte: clicar seleciona, arrastar move com encaixe nas margens, no centro e nos outros elementos, alças redimensionam (no texto, o canto muda o tamanho da letra), alça de baixo gira e dois cliques escrevem no texto. Barra rápida sobre a seleção (duplicar, frente, trás, travar, excluir).
+- Desfazer e refazer em tudo (Ctrl+Z / Ctrl+Shift+Z), copiar e colar entre lâminas, duplicar (Ctrl+D), setas para ajuste fino, Ctrl+roda para zoom e Ctrl+S para salvar.
+- Fotos: arraste do computador direto em cima da arte ou de um espaço de foto; as fotos da peça ficam numa galeria para reaproveitar. Espaço de foto vazio aparece só no editor, nunca no PNG.
+- Camadas com reordenação por arrastar, travar e ocultar; elementos renomeáveis. Biblioteca com textos prontos no estilo da marca (título, subtítulo, etiqueta, número gigante, texto vazado), formas (faixa, degradê sobre foto, moldura, foto redonda) e pinceladas.
+- Nova peça: galeria com formato, busca e filtro por tipo de post; um clique abre o editor. Atalhos "Comece rápido" na tela do Estúdio e calculadora de custo recolhível.
+- Layouts redesenhados: tipografia grande, degradê azul sobre a foto, pinceladas sangrando para fora, palavra vazada de fundo e hierarquia mais clara. Trocar de layout guarda a foto e os textos mesmo quando o novo layout não tem o campo.
+- Carrossel com fundo contínuo (pincelada, foto, linha, respingos ou granulado atravessando as lâminas), que pode ficar atrás ou na frente dos elementos; lâminas reordenáveis por arrastar.
+- Tratamento de foto com duotone usando só as cores da paleta (azul, vermelho, branco, cinza), além de contraste, brilho, escurecimento e enquadramento.
+- Pincéis do Apollo Brushes.abr: pincelada seca, riscado, hachura, respingo e granulado. A pressão controla opacidade e tamanho de cada toque, então a textura aparece com toque leve. Pincel livre lê a pressão real da mesa digitalizadora (Wacom); com mouse a pressão é simulada.
+- Portfólio de 34 layouts em 6 grupos (chamadas e anúncios, jogos, pessoas, comunidade e institucional, carrossel, stories), mais "Em branco".
+- Migração 044: `marketing_layouts` (layouts próprios) e `marketing_pieces.meta` (fundo contínuo do carrossel e galeria de fotos da peça), com a mesma trava de edição da peça em aprovação.
+
 ## Marketing — 2026-11-01
 
 - Novo perfil **Marketing** (só vê Planejamento e Estúdio de peças) e as páginas **Planejamento** (calendário mensal de posts e campanhas com orçamento de IA) e **Estúdio de peças**.
