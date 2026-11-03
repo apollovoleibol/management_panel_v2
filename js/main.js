@@ -49,7 +49,7 @@ document.addEventListener('click', async e => {
   const nav = e.target.closest('[data-page]');
   if (nav) return go(nav.dataset.page);
   const el = e.target.closest('[data-act]');
-  if (!el || el.matches('input[type=checkbox][data-act="cal-tests"]')) return;
+  if (!el || el.matches('input[type=checkbox][data-act="cal-tests"],input[type=checkbox][data-act="cal-comps"]')) return;
   const a = el.dataset.act, id = el.dataset.id;
   if (a === 'metric-info') {
     const dialog = $('#dlg2');
@@ -82,6 +82,7 @@ document.addEventListener('click', async e => {
     case 'cal-nucleus': { const n = el.dataset.n; S.cal.nuclei.has(n) ? S.cal.nuclei.delete(n) : S.cal.nuclei.add(n); return render(); }
     case 'cal-event': return openCalEvent(el.dataset.team, el.dataset.date);
     case 'cal-day': return openCalDay(el.dataset.date);
+    case 'comp-open': return openCompetition(id);
     case 'pending-go': return pendingGo(el.dataset.k);
     case 'ov-finance': S.fin.tab = el.dataset.tab; S.fin.alertFilter = ''; return go('finance');
     case 'booking-status': return bookingQuickStatus(id, el.dataset.status);
@@ -290,6 +291,7 @@ document.addEventListener('change', e => {
   if (t.dataset.bkSel) { t.checked ? S.bk.sel.add(t.dataset.bkSel) : S.bk.sel.delete(t.dataset.bkSel); return bookingsTableRefresh(); }
   if ('bkAll' in t.dataset) { bookingsFiltered().forEach(b => t.checked ? S.bk.sel.add(b.id) : S.bk.sel.delete(b.id)); return bookingsTableRefresh(); }
   if (t.dataset.act === 'cal-tests') { S.cal.showTests = t.checked; return render(); }
+  if (t.dataset.act === 'cal-comps') { S.cal.showComps = t.checked; return render(); }
   const fd = { fdDates: () => { FEEDER.datesCount = Number(t.value); }, fdAhead: () => { FEEDER.minHoursAhead = Number(t.value); }, fdCache: () => { FEEDER.cacheMin = Number(t.value); }, fdAge: () => { FEEDER.includeAge = t.checked; }, fdGender: () => { FEEDER.includeGender = t.checked; }, fdPhone: () => { FEEDER.includeCoachPhone = t.checked; } };
   if (fd[t.id]) { render(); toast('Os parâmetros do assistente ainda precisam ser conectados ao Apps Script.', true); }
 });

@@ -5,6 +5,7 @@
 
 const MK = { loaded: false, loading: false, error: '', campaigns: [], posts: [], pieces: [], layouts: [], pricing: [], settings: { usd_brl: 5.5, video_confirm_brl: 20 }, usage: [],
   tab: 'calendar', month: ymd(TODAY).slice(0, 7), filter: 'all', ed: null, edSlide: 0, sel: '', tool: null, busy: '', review: null, video: null,
+  comps: [], showComps: true,
   ui: { rail: 'layouts', cat: 'Todos', q: '', zoom: 0, scrollTo: null }, hist: [], fut: [], histCur: '', editing: '', clip: null,
   np: { fmt: 'feed', cat: 'Todos', q: '', campaign: '', post: '' },
   paint: { brush: 'seco', color: 'red', size: 7, tex: 0.6 }, calc: { copies: 1, images: 1, reviews: 1, video: 0, brief: 300 }, thumbs: new Set() };
@@ -32,7 +33,7 @@ async function mkLoad(force = false) {
   MK.loading = true; MK.error = '';
   try {
     const db = mkDb();
-    const [c, p, pc, pr, st, us, ly] = await Promise.all([
+    const [c, p, pc, pr, st, us, ly, cp] = await Promise.all([
       db.from('marketing_campaigns').select('*').order('created_at', { ascending: false }),
       db.from('marketing_posts').select('*').order('post_date', { ascending: true }),
       db.from('marketing_pieces').select('*').order('updated_at', { ascending: false }),
@@ -40,10 +41,11 @@ async function mkLoad(force = false) {
       db.from('ai_settings').select('*').maybeSingle(),
       db.from('ai_usage').select('id,created_at,action,kind,model,input_tokens,output_tokens,units,cost_brl,piece_id,campaign_id').order('created_at', { ascending: false }).limit(1000),
       db.from('marketing_layouts').select('*').order('created_at', { ascending: false }),
+      db.rpc('v2_marketing_competitions'),
     ]);
     const bad = [c, p, pc, pr, st, us].find(x => x.error);
     if (bad) throw bad.error;
-    Object.assign(MK, { campaigns: c.data, posts: p.data, pieces: pc.data, pricing: pr.data, usage: us.data, layouts: ly.error ? [] : ly.data, loaded: true });
+    Object.assign(MK, { campaigns: c.data, posts: p.data, pieces: pc.data, pricing: pr.data, usage: us.data, layouts: ly.error ? [] : ly.data, comps: cp.error ? [] : (cp.data || []).map(mkCompRow), loaded: true });
     if (st.data) MK.settings = st.data;
   } catch (e) { MK.error = mkErr(e); }
   MK.loading = false;
@@ -73,8 +75,31 @@ function renderMarketing() {
   ${MK.error ? `<div class="banner warn">${icon('alert')}<span>${esc(MK.error)}</span></div>` : ''}
   <div class="grid g4 mb">${kpis.map(([l, v, f]) => `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div><div class="kpi-foot">${f}</div></div>`).join('')}</div>
   <section class="panel"><div class="panel-head"><div class="seg" role="tablist">${[['calendar', 'Calendário'], ['campaigns', `Campanhas (${MK.campaigns.length})`]].map(([id, l]) => `<button class="${MK.tab === id ? 'on' : ''}" data-mk="tab" data-v="${id}" role="tab" aria-selected="${MK.tab === id}">${l}</button>`).join('')}</div>
-    ${MK.tab === 'calendar' ? `<div class="mk-month"><button class="btn sm ghost sq" data-mk="month" data-dir="-1" aria-label="Mês anterior">${icon('left')}</button><b>${mkMonthLabel(ym)}</b><button class="btn sm ghost sq" data-mk="month" data-dir="1" aria-label="Próximo mês">${icon('right')}</button></div>` : ''}</div>
+    ${MK.tab === 'calendar' ? `<div class="mk-month"><button class="btn sm ghost sq" data-mk="month" data-dir="-1" aria-label="Mês anterior">${icon('left')}</button><b>${mkMonthLabel(ym)}</b><button class="btn sm ghost sq" data-mk="month" data-dir="1" aria-label="Próximo mês">${icon('right')}</button>
+      <label class="chip mk-compchk"><input type="checkbox" data-mkf="comps" ${MK.showComps ? 'checked' : ''}> ${icon('trophy')} Competições${MK.comps.length ? ` (${MK.comps.filter(k => k.date.startsWith(ym)).length})` : ''}</label></div>` : ''}</div>
   ${body}</section>`;
+}
+// Competições previstas (função v2_marketing_competitions, migração 045): data e hora no fuso local
+const MK_COMP_TYPE = { game: 'Jogo', tournament: 'Torneio', friendly: 'Amistoso', championship: 'Campeonato' };
+function mkCompRow(c) { const d = new Date(c.scheduled_at); return { id: c.id, name: c.name, team: c.team_name || '', date: ymd(d), time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, place: c.venue_name || '', opponent: c.opponent || '', round: c.round || '', type: c.competition_type || 'game', status: c.status || 'upcoming' }; }
+const mkCompTitle = k => `${k.name}${k.opponent ? ' x ' + k.opponent : ''}`;
+function mkCompDialog(id) {
+  const k = MK.comps.find(x => x.id === id); if (!k) return;
+  const d = parseYmd(k.date), dd = Math.round((d - TODAY) / 864e5);
+  const rows = [['Equipe', k.team], ['Data', `${fmtDate(d)} às ${k.time} · ${dd < 0 ? 'já aconteceu' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : `em ${dd} dias`}`], ['Tipo', MK_COMP_TYPE[k.type]], ['Adversário', k.opponent], ['Fase / rodada', k.round], ['Local', k.place], ['Situação', k.status === 'postponed' ? 'Adiada' : k.status === 'completed' ? 'Realizada' : 'Prevista']].filter(([, v]) => v);
+  const can = mkCan('marketing'), before = ymd(addDays(d, -3));
+  openDialog(dHead('Competição', esc(mkCompTitle(k)), 'Planeje a divulgação antes do jogo e o resultado depois.') + `<div class="d-body">${rows.map(([l, v]) => `<div class="stat-line"><span class="muted">${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    <div class="d-foot"><button class="btn" data-act="close-dialog">Fechar</button>${can ? `<button class="btn" data-mk="comp-post" data-id="${esc(k.id)}" data-date="${dd > 3 ? before : ymd(TODAY) > k.date ? k.date : ymd(TODAY)}" data-kind="pre">${icon('calendar')} Post de divulgação</button><button class="btn" data-mk="comp-post" data-id="${esc(k.id)}" data-date="${ymd(addDays(d, 1))}" data-kind="pos">${icon('trophy')} Post de resultado</button>` : ''}${mkCan('studio') ? `<button class="btn primary" data-mk="comp-piece" data-id="${esc(k.id)}">${icon('sparkle')} Criar peça “Dia de jogo”</button>` : ''}</div>`);
+}
+// Peça "Dia de jogo" já com confronto, data, hora e local da competição
+async function mkCompPiece(id) {
+  const k = MK.comps.find(x => x.id === id); if (!k) return;
+  closeDialog();
+  try { await mkLoadBrand(); } catch (e) { return toast(mkErr(e), true); }
+  Object.assign(MK.np, { fmt: 'feed', post: '' }); mkCreatePiece('dia-de-jogo');
+  const d = parseYmd(k.date), s = MK.ed.slides[0];
+  Object.assign(s.v, { match: (k.opponent ? `Apollo x ${k.opponent}` : k.name).slice(0, 40), date: `${DOW[d.getDay()]} · ${pad(d.getDate())}/${pad(d.getMonth() + 1)} · ${k.time.replace(':00', 'h')}`.slice(0, 30), place: (k.place || '').slice(0, 52) });
+  MK.ed.title = `Dia de jogo · ${k.name}`.slice(0, 140); MK.histCur = ''; render();
 }
 function mkCalendar() {
   const [y, m] = MK.month.split('-').map(Number), first = new Date(y, m - 1, 1), start = startOfWeek(first), cells = [];
@@ -82,7 +107,9 @@ function mkCalendar() {
   const head = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => `<div class="mk-dow">${d}</div>`).join('');
   return `<div class="mk-cal">${head}${cells.map(d => {
     const key = ymd(d), items = MK.posts.filter(p => p.post_date === key), out = d.getMonth() !== m - 1;
+    const comps = MK.showComps ? MK.comps.filter(k => k.date === key) : [];
     return `<div class="mk-day ${out ? 'out' : ''} ${key === ymd(TODAY) ? 'today' : ''}"><div class="mk-dn"><span>${d.getDate()}</span><button class="mk-add" data-mk="post-new" data-date="${key}" data-edit title="Novo post em ${fmtDate(d)}" aria-label="Novo post em ${fmtDate(d)}">${icon('plus')}</button></div>
+      ${comps.map(k => `<button class="mk-chip comp" data-mk="comp-view" data-id="${esc(k.id)}" title="${esc(`${mkCompTitle(k)} · ${k.team} · ${k.time}${k.place ? ' · ' + k.place : ''}`)}">${icon('trophy')}<b>${esc(k.time)}</b> ${esc(mkCompTitle(k))}</button>`).join('')}
       ${items.map(p => `<button class="mk-chip ${p.status}" data-mk="post-edit" data-id="${p.id}" title="${esc(p.objective || '')}"><b>${esc(MK_NET[p.network] || p.network)}</b> ${esc(p.objective || p.caption || 'Sem objetivo')}</button>`).join('')}</div>`;
   }).join('')}</div>${!MK.posts.length ? '<div class="panel-pad muted small">Nenhum post planejado. Clique em um dia ou em “Novo post”.</div>' : ''}`;
 }
@@ -97,8 +124,8 @@ function mkCampaignList() {
       <div class="mk-card-f"><span class="hint">${posts.length} post(s) · ${pieces.length} peça(s)</span><span><button class="btn sm" data-mk="campaign-edit" data-id="${c.id}" data-edit>${icon('edit')} Editar</button> <button class="btn sm primary" data-mk="piece-new" data-campaign="${c.id}" data-edit>${icon('sparkle')} Criar peça</button></span></div></article>`;
   }).join('')}</div>`;
 }
-function mkPostForm(id, date, pieceId) {
-  const p = id ? MK.posts.find(x => x.id === id) : { post_date: date || ymd(TODAY), network: 'instagram', status: 'ideia', campaign_id: '', piece_id: pieceId || '', objective: '', caption: '' };
+function mkPostForm(id, date, pieceId, preset = {}) {
+  const p = id ? MK.posts.find(x => x.id === id) : { post_date: date || ymd(TODAY), network: 'instagram', status: 'ideia', campaign_id: '', piece_id: pieceId || '', objective: preset.objective || '', caption: '' };
   if (!p) return;
   const piece = mkPiece(p.piece_id), approved = piece?.approval_status === 'aprovada';
   openDialog(dHead(id ? 'Post' : 'Novo post', id ? 'Editar post' : 'Planejar post', 'Cada post pode ter uma peça criada no Estúdio.') + `<form class="d-body" novalidate>
@@ -392,6 +419,9 @@ document.addEventListener('click', async e => {
     case 'piece-create': return mkCreatePiece(el.dataset.layout);
     case 'piece-quick': if (!mkCan('studio')) return; Object.assign(MK.np, { fmt: el.dataset.fmt, post: '' }); return mkCreatePiece(el.dataset.layout);
     case 'np-fmt': MK.np.fmt = el.dataset.v; return mkNpRefresh();
+    case 'comp-view': return mkCompDialog(id);
+    case 'comp-post': { const k = MK.comps.find(x => x.id === id); if (!k) return; closeDialog(); return mkPostForm(null, el.dataset.date, '', { objective: `${el.dataset.kind === 'pos' ? 'Resultado' : 'Divulgar'}: ${mkCompTitle(k)} (${k.team}, ${fmtDate(parseYmd(k.date))})`.slice(0, 300) }); }
+    case 'comp-piece': return mkCompPiece(id);
     case 'np-cat': MK.np.cat = el.dataset.v; return mkNpRefresh();
     case 'piece-open': return mkOpenPiece(id);
     case 'filter': MK.filter = el.dataset.v; return render();
@@ -409,5 +439,6 @@ document.addEventListener('click', async e => {
 let mkNpT;
 document.addEventListener('input', e => { if (e.target.id === 'npQ') { MK.np.q = e.target.value; clearTimeout(mkNpT); mkNpT = setTimeout(() => { const g = $('#npGrid'); if (g) g.innerHTML = mkNpGrid(); mkNpThumbs(); }, 150); } });
 document.addEventListener('input', e => { const el = e.target.closest('[data-mkf="calc"]'); if (el) MK.calc[el.dataset.k] = Math.max(0, Number(el.value) || 0); });
+document.addEventListener('change', e => { if (e.target.matches?.('[data-mkf="comps"]')) { MK.showComps = e.target.checked; render(); } });
 document.addEventListener('toggle', e => { if (e.target.classList?.contains('mk-calcbox')) MK.calcOpen = e.target.open; }, true);
 document.addEventListener('change', e => { const el = e.target.closest('[data-mkf="calc"]'); if (el) { MK.calc[el.dataset.k] = Math.max(0, Number(el.value) || 0); render(); } });

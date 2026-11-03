@@ -65,6 +65,9 @@ function renderOverview() {
   <div class="section-title"><h2>Agenda da semana</h2></div>
   ${weekCalendarHTML()}
 
+  <div class="section-title"><h2>Próximos eventos</h2></div>
+  ${upcomingEventsHTML()}
+
   <div class="section-title"><h2>Atendimento e conversão de leads</h2><div class="seg" role="group" aria-label="Período">${[[0, 'Mês atual'], [-1, 'Mês anterior']].map(([v, l]) => `<button class="${S.ov.month === v ? 'on' : ''}" data-act="ov-month" data-v="${v}">${l}</button>`).join('')}</div></div>
   <div class="split-wide">
     <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Agendamentos criados em ${R.label}${S.ov.month === 0 ? ' (até hoje)' : ''}</div></div><span class="tag nodot st-ok">Conversão total ${pct(enrolled.length, recentBookings.length, 1)}</span></div>
@@ -104,6 +107,36 @@ function calWeekEvents(d) {
     tests: BOOKINGS.filter(b => b.teamId === t.id && b.date.slice(0, 10) === key && b.status !== 'Cancelado' && !b.archived)
   }))).sort((a, b) => toMin(a.s.start) - toMin(b.s.start) || a.t.name.localeCompare(b.t.name, 'pt-BR'));
 }
+// Competições previstas (cadastradas no Manager App): faixa no topo do dia na agenda e lista de próximos eventos
+const COMP_TYPE = { game: 'Jogo', tournament: 'Torneio', friendly: 'Amistoso', championship: 'Campeonato' };
+const compLabel = k => `${k.time ? k.time + ' · ' : ''}${k.name}${k.opponent ? ' x ' + k.opponent : ''}`;
+function calComps(key) {
+  if (!S.cal.showComps) return [];
+  const mine = myTeamIds();
+  return COMPETITIONS.filter(k => k.date === key && mine.includes(k.teamId) && (!teamOf(k.teamId) || S.cal.nuclei.has(teamOf(k.teamId).n)))
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+}
+const compChip = k => `<button class="cal-comp" data-act="comp-open" data-id="${esc(k.id)}" title="${esc(`${compLabel(k)} · ${teamOf(k.teamId)?.name || ''}`)}">${icon('trophy')}<span>${esc(compLabel(k))}</span></button>`;
+const compListItem = k => `<button class="item comp" data-act="comp-open" data-id="${esc(k.id)}"><span class="bar"></span><span class="time">${k.time || 'dia todo'}</span><span style="min-width:0;flex:1"><strong>${icon('trophy')} ${esc(k.name)}${k.opponent ? ' x ' + esc(k.opponent) : ''}</strong><small>${esc(teamOf(k.teamId)?.name || '')}${k.place ? ' · ' + esc(k.place) : ''}</small></span><span class="tag nodot st-agendado">${esc(COMP_TYPE[k.type] || 'Competição')}</span></button>`;
+const compCountdown = k => { const dd = Math.round((parseYmd(k.date) - TODAY) / 864e5); return dd < 0 ? 'realizada' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : `em ${dd} dias`; };
+function upcomingEventsHTML() {
+  const mine = myTeamIds(), today = ymd(TODAY);
+  const list = COMPETITIONS.filter(k => k.date >= today && mine.includes(k.teamId) && k.status !== 'completed')
+    .sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`));
+  if (!list.length) return `<section class="panel"><div class="panel-pad muted small">Nenhuma competição prevista.</div></section>`;
+  const shown = list.slice(0, 8);
+  return `<section class="panel"><div class="panel-head"><div><h2>Competições previstas</h2><div class="sub">${list.length} competição(ões) a partir de hoje${list.length > shown.length ? ` · mostrando as ${shown.length} próximas` : ''}</div></div></div>
+    <div class="events">${shown.map(k => { const d = parseYmd(k.date), dd = Math.round((d - TODAY) / 864e5), t = teamOf(k.teamId);
+      return `<button class="event-row" data-act="comp-open" data-id="${esc(k.id)}"><span class="event-date ${dd <= 7 ? 'soon' : ''}"><b>${d.getDate()}</b><small>${MON[d.getMonth()]}</small></span>
+        <span class="event-body"><strong>${esc(k.name)}${k.opponent ? ` <span class="muted">x ${esc(k.opponent)}</span>` : ''}</strong><small>${esc(t?.name || '')} · ${DOW_FULL[d.getDay()]}${k.time ? ', ' + k.time : ''}${k.place ? ' · ' + esc(k.place) : ''}</small></span>
+        <span class="event-tags"><span class="tag nodot st-agendado">${esc(COMP_TYPE[k.type] || 'Competição')}</span><span class="tag nodot ${dd <= 7 ? 'st-bad' : 'st-info'}">${compCountdown(k)}</span></span></button>`; }).join('')}</div></section>`;
+}
+function openCompetition(id) {
+  const k = COMPETITIONS.find(x => x.id === id); if (!k) return;
+  const d = parseYmd(k.date), t = teamOf(k.teamId);
+  const rows = [['Equipe', t?.name], ['Data', `${DOW_FULL[d.getDay()]}, ${fmtDate(d)}${k.time ? ' às ' + k.time : ''} (${compCountdown(k)})`], ['Tipo', COMP_TYPE[k.type]], ['Adversário', k.opponent], ['Fase / rodada', k.round], ['Local', k.place], ['Situação', k.status === 'postponed' ? 'Adiada' : k.status === 'completed' ? 'Realizada' : 'Prevista']].filter(([, v]) => v);
+  openDialog(dHead('Competição', esc(k.name)) + `<div class="d-body">${rows.map(([l, v]) => `<div class="stat-line"><span class="muted">${l}</span><b>${esc(v)}</b></div>`).join('')}</div><div class="d-foot"><button class="btn" data-act="close-dialog">Fechar</button></div>`);
+}
 const calEventTitle = e => { const c = coachOf(e.t.coach); return `${e.t.name} · ${e.s.start}–${e.s.end} · ${c ? c.name : 'sem técnico'}${e.cancelled ? ' · treino cancelado' : e.testBlocked ? ' · sem novos testes' : ''}${e.tests.length ? ` · ${e.tests.length} teste(s)` : ''}`; };
 function calListItem(e) {
   const c = coachOf(e.t.coach);
@@ -112,8 +145,8 @@ function calListItem(e) {
 function weekCalendarHTML() {
   const ws = startOfWeek(S.cal.cursor), days = [...Array(7)].map((_, i) => addDays(ws, i)), end = addDays(ws, 6);
   const range = ws.getMonth() === end.getMonth() ? `${ws.getDate()} – ${end.getDate()} de ${MONTHS[end.getMonth()]} ${end.getFullYear()}` : `${ws.getDate()} ${MON[ws.getMonth()].toLowerCase()} – ${end.getDate()} ${MON[end.getMonth()].toLowerCase()} ${end.getFullYear()}`;
-  const week = days.map(d => ({ d, key: ymd(d), evs: calWeekEvents(d) }));
-  const all = week.flatMap(w => w.evs), total = all.filter(e => !e.cancelled).length;
+  const week = days.map(d => ({ d, key: ymd(d), evs: calWeekEvents(d), comps: calComps(ymd(d)) }));
+  const all = week.flatMap(w => w.evs), total = all.filter(e => !e.cancelled).length, nComps = week.reduce((n, w) => n + w.comps.length, 0);
   // Mostra só o intervalo de horas com treinos (mínimo de 4 horas), em vez de 6h–23h fixos.
   let H0 = 7, H1 = 22;
   if (all.length) {
@@ -122,7 +155,7 @@ function weekCalendarHTML() {
     if (H1 - H0 < 4) H1 = Math.min(24, H0 + 4);
   }
   const PH = 56, MAXL = 3; // altura de cada hora; no máximo 3 colunas por horário
-  const cols = week.map(({ d, key, evs }) => {
+  const cols = week.map(({ d, key, evs, comps }) => {
     // Agrupa treinos sobrepostos; acima de 3 ao mesmo tempo, mostra "+N" que abre a lista do dia.
     const clusters = []; let cur = null, curEnd = -1;
     evs.forEach(e => {
@@ -147,29 +180,30 @@ function weekCalendarHTML() {
         <strong>${esc(e.t.name)}</strong><span>${e.s.start}–${e.s.end}${e.cancelled ? ' · sem treino' : e.testBlocked ? ' · sem testes' : ''}</span>${h > 70 && e.L < 3 ? `<span>${c ? esc(c.name) : 'Sem técnico'}</span>` : ''}${S.cal.showTests && e.tests.length ? `<span class="tests">${icon('target')} ${e.tests.length}</span>` : ''}</button>`;
     }).join('');
     const nowLine = isToday && NOW.getHours() >= H0 && NOW.getHours() < H1 ? `<div class="now-line" style="top:${((NOW.getHours() - H0) * 60 + NOW.getMinutes()) / 60 * PH}px"></div>` : '';
-    return { head: `<div class="cal-head ${isToday ? 'today' : ''}"><div class="dname">${DOW[d.getDay()]}</div><div class="dnum">${d.getDate()}</div><span class="dcount">${evs.filter(e => !e.cancelled).length} treino${evs.filter(e => !e.cancelled).length === 1 ? '' : 's'}</span></div>`, col: `<div class="cal-col ${isToday ? 'today' : ''}" style="height:${(H1 - H0) * PH}px;--ph:${PH}px">${html}${more}${nowLine}</div>` };
+    return { head: `<div class="cal-head ${isToday ? 'today' : ''}"><div class="dname">${DOW[d.getDay()]}</div><div class="dnum">${d.getDate()}</div><span class="dcount">${evs.filter(e => !e.cancelled).length} treino${evs.filter(e => !e.cancelled).length === 1 ? '' : 's'}</span>${comps.length ? `<div class="cal-comps">${comps.map(compChip).join('')}</div>` : ''}</div>`, col: `<div class="cal-col ${isToday ? 'today' : ''}" style="height:${(H1 - H0) * PH}px;--ph:${PH}px">${html}${more}${nowLine}</div>` };
   });
   const gutter = [...Array(H1 - H0)].map((_, i) => i ? `<span style="top:${i * PH}px">${pad(H0 + i)}:00</span>` : '').join('');
   // Semanas com poucos treinos (ex.: técnico com 1 equipe) e celulares usam a lista, mais fácil de ler.
   const listOnly = total <= 4;
-  const list = week.map(({ d, key, evs }) => `<div class="day ${key === ymd(TODAY) ? 'today' : ''}"><h3>${DOW_FULL[d.getDay()]}, ${d.getDate()}/${pad(d.getMonth() + 1)}${key === ymd(TODAY) ? ' · hoje' : ''}</h3>${evs.length ? evs.map(calListItem).join('') : '<div class="empty-day">Sem treinos</div>'}</div>`)
-    .filter((html, i) => !listOnly || week[i].evs.length || week[i].key === ymd(TODAY)).join('');
+  const list = week.map(({ d, key, evs, comps }) => `<div class="day ${key === ymd(TODAY) ? 'today' : ''}"><h3>${DOW_FULL[d.getDay()]}, ${d.getDate()}/${pad(d.getMonth() + 1)}${key === ymd(TODAY) ? ' · hoje' : ''}</h3>${comps.map(compListItem).join('')}${evs.length ? evs.map(calListItem).join('') : comps.length ? '' : '<div class="empty-day">Sem treinos</div>'}</div>`)
+    .filter((html, i) => !listOnly || week[i].evs.length || week[i].comps.length || week[i].key === ymd(TODAY)).join('');
   return `<section class="panel">
     <div class="cal-toolbar">
       <button class="btn sm" data-act="cal-today">Hoje</button>
       <button class="btn ghost sq" data-act="cal-nav" data-dir="-1" aria-label="Semana anterior">${icon('left')}</button>
       <button class="btn ghost sq" data-act="cal-nav" data-dir="1" aria-label="Próxima semana">${icon('right')}</button>
       <span class="range">${range}</span>
-      <span class="muted small">${total} treino${total === 1 ? '' : 's'} na semana</span>
+      <span class="muted small">${total} treino${total === 1 ? '' : 's'} na semana${nComps ? ` · ${nComps} competição${nComps === 1 ? '' : 'ões'}` : ''}</span>
       <div class="chips" style="margin-left:auto">${NUCLEI.filter(n => TEAMS.some(t => t.n === n.id && myTeamIds().includes(t.id))).map(n => `<button class="chip ${S.cal.nuclei.has(n.id) ? '' : 'off'}" data-act="cal-nucleus" data-n="${n.id}" aria-pressed="${S.cal.nuclei.has(n.id)}"><span class="dot" style="background:var(--n-${NCLASS(n.id)})"></span>${esc(nucleusLabel(n.name))}</button>`).join('')}
-        <label class="chip" style="cursor:pointer"><input type="checkbox" data-act="cal-tests" ${S.cal.showTests ? 'checked' : ''} style="accent-color:var(--brand-btn);margin:0"> Testes agendados</label></div>
+        <label class="chip" style="cursor:pointer"><input type="checkbox" data-act="cal-tests" ${S.cal.showTests ? 'checked' : ''} style="accent-color:var(--brand-btn);margin:0"> Testes agendados</label>
+        <label class="chip" style="cursor:pointer"><input type="checkbox" data-act="cal-comps" ${S.cal.showComps ? 'checked' : ''} style="accent-color:var(--brand-btn);margin:0"> Competições</label></div>
     </div>
     ${listOnly ? '' : `<div class="cal-scroll grid-view"><div class="cal">
       <div class="cal-head" style="border-right:1px solid var(--line-2)"></div>${cols.map(c => c.head).join('')}
       <div class="cal-gutter" style="height:${(H1 - H0) * PH}px">${gutter}</div>${cols.map(c => c.col).join('')}
     </div></div>`}
     <div class="cal-list ${listOnly ? 'only' : ''}">${list || '<div class="day"><div class="empty-day">Nenhum treino nesta semana.</div></div>'}</div>
-    <div class="panel-foot"><span>Cada cor é um núcleo. Treinos cancelados aparecem riscados; “sem testes” só fecha a data para novos agendamentos.</span><span>Clique em um treino para ver detalhes e testes marcados.</span></div>
+    <div class="panel-foot"><span>Cada cor é um núcleo. Treinos cancelados aparecem riscados; “sem testes” só fecha a data para novos agendamentos. Competições aparecem no topo do dia.</span><span>Clique em um treino para ver detalhes e testes marcados.</span></div>
   </section>`;
 }
 function openCalDay(date) {

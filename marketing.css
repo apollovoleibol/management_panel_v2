@@ -26,6 +26,10 @@
 .mk-add .i{width:14px;height:14px}
 .mk-chip{border:0;border-left:3px solid var(--muted);background:var(--surface-3);color:var(--ink);text-align:left;font-size:11.5px;line-height:1.3;padding:4px 6px;border-radius:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;width:100%}
 .mk-chip b{font-weight:700}
+.mk-chip.comp{border-left-color:var(--brand);background:var(--brand-soft);display:flex;align-items:center;gap:4px}
+.mk-chip.comp .i{width:12px;height:12px;flex-shrink:0;color:var(--brand-ink)}
+.mk-compchk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin-left:6px;font-size:12px}
+.mk-compchk input{margin:0;accent-color:var(--brand-btn,var(--brand))}.mk-compchk .i{width:14px;height:14px;color:var(--brand-ink)}
 .mk-chip.ideia{border-left-color:var(--faint)}
 .mk-chip.em_criacao{border-left-color:#d99a1c}
 .mk-chip.pronto{border-left-color:#2e9e62}

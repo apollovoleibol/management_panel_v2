@@ -241,11 +241,11 @@ let SESSIONS = [];
   }
 })();
 const COMPETITIONS = [
-  { id: 'k1', name: 'Copa Regional Sub-17 — semifinal', teamId: 't3', date: ymd(addDays(TODAY, 5)), place: 'Ginásio Municipal' },
-  { id: 'k2', name: 'Liga Regional Sub-15 — 4ª rodada', teamId: 't2', date: ymd(addDays(TODAY, 9)), place: 'Ginásio Apollo Centro' },
-  { id: 'k3', name: 'Torneio Amador de Outono', teamId: 't4', date: ymd(addDays(TODAY, 16)), place: 'Clube Atlético' },
-  { id: 'k4', name: 'Festival de Iniciação', teamId: 't1', date: ymd(addDays(TODAY, 22)), place: 'Arena Sul' },
-  { id: 'k5', name: 'Estadual Sub-17 Masculino — 2ª etapa', teamId: 't5', date: ymd(addDays(TODAY, 12)), place: 'Arena Sul' },
+  { id: 'k1', name: 'Copa Regional Sub-17 — semifinal', teamId: 't3', date: ymd(addDays(TODAY, 5)), time: '15:00', place: 'Ginásio Municipal', opponent: 'Curitibano', type: 'championship' },
+  { id: 'k2', name: 'Liga Regional Sub-15 — 4ª rodada', teamId: 't2', date: ymd(addDays(TODAY, 9)), time: '10:00', place: 'Ginásio Apollo Centro', opponent: '', type: 'game' },
+  { id: 'k3', name: 'Torneio Amador de Outono', teamId: 't4', date: ymd(addDays(TODAY, 16)), time: '08:30', place: 'Clube Atlético', opponent: '', type: 'tournament' },
+  { id: 'k4', name: 'Festival de Iniciação', teamId: 't1', date: ymd(addDays(TODAY, 22)), time: '09:00', place: 'Arena Sul', opponent: '', type: 'friendly' },
+  { id: 'k5', name: 'Estadual Sub-17 Masculino — 2ª etapa', teamId: 't5', date: ymd(addDays(TODAY, 12)), time: '14:00', place: 'Arena Sul', opponent: '', type: 'championship' },
 ];
 
 /* Financeiro */
@@ -371,7 +371,7 @@ let FEEDER = {
 /* ─── Estado de navegação ─── */
 const S = {
   page: 'overview', userId: 'u1', previewRole: '', theme: 'light',
-  cal: { cursor: TODAY, nuclei: new Set(NUCLEI.map(n => n.id)), showTests: true },
+  cal: { cursor: TODAY, nuclei: new Set(NUCLEI.map(n => n.id)), showTests: true, showComps: true },
   bk: { q: '', status: '', team: '', archived: 'all', sort: { col: 'data', dir: 'asc' }, kpi: '', pending: '', sel: new Set() },
   at: { q: '', status: '', team: '', n: '', pending: '' },
   tm: { n: 'all', q: '' },

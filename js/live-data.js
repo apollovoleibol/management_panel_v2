@@ -82,7 +82,7 @@ async function liveLoadPanel() {
       liveAll('v2_training_cancellations', 'team_id,training_date'),
       liveAll('training_logs', 'id,team_id,coach_id,conducted_by,started_at,ended_at,duration_minutes'),
       liveAll('attendance', 'log_id,athlete_id,status'),
-      liveAll('competitions', 'id,team_id,name,scheduled_at,venue_name,status'),
+      liveAll('competitions', 'id,team_id,name,scheduled_at,venue_name,status,opponent,round,competition_type'),
       isAdmin ? liveAll('v2_staff', 'user_id,role,permissions,is_active') : Promise.resolve([]),
       isAdmin ? liveAll('v2_athlete_access', 'user_id,athlete_id,relation') : Promise.resolve([])
     ]);
@@ -171,9 +171,10 @@ async function liveLoadPanel() {
     SESSIONS = logs.map(l => ({ teamId: l.team_id, coach: l.conducted_by || l.coach_id, startedAt: l.started_at, date: l.started_at.slice(0, 10),
       start: l.started_at.slice(11, 16), hours: (l.duration_minutes || 0) / 60,
       recorded: attendanceByLog.has(l.id), att: attendanceByLog.get(l.id) || {} }));
-    COMPETITIONS.splice(0, COMPETITIONS.length, ...competitions.map(c => ({
-      id: c.id, teamId: c.team_id, name: c.name, date: c.scheduled_at.slice(0, 10), place: c.venue_name || ''
-    })));
+    // Data e hora no fuso local (scheduled_at vem em UTC); canceladas ficam fora da agenda
+    COMPETITIONS.splice(0, COMPETITIONS.length, ...competitions.filter(c => c.status !== 'cancelled').map(c => { const d = new Date(c.scheduled_at); return {
+      id: c.id, teamId: c.team_id, name: c.name, date: ymd(d), time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, place: c.venue_name || '',
+      opponent: c.opponent || '', round: c.round || '', type: c.competition_type || 'game', status: c.status || 'upcoming' }; }));
     LEDGER = []; DELINQ = []; IMPORTS = []; COACH_ITEMS = []; PAYOUTS = {};
     if (finance) {
       const [rates, items, payouts, tecnofitLinks] = await Promise.all([

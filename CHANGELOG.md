@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## Competições na agenda — 2026-11-03
+
+- Visão geral: competições previstas (cadastradas no Manager App) aparecem no topo de cada dia da agenda da semana, com a caixa "Competições" para mostrar ou esconder. Clique abre equipe, data e hora, adversário, fase e local.
+- Nova seção **Próximos eventos** na Visão geral: as próximas competições com data em destaque, tipo e contagem regressiva.
+- Planejamento (marketing): competições no calendário mensal, com caixa para mostrar ou esconder. Da competição dá para planejar o post de divulgação (3 dias antes), o post de resultado (dia seguinte) ou criar a peça "Dia de jogo" já preenchida.
+- Métricas de atendimento: ícones centralizados e títulos sem sobreposição do (i).
+- Migração 045: função `v2_marketing_competitions` (só leitura: competição, equipe, data, local e adversário) para o perfil Marketing, que não lê equipes nem competições diretamente.
+
 ## Marketing · Estúdio v2 — 2026-11-02
 
 - Logos oficiais do kit nas peças: assinatura azul, branca, vermelha e cinza, selo azul, selo contorno e selo contorno com foguete. Por padrão a assinatura é escolhida pelo fundo (branca em fundo escuro, azul em fundo claro).
