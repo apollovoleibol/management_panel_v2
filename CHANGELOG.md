@@ -1,5 +1,16 @@
 # Histórico de versões
 
+## Folha dos técnicos: fechamento guiado — 2026-11-09
+
+- A página abre no mês a fechar (o anterior, enquanto houver técnico sem pagamento) e mostra a situação do mês: total, quanto já foi pago, quanto falta e os 3 passos (revisar, pagar, pago) com contagens.
+- Lista de técnicos na ordem do próximo passo, com um único botão por técnico: "Revisar lançamentos", "Pagar R$ X" ou "Ver detalhes". Técnicos sem treinos no mês ficam recolhidos.
+- Treinos com chamada ou confirmados no Manager App entram sozinhos na revisão (acabou o botão "Lançar X treinos").
+- Revisão em lote: tudo vem marcado para aprovar; desmarcar reprova. Um botão grava tudo ("Aprovar 29 e reprovar 1"). Cada treino mostra se teve chamada e quantos presentes. Diárias sem valor definido ficam aguardando, com atalho para definir.
+- Pagamento em tela própria: valor, chave PIX com botão de copiar (ou campo para cadastrar) e "Já fiz o PIX · registrar". A saída "Folha técnica" continua indo para o Financeiro.
+- "Valores e PIX": hora-aula, diária e chave PIX de todos os técnicos numa tela só (antes não havia onde cadastrar a chave PIX).
+- "Lançar diária ou extra" lançado pela administração já entra aprovado.
+- Migração 046: lançamento reprovado não bloqueia mais o pagamento; diária de competição só é aprovada com valor definido; mensagens de erro em português; "Meu mês" do técnico no Manager App não soma reprovados.
+
 ## Competições na agenda — 2026-11-03
 
 - Visão geral: competições previstas (cadastradas no Manager App) aparecem no topo de cada dia da agenda da semana, com a caixa "Competições" para mostrar ou esconder. Clique abre equipe, data e hora, adversário, fase e local.

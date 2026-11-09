@@ -60,7 +60,7 @@ document.addEventListener('click', async e => {
   if (S.previewRole && PREVIEW_WRITE_ACTIONS.has(a)) return toast('A prévia permite apenas consultar. Volte para Minha conta para alterar dados.', true);
   if (el.hasAttribute('data-edit') && !canEdit(pageOfAction(el))) { e.preventDefault(); e.stopPropagation(); return toast('Seu perfil tem acesso somente de visualização nesta página.', true); }
   if (el.dataset.need && !canEdit(el.dataset.need)) { e.preventDefault(); return toast('Seu perfil não pode editar ' + PAGES.find(p => p.id === el.dataset.need).label + '.', true); }
-  if (el.tagName === 'INPUT' && el.type === 'checkbox' && !a.startsWith('fd-visible') && !a.startsWith('pay-approve')) return;
+  if (el.tagName === 'INPUT' && el.type === 'checkbox' && !a.startsWith('fd-visible')) return;
   switch (a) {
     case 'bl-new': case 'bl-tab': case 'bl-reload': case 'bl-goto-payroll': case 'bl-copy': case 'bl-wa': case 'bl-sync': case 'bl-cancel': e.preventDefault(); return billingAction(a, el);
     case 'service-queue': return openServiceQueue();
@@ -192,52 +192,9 @@ document.addEventListener('click', async e => {
     case 'fd-rule-edit': return feederRuleEdit(el.dataset.g, Number(el.dataset.i));
     case 'fd-rule-del': return toast('As regras ainda estão no Apps Script; altere-as na integração antes de habilitar esta ação.', true);
     case 'fd-rule-save': return toast('As regras ainda estão no Apps Script; altere-as na integração antes de habilitar esta ação.', true);
-    /* pagamentos */
-    case 'pay-open': return payDrawer(id);
-    case 'pay-add': return payAddForm();
-    case 'pay-import-app': return payImportApp();
-    case 'pay-add-save': return payAddSave();
-    case 'pay-approve': {
-      const it = COACH_ITEMS.find(i => i.id === id);
-      if (!it || !canEdit('payments')) return;
-      const { error } = await financeDbClient().from('v2_coach_items').update({ status: 'approved' }).eq('id', id);
-      if (error) return toast(error.message, true);
-      await liveReload(); return payDrawer(it.coach);
-    }
-    case 'pay-reject': {
-      const it = COACH_ITEMS.find(i => i.id === id);
-      if (!it || !canEdit('payments')) return;
-      const ok = await confirmBox({ title: 'Reprovar lançamento?', text: `${esc(it.desc)} — ${it.date.split('-').reverse().join('/')}. O técnico verá como reprovado no app.`, ok: 'Reprovar', danger: true });
-      if (!ok) return;
-      const { error } = await financeDbClient().from('v2_coach_items').update({ status: 'rejected' }).eq('id', id);
-      if (error) return toast(error.message, true);
-      await liveReload(); return payDrawer(it.coach);
-    }
-    case 'pay-approve-all': {
-      if (!canEdit('payments')) return;
-      const ids = COACH_ITEMS.filter(i => i.coach === id && inMonth(i.date, S.pay.month) && i.status === 'pendente').map(i => i.id);
-      if (ids.length) {
-        const { error } = await financeDbClient().from('v2_coach_items').update({ status: 'approved' }).in('id', ids);
-        if (error) return toast(error.message, true);
-      }
-      await liveReload(); return payDrawer(id);
-    }
-    case 'pay-rates': {
-      if (!canEdit('payments')) return;
-      const r = centsInput($('#pdRate').value), d = centsInput($('#pdDaily').value);
-      if (!(r > 0 && d > 0)) return toast('Valores inválidos.', true);
-      const { error } = await financeDbClient().from('v2_coach_rates').upsert({ coach_id: id, hourly_cents: r, daily_cents: d });
-      if (error) return toast(error.message, true);
-      await liveReload(); payDrawer(id); return toast('Valores do técnico atualizados.');
-    }
-    case 'pay-mark': {
-      const c = coachOf(id), s = coachSummary(id, S.pay.month);
-      if (!(await confirmBox({ title: 'Confirmar pagamento realizado?', text: `Confirme que a transferência ao técnico já foi feita fora deste painel.<br>${esc(c.name)} · ${monthLabel(S.pay.month)}<br><b>${money(s.total)}</b>${c.pix ? ` · PIX ${esc(c.pix)}` : ''}. Uma saída “Folha técnica” será lançada no Financeiro.`, ok: 'Marcar como pago' }))) return;
-      const { error } = await financeDbClient().rpc('v2_record_coach_payout', { p_coach: id, p_month: `${S.pay.month}-01` });
-      if (error) return toast(error.message, true);
-      closeDialog(); await liveReload(); return toast('Pagamento registrado e lançado no Financeiro.');
-    }
-    case 'pay-export': { const key = S.pay.month; return download(`pagamentos-tecnicos-${key}.csv`, csv([['Técnico', 'Data', 'Tipo', 'Descrição', 'Horas', 'Valor (R$)', 'Status'], ...COACH_ITEMS.filter(i => inMonth(i.date, key)).sort((a, b) => a.coach.localeCompare(b.coach) || a.date.localeCompare(b.date)).map(i => [coachOf(i.coach).name, i.date.split('-').reverse().join('/'), i.type, i.desc, i.hours || '', (itemValue(i) / 100).toFixed(2).replace('.', ','), i.status])])); }
+    /* folha dos técnicos */
+    case 'pay-review': case 'pay-review-save': case 'pay-pay': case 'pay-pay-save': case 'pay-rates-open': case 'pay-rates-save':
+    case 'pay-add': case 'pay-add-save': case 'pay-export': case 'pay-copy-pix': case 'pay-month': case 'pay-next': return payrollAction(a, el);
     /* financeiro */
     case 'fin-tab': S.fin.tab = el.dataset.tab; return render();
     case 'payment-contacts': return openPaymentContacts();
@@ -268,7 +225,7 @@ document.addEventListener('toggle', e => { const d = e.target; if (d.matches && 
 /* Linhas de tabela acessíveis por teclado */
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeSidebar();
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr[data-act]')) { e.preventDefault(); e.target.click(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr[data-act], .rowlink[data-act]')) { e.preventDefault(); e.target.click(); }
 });
 
 /* ─── Filtros e campos ─── */
@@ -286,7 +243,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   if (e.target.id === 'dropoutTeam') { dropoutTeam = e.target.value; render(); return; }
   const t = e.target;
-  const map = { bkStatus: () => { S.bk.status = t.value; S.bk.kpi = ''; }, bkTeam: () => { S.bk.team = t.value; }, atStatus: () => { S.at.status = t.value; }, atTeam: () => { S.at.team = t.value; }, pkFreq: () => { S.pk.freq = t.value; }, payMonth: () => { S.pay.month = t.value; }, finMonth: () => { S.fin.month = t.value; }, simGender: () => { S.fd.simGender = t.value; } };
+  const map = { bkStatus: () => { S.bk.status = t.value; S.bk.kpi = ''; }, bkTeam: () => { S.bk.team = t.value; }, atStatus: () => { S.at.status = t.value; }, atTeam: () => { S.at.team = t.value; }, pkFreq: () => { S.pk.freq = t.value; }, payMonth: () => { S.pay.month = t.value; S.pay.auto = false; }, finMonth: () => { S.fin.month = t.value; }, simGender: () => { S.fd.simGender = t.value; } };
   if (map[t.id]) { map[t.id](); return render(); }
   if (t.dataset.bkSel) { t.checked ? S.bk.sel.add(t.dataset.bkSel) : S.bk.sel.delete(t.dataset.bkSel); return bookingsTableRefresh(); }
   if ('bkAll' in t.dataset) { bookingsFiltered().forEach(b => t.checked ? S.bk.sel.add(b.id) : S.bk.sel.delete(b.id)); return bookingsTableRefresh(); }
@@ -297,7 +254,7 @@ document.addEventListener('change', e => {
 });
 
 /* ─── Topo ─── */
-const PREVIEW_WRITE_ACTIONS = new Set(['dropout-deactivate','bl-new','bl-cancel','bl-sync','pay-import-app','pay-reject','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-approve','pay-approve-all','pay-rates','pay-mark','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
+const PREVIEW_WRITE_ACTIONS = new Set(['dropout-deactivate','bl-new','bl-cancel','bl-sync','booking-new','booking-edit','booking-save','booking-archive','booking-unarchive','booking-delete','booking-status','bk-bulk-status','bk-bulk-archive','fin-link-quick','fin-link-exact','athlete-new','athlete-save','athlete-delete','team-new','team-save','team-delete','nucleus-new','nucleus-save','nucleus-delete','pkg-new','pkg-commit','fd-visible','fd-desc-save','pay-add-save','pay-review-save','pay-pay-save','pay-rates-save','fin-import','finance-import-commit','finance-manual-new','finance-manual-save','user-new','user-save','portal-invite','portal-invite-save','portal-link','portal-link-save','portal-unlink']);
 $('#viewAs').addEventListener('change', event => {
   if (APOLLO_AUTH.access?.role !== 'admin') return;
   S.previewRole = event.target.value in ROLE_PRESETS && event.target.value !== 'Administrador' ? event.target.value : '';
