@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="billing-rules.css?v=5">
 <link rel="stylesheet" href="marketing.css?v=4">
 <link rel="stylesheet" href="payroll.css?v=1">
-<link rel="stylesheet" href="ux.css?v=1">
+<link rel="stylesheet" href="ux.css?v=3">
 <style>body:not(.app-ready) .sidebar,body:not(.app-ready) .main{display:none}body.app-ready #startup,label.viewas[hidden]{display:none}</style>
 </head>
 <body>
@@ -50,12 +50,23 @@
       <svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
     <div class="crumbs">Gestão <span aria-hidden="true">/</span> <b id="crumb">Visão geral</b></div>
+    <button class="top-search cmdk-trigger" type="button" data-act="cmdk" aria-label="Buscar no Huddle (Ctrl K)">
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.3-4.3 M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z"/></svg><span>Buscar atleta, responsável ou equipe</span><kbd>Ctrl K</kbd>
+    </button>
     <div class="top-right">
-      <label class="viewas" hidden><span>Visualizar como:</span><select id="viewAs" aria-label="Visualizar como perfil"></select></label>
-      <button class="btn sm guide-trigger" id="guideBtn" type="button" aria-label="Abrir orientação desta página">Ajuda</button>
-      <button class="icon-btn" id="themeBtn" aria-label="Alternar tema claro/escuro">
-        <svg class="i" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <button class="icon-btn" id="guideBtn" type="button" aria-label="Ajuda desta página" title="Ajuda desta página" aria-expanded="false">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3 M12 17h.01"/></svg>
       </button>
+      <div class="acct">
+        <button class="acct-btn" id="acctBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="acctMenu" aria-label="Sua conta"><span class="avatar" id="acctAvatar"></span></button>
+        <div class="acct-menu" id="acctMenu" role="menu" aria-label="Sua conta" hidden>
+          <div class="acct-head"><strong id="acctName"></strong><small id="acctRole"></small></div>
+          <label class="viewas acct-item" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg><span>Visualizar como</span><select id="viewAs" aria-label="Visualizar como perfil"></select></label>
+          <button class="acct-item" id="themeBtn" type="button" role="menuitemcheckbox" aria-checked="false"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span>Tema escuro</span><i class="acct-switch" aria-hidden="true"></i></button>
+          <div class="acct-sep" role="separator"></div>
+          <button class="acct-item" type="button" role="menuitem" data-act="logout"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5V3h4 M16 17l5-5-5-5 M21 12H9"/></svg><span>Sair</span></button>
+        </div>
+      </div>
     </div>
   </header>
   <main class="content" id="content" tabindex="-1"></main>
@@ -67,7 +78,7 @@
 <dialog id="dlg2" class="sm" aria-labelledby="dlg2Title"></dialog>
 <div id="toast" class="toast hide" role="status" aria-live="polite"></div>
 
-<script src="js/core.js?v=2.17.0"></script>
+<script src="js/core.js?v=2.17.1"></script>
 <script src="js/dropout-risk.js?v=2.13.0"></script>
 <script src="js/pages-ops.js?v=2.17.0"></script>
 <script src="js/pages-overview-roles.js?v=2.15.0"></script>
@@ -75,7 +86,7 @@
 <script src="js/pages-admin.js?v=2.16.0"></script>
 <script src="js/payroll.js?v=2.16.0"></script>
 <script src="js/home.js?v=2.17.0"></script>
-<script src="js/command-search.js?v=2.17.0"></script>
+<script src="js/command-search.js?v=2.17.1"></script>
 <script src="vendor/jszip.min.js"></script>
 <script src="js/finance-reports.js?v=2.9.7"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
@@ -86,12 +97,13 @@
 <script src="js/finance-page.js?v=2.17.0"></script>
 <script src="js/billing-page.js?v=2.11.0"></script>
 <script src="js/billing-rules-ui.js?v=4"></script>
-<script src="js/billing-notices.js?v=1"></script>
+<script src="js/billing-notices.js?v=2"></script>
 <script src="js/onboarding.js?v=2.17.0"></script>
 <script src="js/marketing-studio-core.js?v=3"></script>
 <script src="js/marketing-layouts.js?v=3"></script>
 <script src="js/marketing.js?v=4"></script>
 <script src="js/marketing-editor.js?v=3"></script>
 <script src="js/main.js?v=2.17.0"></script>
+<script src="js/topbar.js?v=1"></script>
 </body>
 </html>

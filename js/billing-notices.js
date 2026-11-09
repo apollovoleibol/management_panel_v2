@@ -30,7 +30,10 @@ function billingNoticesBadge() {
   if (!button) return;
   button.hidden = !billingNoticesEligible();
   const active = !BILLING_NOTICES.error && BILLING_NOTICES.user === APOLLO_AUTH.user?.id ? BILLING_NOTICES.rows.filter(row => !row.resolved_at).length : 0;
-  button.textContent = `Avisos${!BILLING_NOTICES.error && active ? ` (${active})` : ''}`;
+  // Sino com contador: o número só aparece quando há pendência
+  const count = !BILLING_NOTICES.error && active ? String(active) : '';
+  button.innerHTML = `${icon('bell')}${count ? `<span class="notif-count">${count}</span>` : ''}`;
+  button.title = count ? `Avisos: ${count} pendência(s)` : 'Avisos';
   button.setAttribute('aria-label', `Avisos internos da sua conta${active ? `: ${active} pendência(s)` : ''}`);
 }
 function billingNoticesMarkup() {
@@ -71,8 +74,9 @@ function billingNoticesStart() {
   if (!document.body.classList.contains('app-ready')) return;
   const top = document.querySelector('.top-right');
   if (top && !top.querySelector('[data-billing-notices]')) {
-    const button = document.createElement('button'); button.className = 'btn sm'; button.type = 'button';
-    button.dataset.billingNotices = ''; button.textContent = 'Avisos'; button.hidden = !billingNoticesEligible(); top.prepend(button);
+    const button = document.createElement('button'); button.className = 'icon-btn notif-btn'; button.type = 'button';
+    button.dataset.billingNotices = ''; button.innerHTML = icon('bell'); button.title = 'Avisos'; button.setAttribute('aria-label', 'Avisos internos da sua conta');
+    button.hidden = !billingNoticesEligible(); top.prepend(button);
   }
   billingNoticesLoad();
 }

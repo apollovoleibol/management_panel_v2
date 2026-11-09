@@ -79,6 +79,9 @@ const ICONS = {
   logout: 'M9 21H5V3h4 M16 17l5-5-5-5 M21 12H9',
   target: 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0z M14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0z',
   star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z',
+  bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0',
+  help: 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3 M12 17h.01',
+  moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
 };
 // O WhatsApp usa o símbolo oficial preenchido; os demais ícones são em contorno.
 const icon = (n, cls = 'i') => `<svg class="${cls}${n === 'whatsapp' ? ' i-fill' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n] || ICONS.info}"/></svg>`;

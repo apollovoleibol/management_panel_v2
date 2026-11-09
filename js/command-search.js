@@ -78,8 +78,3 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); cmdkOpen();
   }
 });
-// Botão na barra superior, em todas as páginas
-(() => {
-  const top = $('.topbar .top-right');
-  if (top && !top.querySelector('.cmdk-trigger')) top.insertAdjacentHTML('afterbegin', `<button class="btn sm cmdk-trigger" type="button" data-act="cmdk" aria-label="Buscar no Huddle (Ctrl K)">${icon('search')}<span>Buscar</span><kbd>Ctrl K</kbd></button>`);
-})();

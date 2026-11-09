@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## Barra superior mais limpa — 2026-11-09
+
+- Busca em destaque no centro ("Buscar atleta, responsável ou equipe", Ctrl K). À direita, três controles do mesmo tamanho: avisos (sino com o número de pendências), ajuda da página e o avatar da conta.
+- O menu do avatar reúne o que é raro: "Visualizar como" (só administradores), tema escuro (interruptor) e Sair.
+- No celular, a busca vira ícone e os quatro controles ficam iguais.
+
 ## Huddle mais fácil de usar — 2026-11-09
 
 - Visão geral focada em ação: "O que fazer agora" reúne numa lista só, do mais urgente ao menos urgente, testes sem resultado, atletas em risco de evasão, relatórios do Tecnofit atrasados, aprovados sem cadastro, inserções no Tecnofit, fechamento da folha e pendências de cadastro. Cada tarefa abre a lista já filtrada.
