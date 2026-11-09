@@ -2,10 +2,10 @@
 'use strict';
 const GUIDE_PAGES = {
   overview: [
-    ['Panorama', 'A visão geral reúne apenas os indicadores permitidos ao seu perfil. O ícone “i” explica a fonte e o cálculo de cada métrica.', '.page-head'],
-    ['Indicadores', 'Compare os números com a fonte indicada. Resultados do Tecnofit dependem da última importação; presença e agendamentos vêm do Supabase.', '.kpi'],
-    ['Agenda semanal', 'Use Hoje e as setas para mudar de semana. Clique em um treino para ver equipe, horário e testes agendados.', '.cal-wrap, .calendar, .section-title'],
-    ['Atendimento', 'O funil acompanha etapas registradas. Métricas sem eventos de origem não recebem valores estimados.', '.funnel']
+    ['O que fazer agora', 'Tudo o que pede ação, do mais urgente ao menos urgente. Clique numa tarefa para abrir a lista já filtrada.', '.ov-tasks'],
+    ['Hoje', 'Treinos do dia, próximos testes e competições. Clique em um item para ver os detalhes.', '.ov-side'],
+    ['Agenda e indicadores', 'Agenda da semana, atendimento e conversão, projeção de atletas e financeiro, um de cada vez. O ícone “i” explica cada número.', '.ov-insights-head'],
+    ['Busca', 'Use Ctrl K (ou /) em qualquer tela para achar atleta, responsável, telefone, agendamento ou equipe.', '.cmdk-trigger']
   ],
   bookings: [
     ['Agendamentos', 'A lista reúne os testes das equipes permitidas ao seu perfil. Os próximos dois dias aparecem em destaque.', '.page-head'],

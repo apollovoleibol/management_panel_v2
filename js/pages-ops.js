@@ -53,22 +53,8 @@ function renderOverview() {
     ['Aguardando avaliação', pastAll.filter(b => ['Agendado','Pendente','Em avaliação'].includes(b.status)).length, 'testes passados sem conclusão (todos)', 'clock'],
   ];
 
-  return `
-  <div class="page-head"><div><div class="eyebrow">Apollo · ${monthName} de ${TODAY.getFullYear()}</div><h1>Visão geral</h1><p>${fin ? 'Finanças, pendências, agenda e conversão em um só lugar.' : 'Pendências, agenda, atendimento e conversão em um só lugar.'} Toque no ícone (i) para ver como cada número é calculado.</p></div>
-    <div class="head-actions"><button class="btn" data-act="export-overview">${icon('download')} Exportar resumo</button></div></div>
-
-  ${leadCardsHTML()}
-  ${pendingHTML()}
-  ${dropoutRiskHTML()}
-  ${fin ? `<div class="section-title" ${pendingItems().length ? '' : 'style="margin-top:0"'}><h2>Financeiro</h2></div>${ovFinanceHTML()}` : opsKpisHTML()}
-
-  <div class="section-title"><h2>Agenda da semana</h2></div>
-  ${weekCalendarHTML()}
-
-  <div class="section-title"><h2>Próximos eventos</h2></div>
-  ${upcomingEventsHTML()}
-
-  <div class="section-title"><h2>Atendimento e conversão de leads</h2><div class="seg" role="group" aria-label="Período">${[[0, 'Mês atual'], [-1, 'Mês anterior']].map(([v, l]) => `<button class="${S.ov.month === v ? 'on' : ''}" data-act="ov-month" data-v="${v}">${l}</button>`).join('')}</div></div>
+  const tasks = ovTasks();
+  const funnelHTML = `<div class="ov-period"><span class="muted small">Período</span><div class="seg" role="group" aria-label="Período">${[[0, 'Mês atual'], [-1, 'Mês anterior']].map(([v, l]) => `<button class="${S.ov.month === v ? 'on' : ''}" data-act="ov-month" data-v="${v}">${l}</button>`).join('')}</div></div>
   <div class="split-wide">
     <section class="panel"><div class="panel-head"><div><h2>Funil de conversão</h2><div class="sub">Agendamentos criados em ${R.label}${S.ov.month === 0 ? ' (até hoje)' : ''}</div></div><span class="tag nodot st-ok">Conversão total ${pct(enrolled.length, recentBookings.length, 1)}</span></div>
       <div class="panel-pad"><div class="funnel">${funnel.map(([l, v, s], i) => `<div class="funnel-row"><span>${l}</span><div class="funnel-bar"><span style="width:${recentBookings.length ? v / recentBookings.length * 100 : 0}%;opacity:${1 - i * .13}">${v}</span></div><span class="rate">${i ? pct(v, funnel[i - 1][1]) + ' da etapa' : 'base'}</span></div>`).join('')}</div>
@@ -77,26 +63,17 @@ function renderOverview() {
     </section>
     <div><div class="service-metrics">${svc.map(([l, v, f, i]) => `<div class="service-metric">${kpiIcon(i)}${metricInfo(l)}<span>${l}</span><strong>${v}</strong><small>${f}</small></div>`).join('')}</div>
       ${serviceMetricsHTML()}</div>
-  </div>
-
-  <div class="section-title"><h2>Projeções</h2></div>
-  ${false ? `  <div class="split-wide">
-    <section class="panel"><div class="panel-head"><div><h2>Receita: realizado e projeção</h2><div class="sub">Entradas mensais; projeção pela tendência dos últimos meses (cenário base)</div></div>
-      <div class="legend"><span><i style="background:var(--ok)"></i>Entradas realizadas</span><span><i style="background:var(--brand)"></i>Saídas</span><span><i class="dash" style="border-color:var(--info)"></i>Projeção de entradas</span></div></div>
-      <div class="panel-pad">${lineChart({ labels: [...labels, ...future.map(m => MON[m.getMonth()])], series: [{ values: realLine, color: 'var(--ok)', area: true }, { values: outLine, color: 'var(--brand)' }, { values: projection, color: 'var(--info)', dash: true }], fmt: v => 'R$ ' + Math.round(v / 100000) + ' mil' })}</div>
-    </section>
-    <section class="panel"><div class="panel-head"><div><h2>Próximos 90 dias</h2><div class="sub">Cenário base · atualiza ao importar dados do Tecnofit</div></div></div>
-      <div class="panel-pad">
-        ${[['Receita prevista em ' + MONTHS[future[0].getMonth()], money(projection[6])],
-           ['Receita acumulada (3 meses)', money(projection.slice(6).reduce((a, b) => a + b, 0))],
-           ['Atletas ativos em 90 dias', `${Math.round(active * 1.06)} <span class="delta up">+${Math.round(active * .06)}</span>`],
-           ['Inadimplência projetada', `${pct(delinq * .9, expected, 1)} <span class="delta up">▼ melhora</span>`],
-           ['Folha técnica prevista / mês', money(Math.round(coachCost / Math.max(TODAY.getDate(), 1) * 30))],
-           ['Resultado projetado / mês', money(projection[6] - (prev.out || cur.out))]].map(([k, v]) => `<div class="stat-line"><span class="muted">${k}</span><b>${v}</b></div>`).join('')}
-        <div class="banner note mt" style="margin-bottom:0">${icon('info')}<span class="small">Projeção estimada: usa receita de tabela, histórico importado e taxa de conversão. Não considera reajustes futuros nem sazonalidade de férias.</span></div>
-      </div>
-    </section>
-  </div>` : athletesProjectionHTML()}
+  </div>`;
+  const tabs = [['agenda', 'Agenda da semana'], ['funnel', 'Atendimento e conversão'], ['proj', 'Atletas e projeção'], fin ? ['fin', 'Financeiro'] : ['ops', 'Operação']];
+  if (!tabs.some(([k]) => k === S.ov.tab)) S.ov.tab = 'agenda';
+  const body = { agenda: () => `${weekCalendarHTML()}<div class="mt">${upcomingEventsHTML()}</div>`, funnel: () => funnelHTML, proj: athletesProjectionHTML, fin: ovFinanceHTML, ops: opsKpisHTML }[S.ov.tab]();
+  return `
+  <div class="page-head"><div><div class="eyebrow">${DOW_FULL[TODAY.getDay()]}, ${TODAY.getDate()} de ${monthName} de ${TODAY.getFullYear()}</div><h1>Visão geral</h1><p>${ovGreeting(tasks)}</p></div>
+    <div class="head-actions"><button class="btn" data-act="export-overview">${icon('download')} Exportar resumo</button></div></div>
+  <div class="ov-home"><section class="panel ov-tasks">${ovTasksHTML(tasks)}</section><div class="ov-side">${ovTodayHTML()}</div></div>
+  ${S.ov.riskOpen ? `<div id="ovRisk" class="ov-risk">${dropoutRiskHTML()}</div>` : ''}
+  <div class="section-title ov-insights-head" id="ovInsights"><h2>Agenda e indicadores</h2><div class="seg ov-tabs" role="tablist" aria-label="Agenda e indicadores">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${S.ov.tab === k}" class="${S.ov.tab === k ? 'on' : ''}" data-act="ov-tab" data-v="${k}">${l}</button>`).join('')}</div></div>
+  <div class="ov-insights">${body}</div>
   `;
 }
 
@@ -255,7 +232,7 @@ function renderBookings() {
       <div class="search">${icon('search')}<input class="input" id="bkQ" type="search" placeholder="Buscar por nome ou WhatsApp..." value="${esc(S.bk.q)}" aria-label="Buscar agendamento"></div>
       <select class="select" id="bkStatus" aria-label="Filtrar status"><option value="">Todos os status</option>${STATUS.map(s => `<option ${S.bk.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
       <select class="select" id="bkTeam" aria-label="Filtrar equipe"><option value="">Todas as equipes</option>${teams.map(t => `<option value="${t.id}" ${S.bk.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>
-      <div class="seg" role="group" aria-label="Visão"><button class="${S.bk.archived === 'all' ? 'on' : ''}" data-act="bk-arch" data-v="all">Todos <span class="muted">${BOOKINGS.length}</span></button><button class="${S.bk.archived === false ? 'on' : ''}" data-act="bk-arch" data-v="0">Ativos <span class="muted">${BOOKINGS.filter(b => !b.archived).length}</span></button><button class="${S.bk.archived === true ? 'on' : ''}" data-act="bk-arch" data-v="1">${icon('archive')} Arquivados <span class="muted">${BOOKINGS.filter(b => b.archived).length}</span></button></div>
+      <div class="seg" role="group" aria-label="Visão"><button class="${S.bk.archived === false ? 'on' : ''}" data-act="bk-arch" data-v="0">Ativos <span class="muted">${BOOKINGS.filter(b => !b.archived).length}</span></button><button class="${S.bk.archived === true ? 'on' : ''}" data-act="bk-arch" data-v="1">${icon('archive')} Arquivados <span class="muted">${BOOKINGS.filter(b => b.archived).length}</span></button><button class="${S.bk.archived === 'all' ? 'on' : ''}" data-act="bk-arch" data-v="all">Todos <span class="muted">${BOOKINGS.length}</span></button></div>
     </div>
     <div id="bkTable">${bookingsTable()}</div>
   </section>`;
@@ -300,8 +277,10 @@ function bookingsTable() {
   const { col, dir } = S.bk.sort, m = dir === 'asc' ? 1 : -1;
   const key = b => col === 'nome' ? bookingName(b).toLowerCase() : col === 'equipe' ? teamOf(b.teamId).name.toLowerCase() : b.date;
   const sorted = [...list].sort((a, b) => key(a) < key(b) ? -m : key(a) > key(b) ? m : 0);
-  const fut = sorted.filter(b => parseLocal(b.date) >= TODAY), past = sorted.filter(b => parseLocal(b.date) < TODAY);
-  if (col === 'data') past.reverse();
+  const futAll = sorted.filter(b => parseLocal(b.date) >= TODAY), pastAll = sorted.filter(b => parseLocal(b.date) < TODAY);
+  if (col === 'data') pastAll.reverse();
+  const shown = new Set(listPage(S.bk, JSON.stringify([S.bk.q, S.bk.status, S.bk.team, S.bk.archived, S.bk.kpi, S.bk.pending, S.bk.sort]), [...futAll, ...pastAll]));
+  const fut = futAll.filter(b => shown.has(b)), past = pastAll.filter(b => shown.has(b));
   const in48 = b => { const d = parseLocal(b.date); return d > NOW && d - NOW <= 48 * 36e5; };
   const sel = bookingsSelectable();
   const row = b => {
@@ -318,7 +297,7 @@ function bookingsTable() {
   const allOn = sel && list.length && list.every(b => S.bk.sel.has(b.id));
   const cols = sel ? 6 : 5;
   return `${banner}<div class="table-wrap"><table class="cards"><thead><tr>${sel ? `<th class="sel"><input type="checkbox" data-bk-all ${allOn ? 'checked' : ''} aria-label="Selecionar todos os ${list.length} agendamentos"></th>` : ''}${th('nome', 'Atleta / Resp.')}<th><span class="sr">Contato</span></th>${th('data', 'Data do teste')}${th('equipe', 'Equipe / Local')}<th>Status</th></tr></thead><tbody>
-    ${fut.map(row).join('')}${fut.length && past.length ? `<tr class="sep"><td colspan="${cols}">Agendamentos passados</td></tr>` : ''}${past.map(row).join('')}</tbody></table></div>
+    ${fut.map(row).join('')}${fut.length && past.length ? `<tr class="sep"><td colspan="${cols}">Agendamentos passados</td></tr>` : ''}${past.map(row).join('')}</tbody></table></div>${listMore('bk-more', shown.size, list.length)}
     ${S.bk.sel.size ? `<div class="bulk-bar" role="region" aria-label="Ações em lote"><b>${S.bk.sel.size} selecionado(s)</b><select class="select" id="bkBulkStatus" aria-label="Novo status"><option value="">Mudar status para…</option>${BOOKING_QUICK.concat([['Agendado', 'Agendado']]).map(([st, l]) => `<option value="${st}">${l}</option>`).join('')}</select><button class="btn primary sm" data-act="bk-bulk-status" data-edit>Aplicar</button><button class="btn sm" data-act="bk-bulk-archive" data-edit>${icon('archive')} Arquivar</button><span class="spacer"></span><button class="btn sm" data-act="bk-bulk-clear">Limpar seleção</button></div>` : ''}
     <div class="panel-foot"><span>${list.length} agendamento${list.length > 1 ? 's' : ''}${S.bk.archived === true ? ' arquivados' : S.bk.archived === false ? ' ativos' : ''}</span><span>${sel ? 'Marque várias linhas para mudar o status ou arquivar de uma vez.' : 'Clique em uma linha para ver detalhes, conversa e ações.'}</span></div>`;
 }
@@ -496,18 +475,27 @@ async function openChat(id) {
   if (target) { target.innerHTML = html; const c = target.querySelector('.chat'); if (c) c.lastElementChild?.scrollIntoView({ block: 'end' }); }
 }
 
+/* Listas longas: 50 por vez; volta a 50 quando a busca, o filtro ou a ordem mudam */
+function listPage(state, sig, list) {
+  if (state.sig !== sig) { state.sig = sig; state.limit = 50; }
+  return list.slice(0, state.limit);
+}
+const listMore = (act, shown, total) => total > shown ? `<div class="list-more"><span>Mostrando ${shown} de ${total}</span><button class="btn sm" data-act="${act}">Mostrar mais ${Math.min(50, total - shown)}</button></div>` : '';
+
 /* ═══════════════ ATLETAS ═══════════════ */
 function renderAthletes() {
   const pool = ATHLETES.filter(a => myTeamIds().includes(a.teamId));
   const act = pool.filter(a => a.active).length, minors = pool.filter(a => isMinorTeam(teamOf(a.teamId))).length;
   return `${viewBanner('athletes')}${coachScopeBanner()}
-  <div class="page-head"><div><div class="eyebrow">Operação · cadastros</div><h1>Gestão de atletas</h1><p>Gerencie cadastros, planos e status dos atletas das equipes.</p></div>
+  <div class="page-head"><div><div class="eyebrow">Operação · cadastros</div><h1>Atletas</h1><p>Gerencie cadastros, planos e status dos atletas das equipes.</p></div>
     <div class="head-actions"><button class="btn primary" data-act="athlete-new" data-edit>${icon('plus')} Novo atleta</button></div></div>
-  <div class="grid g4 mb">${[['Atletas cadastrados', pool.length, 'users'], ['Ativos', act, 'check'], ['Inativos', pool.length - act, 'x'], ['Menores de idade', minors, 'child']].map(([l, v, i]) => `<div class="kpi">${kpiIcon(i)}<div class="kpi-label">${l}</div><div class="kpi-value">${v}</div></div>`).join('')}</div>
+  <div class="grid g4 mb">${[['Atletas cadastrados', pool.length, 'users', ''], ['Ativos', act, 'check', 'ativo'], ['Inativos', pool.length - act, 'x', 'inativo'], ['Menores de idade', minors, 'child', null]].map(([l, v, i, f]) => f === null
+    ? `<div class="kpi">${kpiIcon(i)}<div class="kpi-label">${l}</div><div class="kpi-value">${v}</div></div>`
+    : `<div class="kpi click ${!S.at.pending && S.at.status === f ? 'on' : ''}"><button class="kpi-activate" data-act="at-kpi" data-v="${f}" aria-pressed="${!S.at.pending && S.at.status === f}">${kpiIcon(i)}<span class="kpi-label">${l}</span><span class="kpi-value">${v}</span><span class="kpi-foot">${f ? 'mostrar na lista' : 'mostrar todos'}</span></button></div>`).join('')}</div>
   <section class="panel">
     <div class="toolbar">
       <div class="search">${icon('search')}<input class="input" id="atQ" type="search" placeholder="Buscar por nome, CPF ou telefone..." value="${esc(S.at.q)}" aria-label="Buscar atleta"></div>
-      <select class="select" id="atStatus" aria-label="Filtrar status"><option value="">Todos os status</option><option value="ativo" ${S.at.status === 'ativo' ? 'selected' : ''}>Ativos</option><option value="inativo" ${S.at.status === 'inativo' ? 'selected' : ''}>Inativos</option></select>
+      <select class="select" id="atStatus" aria-label="Filtrar status"><option value="ativo" ${S.at.status === 'ativo' ? 'selected' : ''}>Ativos</option><option value="inativo" ${S.at.status === 'inativo' ? 'selected' : ''}>Inativos</option><option value="" ${!S.at.status ? 'selected' : ''}>Todos os status</option></select>
       <select class="select" id="atTeam" aria-label="Filtrar equipe"><option value="">Todas as equipes</option>${NUCLEI.map(n => `<optgroup label="Núcleo ${esc(n.name)}">${TEAMS.filter(t => t.n === n.id && myTeamIds().includes(t.id)).map(t => `<option value="${t.id}" ${S.at.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</optgroup>`).join('')}</select>
     </div>
     <div id="atTable">${athletesTable()}</div>
@@ -524,17 +512,22 @@ function athletesTable() {
   const mine = myTeamIds();
   const pending = ATHLETE_FILTERS[S.at.pending];
   const list = ATHLETES.filter(a => mine.includes(a.teamId) && (!pending || pending[1](a)) && (!q || a.name.toLowerCase().includes(q) || a.parentName.toLowerCase().includes(q) || (qd && (digits(a.cpf).includes(qd) || digits(a.phone).includes(qd) || digits(a.parentPhone).includes(qd))))
-    && (!S.at.status || (S.at.status === 'ativo') === a.active) && (!S.at.team || a.teamId === S.at.team)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    && (pending || !S.at.status || (S.at.status === 'ativo') === a.active) && (!S.at.team || a.teamId === S.at.team));
+  const { col, dir } = S.at.sort, m = dir === 'asc' ? 1 : -1;
+  const sortKey = a => col === 'equipe' ? teamOf(a.teamId)?.name || '' : col === 'status' ? (a.active ? '0' : '1') : displayName(a.name);
+  list.sort((a, b) => m * sortKey(a).localeCompare(sortKey(b), 'pt-BR') || displayName(a.name).localeCompare(displayName(b.name), 'pt-BR'));
+  const page = listPage(S.at, JSON.stringify([S.at.q, S.at.status, S.at.team, S.at.pending, S.at.sort]), list);
+  const th = (c, l) => `<th><button class="sort ${col === c ? 'on' : ''}" data-act="at-sort" data-col="${c}" aria-label="Ordenar por ${l}">${l} ${icon('sort')}</button></th>`;
   const banner = pending ? `<div class="filter-banner">${icon('alert')}<span>Mostrando: <b>${pending[0]}</b> (${list.length})</span><button class="btn sm" data-act="at-clear">Ver todos</button></div>` : '';
   if (!list.length) return banner + emptyState('Nenhum atleta encontrado', pending ? 'Nada pendente aqui. 👍' : 'Tente outra busca ou filtro.');
-  return `${banner}<div class="table-wrap"><table class="cards"><thead><tr><th>Atleta / Responsável</th><th>Contato</th><th>Equipe / Plano</th><th>Status</th></tr></thead><tbody>${list.map(a => {
+  return `${banner}<div class="table-wrap"><table class="cards"><thead><tr>${th('nome', 'Atleta / Responsável')}<th>Contato</th>${th('equipe', 'Equipe / Plano')}${th('status', 'Status')}</tr></thead><tbody>${page.map(a => {
     const t = teamOf(a.teamId), { minor, tel } = athleteContact(a), name = displayName(a.name);
     return `<tr class="rowlink" data-act="athlete-open" data-id="${a.id}" tabindex="0">
       <td class="c-main"><div class="person"><span class="avatar ${minor ? 'kid' : ''}">${minor ? icon('child') : initials(name)}</span><div><strong>${esc(name)}</strong>${minor ? `<small>Resp.: ${esc(displayName(a.parentName) || 'não informado')}</small>` : `<small>${esc(a.email)}</small>`}</div></div></td>
       <td class="c-act"><div class="cell-actions"><span style="white-space:nowrap" class="hide-mobile">${fmtPhone(tel) || '<span class="muted">Sem WhatsApp</span>'}</span>${tel ? `<a class="btn sq wa-ghost" href="https://wa.me/55${digits(tel)}" target="_blank" rel="noopener" data-stop title="WhatsApp ${minor ? 'do responsável' : 'do atleta'}" aria-label="Abrir WhatsApp ${minor ? 'do responsável de' : 'de'} ${esc(name)}">${icon('whatsapp')}</a>` : ''}</div></td>
       <td class="c-sub" data-label="Equipe"><strong style="font-size:13px">${t ? esc(t.name) : 'Não definida'}</strong> ${t ? nTag(t.n, '') : ''}<div class="hint" style="max-width:300px;white-space:normal">${esc(maskPlan(a.plan) || 'Sem plano')}</div></td>
       <td class="c-status">${a.active ? '<span class="tag st-agendado">Ativo</span>' : '<span class="tag st-cancelado">Inativo</span>'}</td></tr>`;
-  }).join('')}</tbody></table></div><div class="panel-foot"><span>${list.length} de ${ATHLETES.filter(a => mine.includes(a.teamId)).length} atletas</span><span>Clique em um atleta para ver ou editar o cadastro.</span></div>`;
+  }).join('')}</tbody></table></div>${listMore('at-more', page.length, list.length)}<div class="panel-foot"><span>${list.length} de ${ATHLETES.filter(a => mine.includes(a.teamId)).length} atletas</span><span>Clique em um atleta para ver ou editar o cadastro.</span></div>`;
 }
 function athleteForm(id) {
   const a = id ? ATHLETES.find(x => x.id === id) : null, ro = !canEdit('athletes');

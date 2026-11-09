@@ -1,5 +1,15 @@
 # Histórico de versões
 
+## Huddle mais fácil de usar — 2026-11-09
+
+- Visão geral focada em ação: "O que fazer agora" reúne numa lista só, do mais urgente ao menos urgente, testes sem resultado, atletas em risco de evasão, relatórios do Tecnofit atrasados, aprovados sem cadastro, inserções no Tecnofit, fechamento da folha e pendências de cadastro. Cada tarefa abre a lista já filtrada.
+- Ao lado: treinos de hoje, próximos testes e competições dos próximos 30 dias. Agenda da semana, atendimento e conversão, projeção de atletas e financeiro ficam em abas, um de cada vez (a página tinha mais de 4.000 px de rolagem).
+- Busca global (Ctrl K ou /) em qualquer tela: atletas, responsáveis, telefones, agendamentos, equipes, páginas e atalhos ("Novo agendamento", "Novo atleta").
+- Atletas e Agendamentos abrem em "Ativos", mostram 50 por vez com "Mostrar mais" e ordenam pelas colunas. Em Atletas, os indicadores Cadastrados, Ativos e Inativos filtram a lista. O título da página passou a ser "Atletas", como no menu.
+- Gráficos dos indicadores somem quando não houve movimento no período (o vermelho de "Cancelados: 0" parecia alerta).
+- Financeiro avisa no topo quando a última importação do Tecnofit tem mais de 10 dias, com o botão para importar.
+- Celular: a barra superior mostra só ícones (busca, avisos, ajuda e tema) e as tarefas da Visão geral viram cartões.
+
 ## Varredura técnica — 2026-11-09
 
 - Mensalidades voltou ao menu (administração e financeiro). A migração 043 (Marketing) tinha recriado as permissões sem a página, e o banco negava mensalidades, cobranças e regras de cobrança a todos. Migração 047.

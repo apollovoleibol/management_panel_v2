@@ -372,8 +372,8 @@ let FEEDER = {
 const S = {
   page: 'overview', userId: 'u1', previewRole: '', theme: 'light',
   cal: { cursor: TODAY, nuclei: new Set(NUCLEI.map(n => n.id)), showTests: true, showComps: true },
-  bk: { q: '', status: '', team: '', archived: 'all', sort: { col: 'data', dir: 'asc' }, kpi: '', pending: '', sel: new Set() },
-  at: { q: '', status: '', team: '', n: '', pending: '' },
+  bk: { q: '', status: '', team: '', archived: false, sort: { col: 'data', dir: 'asc' }, kpi: '', pending: '', sel: new Set(), limit: 50 },
+  at: { q: '', status: 'ativo', team: '', n: '', pending: '', sort: { col: 'nome', dir: 'asc' }, limit: 50 },
   tm: { n: 'all', q: '' },
   pk: { n: 'all', q: '', freq: 'all' },
   fd: { tab: 'teams', simAge: '', simGender: '', open: new Set(['t1']) },
@@ -497,6 +497,8 @@ const emptyState = (title, text, action = '') => `<div class="empty">${icon('sea
 const viewBanner = page => canEdit(page) ? '' : `<div class="banner view">${icon('eye')}<div><b>Modo visualização.</b> O perfil <b>${esc(me().name)}</b> pode consultar esta página, mas não alterar dados. Botões de edição ficam bloqueados.</div></div>`;
 
 function sparkline(values, color, w = 96, h = 30) {
+  // Sem movimento nos meses, a linha não diz nada (e em vermelho parecia alerta)
+  if (!values.some(v => v > 0)) return '';
   const max = Math.max(...values, 1), step = w / (values.length - 1);
   const pts = values.map((v, i) => [i * step, h - 3 - (v / max) * (h - 8)]);
   const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');

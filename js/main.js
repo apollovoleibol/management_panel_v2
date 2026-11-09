@@ -84,12 +84,19 @@ document.addEventListener('click', async e => {
     case 'cal-day': return openCalDay(el.dataset.date);
     case 'comp-open': return openCompetition(id);
     case 'pending-go': return pendingGo(el.dataset.k);
+    case 'ov-tab': { S.ov.tab = el.dataset.v; render(); if ('scroll' in el.dataset) $('#ovInsights')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    case 'ov-risk': { S.ov.riskOpen = !S.ov.riskOpen; render(); if (S.ov.riskOpen) $('#ovRisk')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    case 'cmdk': return cmdkOpen();
     case 'ov-finance': S.fin.tab = el.dataset.tab; S.fin.alertFilter = ''; return go('finance');
     case 'booking-status': return bookingQuickStatus(id, el.dataset.status);
     case 'bk-bulk-status': return bookingsBulk('status');
     case 'bk-bulk-archive': return bookingsBulk('archive');
     case 'bk-bulk-clear': S.bk.sel.clear(); return bookingsTableRefresh();
     case 'at-clear': S.at.pending = ''; return render();
+    case 'at-kpi': Object.assign(S.at, { status: el.dataset.v, pending: '' }); return render();
+    case 'at-sort': { const c = el.dataset.col; S.at.sort = { col: c, dir: S.at.sort.col === c && S.at.sort.dir === 'asc' ? 'desc' : 'asc' }; return liveTable('atTable', athletesTable); }
+    case 'at-more': S.at.limit += 50; return liveTable('atTable', athletesTable);
+    case 'bk-more': S.bk.limit += 50; return bookingsTableRefresh();
     case 'fin-alert-filter': S.fin.alertFilter = el.dataset.v; return render();
     case 'fin-series': S.fin.series = el.dataset.v; return render();
     case 'fin-link-quick': return finLinkQuick(el.dataset.client, el.dataset.athlete);
