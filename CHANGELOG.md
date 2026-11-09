@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## Exceções de treino — 2026-11-09
+
+- Agenda mostra o treino efetivo de cada dia: horário alterado, reposição ("reposição de 06/11"), treino extra e o substituto que conduz. Cancelado aparece com o motivo.
+- "Sinalizar sem treino" pede o motivo (quadra indisponível, clima, feriado ou evento, outro) e vale até 7 dias depois da data. Cancelamento em cima da hora deixa a reposição pendente até o técnico remarcar ou estender os próximos treinos pelo Manager App.
+- Visão geral: nova tarefa "Reposições pendentes", com a lista e o botão "Dispensar" (administração e coordenação).
+- Folha dos técnicos: treinos vindos do app mostram "substituto (titular: …)", "reposição de dd/mm", "+N min" ou "horário alterado". As horas do substituto vão para ele; o treino cancelado não é pago e a reposição é.
+- Área do atleta: próximos treinos com horário alterado e reposições; cancelados aparecem riscados, com o motivo.
+- Banco (migração 048): grade + exceções por data numa regra única para app, Huddle, lembretes de chamada e Área do atleta; chamada única por equipe e dia, editável pelo titular e pelo substituto.
+
 ## Barra superior mais limpa — 2026-11-09
 
 - Busca em destaque no centro ("Buscar atleta, responsável ou equipe", Ctrl K). À direita, três controles do mesmo tamanho: avisos (sino com o número de pendências), ajuda da página e o avatar da conta.

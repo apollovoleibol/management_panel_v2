@@ -55,8 +55,10 @@ test('a date closed to trial bookings still counts as training until separately 
     myTeamIds: () => ['team-1'], toMin: value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3)),
     coachOf: () => null, NCLASS: () => 'novo', nucleusOf: id => scope.NUCLEI.find(n => n.id === id), nucleusLabel: value => value, esc: value => value, icon: () => '',
     DOW: ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'], DOW_FULL: ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'], MONTHS: ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],
-    MON: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], pad: n => String(n).padStart(2, '0')
+    MON: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], pad: n => String(n).padStart(2, '0'),
+    parseYmd: value => { const [y, m, d] = value.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); }, USERS: [], LIVE: {}
   });
+  vm.runInContext(fs.readFileSync('js/training-exceptions.js', 'utf8'), scope);
   vm.runInContext(fs.readFileSync('js/pages-ops.js', 'utf8'), scope);
   let html = vm.runInContext('weekCalendarHTML()', scope);
   assert.match(html, /1 treino na semana/);

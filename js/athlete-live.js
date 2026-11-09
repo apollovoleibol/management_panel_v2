@@ -1,6 +1,6 @@
 /* Real athlete/guardian portal. All reads are scoped by database RLS. */
 'use strict';
-const PORTAL = { athletes: [], teams: [], locations: [], attendance: [], competitions: [], invoices: [], notices: [], blocked: [],
+const PORTAL = { athletes: [], teams: [], locations: [], attendance: [], competitions: [], invoices: [], notices: [], blocked: [], changes: [],
   selected: null, tab: new URLSearchParams(location.search).has('pagamento') ? 'pay' : 'home', error: '', historyError: '' };
 const portal$ = selector => document.querySelector(selector);
 const portalEsc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -15,17 +15,41 @@ async function portalRead(table, fields) {
   if (error) throw error;
   return data;
 }
-function portalSchedule(team, days = 28) {
+const PORTAL_REASONS = { court: 'quadra indisponível', weather: 'clima', holiday: 'feriado ou evento', other: 'outro motivo' };
+const portalDM = d => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`;
+const portalHM = t => String(t || '').slice(0, 5);
+// Treinos efetivos das próximas semanas: a grade com as mudanças de horário do dia e as
+// reposições/treinos extras registrados pelos técnicos (migração 048). Com withCancelled,
+// os cancelados também voltam, marcados e com o motivo.
+function portalSchedule(team, days = 28, withCancelled = false) {
   const raw = team?.training_schedule;
   const schedule = Array.isArray(raw) ? raw : Object.entries(raw || {}).map(([day, time]) => ({ day: Number(day), ...time }));
-  const out = [], now = new Date();
+  const changes = PORTAL.changes.filter(c => c.team_id === team?.id);
+  const out = [], now = new Date(), p2 = n => String(n).padStart(2, '0');
+  const nowKey = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())}T${p2(now.getHours())}:${p2(now.getMinutes())}`;
   for (let i = 0; i < days; i++) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    schedule.filter(s => Number(s.day) === date.getDay() && !PORTAL.blocked.some(b => b.team_id === team.id && b.training_date === dateStr))
-      .forEach(s => { if (`${dateStr}T${s.end}` > `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`) out.push({ date: dateStr, start: s.start, end: s.end }); });
+    const dateStr = `${date.getFullYear()}-${p2(date.getMonth() + 1)}-${p2(date.getDate())}`;
+    const cancel = PORTAL.blocked.find(b => b.team_id === team?.id && b.training_date === dateStr);
+    const change = changes.find(c => c.training_date === dateStr && c.kind === 'change');
+    const slots = schedule.filter(s => Number(s.day) === date.getDay()).map(s => change
+      ? { start: portalHM(change.start_time), end: portalHM(change.end_time),
+          note: change.makeup_for ? `Horário estendido para repor o treino de ${portalDM(change.makeup_for)}` : 'Horário alterado neste dia' }
+      : { start: s.start, end: s.end, note: '' });
+    changes.filter(c => c.training_date === dateStr && c.kind === 'extra').forEach(c => slots.push({
+      start: portalHM(c.start_time), end: portalHM(c.end_time),
+      note: c.makeup_for ? `Reposição do treino de ${portalDM(c.makeup_for)}` : 'Treino extra' }));
+    slots.forEach(s => {
+      if (`${dateStr}T${s.end}` <= nowKey) return;
+      if (cancel) {
+        if (withCancelled) out.push({ date: dateStr, start: s.start, end: s.end, cancelled: true,
+          note: `Treino cancelado${cancel.reason ? ' · ' + PORTAL_REASONS[cancel.reason] : ''}` });
+        return;
+      }
+      out.push({ date: dateStr, ...s });
+    });
   }
-  return out;
+  return out.sort((x, y) => `${x.date}${x.start}`.localeCompare(`${y.date}${y.start}`));
 }
 function portalInvoices(athlete) { return PORTAL.invoices.filter(x => x.athleteId === athlete.id); }
 function portalPendingInvoice(invoice) {
@@ -36,22 +60,23 @@ async function portalLoad() {
   const access = await apolloRequireArea('athlete');
   if (!access.ok) { if (access.error) portalError(access.error); return; }
   const ids = access.access.athleteIds;
-  const [athletes, teams, locations, attendance, competitions, notices, blocked, invoices] = await Promise.all([
+  const [athletes, teams, locations, attendance, competitions, notices, blocked, invoices, changes] = await Promise.all([
     portalRead('athletes', 'id,team_id,full_name,birth_date,position,jersey_number,joined_at,is_active,phone,parent_phone'),
     portalRead('teams', 'id,name,category,gender,training_schedule,location_id,is_active'),
     portalRead('training_locations', 'id,name,venue,address,phone'),
     portalRead('attendance', 'athlete_id,status,created_at'),
     portalRead('competitions', 'id,team_id,name,scheduled_at,venue_name,status'),
     portalRead('v2_portal_notices', 'id,athlete_id,kind,subject_date,value,created_at'),
-    portalRead('v2_training_cancellations', 'team_id,training_date'),
+    portalRead('v2_training_cancellations', 'team_id,training_date,reason').catch(() => portalRead('v2_training_cancellations', 'team_id,training_date')),
     financeDbClient().rpc('v2_my_invoices').then(({ data, error }) => {
       PORTAL.historyError = error ? 'Histórico Tecnofit indisponível no momento.' : '';
       return error ? [] : data || [];
-    }).catch(() => { PORTAL.historyError = 'Histórico Tecnofit indisponível no momento.'; return []; })
+    }).catch(() => { PORTAL.historyError = 'Histórico Tecnofit indisponível no momento.'; return []; }),
+    portalRead('v2_training_changes', 'team_id,training_date,kind,start_time,end_time,makeup_for').catch(() => [])
   ]);
   PORTAL.athletes = athletes.filter(a => ids.includes(a.id) && a.is_active);
   PORTAL.teams = teams; PORTAL.locations = locations; PORTAL.attendance = attendance;
-  PORTAL.competitions = competitions; PORTAL.notices = notices; PORTAL.blocked = blocked; PORTAL.invoices = invoices;
+  PORTAL.competitions = competitions; PORTAL.notices = notices; PORTAL.blocked = blocked; PORTAL.invoices = invoices; PORTAL.changes = changes;
   if (!PORTAL.athletes.some(a => a.id === PORTAL.selected)) PORTAL.selected = PORTAL.athletes[0]?.id || null;
   portalRender();
   await window.PortalBilling.load();
@@ -100,6 +125,7 @@ function portalHome(athlete, team) {
   return `<div class="agrid"><div class="stack">
     <section class="hero"><div class="eyebrow">Próximo treino</div><h2>${portalEsc(team?.name || 'Equipe a definir')}</h2>
       <div class="when">${next ? `${portalDate(next.date)} · ${portalEsc(next.start)} às ${portalEsc(next.end)}` : 'Agenda ainda não cadastrada'}</div>
+      ${next?.note ? `<div class="meta"><span>${portalEsc(next.note)}</span></div>` : ''}
       <div class="meta"><span>${portalEsc(loc?.venue || loc?.name || '')}</span><span>${portalEsc(loc?.address || '')}</span></div>
       ${next ? `<button class="btn primary sm" data-absence="${next.date}">Avisar ausência</button>` : ''}</section>
     <section class="panel panel-pad"><h2>O que precisa da sua atenção</h2>
@@ -120,7 +146,7 @@ function portalCompetitions(athlete, one = false) {
 function portalAgenda(athlete, team) {
   const loc = portalLocation(team);
   return `<section class="panel panel-pad"><h2>Treinos das próximas quatro semanas</h2><p class="muted small">${portalEsc(team?.name || '')} · ${portalEsc(loc?.address || '')}</p>
-    ${portalSchedule(team).map(s => `<div class="stat-line"><span>${portalDate(s.date)} · ${portalEsc(s.start)}–${portalEsc(s.end)}</span><button class="btn sm" data-absence="${s.date}">Avisar ausência</button></div>`).join('') || '<p class="muted">Horários não cadastrados.</p>'}</section>
+    ${portalSchedule(team, 28, true).map(s => `<div class="stat-line"><span>${s.cancelled ? '<s>' : ''}${portalDate(s.date)} · ${portalEsc(s.start)}–${portalEsc(s.end)}${s.cancelled ? '</s>' : ''}${s.note ? `<small class="muted" style="display:block">${portalEsc(s.note)}</small>` : ''}</span>${s.cancelled ? '' : `<button class="btn sm" data-absence="${s.date}">Avisar ausência</button>`}</div>`).join('') || '<p class="muted">Horários não cadastrados.</p>'}</section>
     <section class="panel panel-pad mt"><h2>Competições</h2>${portalCompetitions(athlete)}</section>`;
 }
 function portalEvolution(athlete) {

@@ -101,20 +101,9 @@ document.addEventListener('click', async e => {
     case 'fin-series': S.fin.series = el.dataset.v; return render();
     case 'fin-link-quick': return finLinkQuick(el.dataset.client, el.dataset.athlete);
     case 'fin-link-exact': return finLinkExactMatches();
-    case 'training-toggle': {
-      const team = teamOf(el.dataset.team), date = el.dataset.date;
-      if (!team || !canManageTraining(team)) return toast('Seu perfil não pode alterar este treino.', true);
-      const cancel = !team.cancelled?.includes(date);
-      const tests = BOOKINGS.filter(b => b.teamId === team.id && b.date.slice(0, 10) === date && !b.archived && b.status !== 'Cancelado').length;
-      if (cancel && !(await confirmBox({ title: 'Sinalizar que não haverá treino?', text: `${esc(team.name)} · ${fmtDate(parseYmd(date))}.${tests ? ` Há ${tests} teste(s) marcado(s) que precisarão ser reagendados.` : ''} Esta alteração não muda as datas indisponíveis para novos testes.`, ok: 'Sinalizar sem treino' }))) return;
-      try {
-        const { error } = await financeDbClient().rpc('v2_set_training_cancellation', { p_team: team.id, p_date: date, p_cancel: cancel });
-        if (error) throw error;
-        closeDialog(); await liveReload();
-        toast(cancel ? 'Treino marcado como não realizado.' : 'Treino restaurado na agenda.');
-      } catch (error) { toast(`Não foi possível alterar o treino: ${error.message}`, true); }
-      return;
-    }
+    // Exceções de treino: cancelar com motivo, restaurar e reposições (training-exceptions.js)
+    case 'training-cancel-open': case 'training-cancel-save': case 'training-restore': case 'makeup-waive': case 'ov-makeups':
+      return trainingExAction(a, el);
     case 'goto-team': closeDialog(); S.page = 'teams'; render(); return teamEditor(id);
     /* agendamentos */
     case 'bk-kpi': S.bk.kpi = S.bk.kpi === el.dataset.k ? '' : el.dataset.k; if (S.bk.kpi) S.bk.status = ''; return render();

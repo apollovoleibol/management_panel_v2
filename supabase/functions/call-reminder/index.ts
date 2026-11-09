@@ -1,9 +1,10 @@
 // call-reminder — lembrete push de chamada pendente.
 //
 // Chamada pelo pg_cron a cada 10 minutos (migração 023). Para cada treino de hoje
-// (grade das equipes ativas, horário de São Paulo) que terminou há 30 minutos ou
-// mais, não foi cancelado no Huddle e ainda não tem chamada, avisa os técnicos da
-// equipe uma única vez (tabela v2_call_reminders).
+// (treinos efetivos: grade com mudanças de horário, reposições e treinos extras,
+// sem os cancelados — v2_service_trainings, migração 048) que terminou há 30 minutos
+// ou mais e ainda não tem chamada, avisa uma única vez (tabela v2_call_reminders)
+// o substituto do dia ou, sem substituto, os técnicos da equipe.
 //
 // Também transforma chamada esquecida há 24 h em tarefa da administração (ver
 // missedCallTasks). Sem dados sensíveis na resposta e idempotente; por isso roda sem JWT:
@@ -29,38 +30,42 @@ const toMin = (hhmm: string) => { const [h, m] = String(hhmm).slice(0, 5).split(
 // ─── Chamada esquecida há 24 h vira tarefa da administração (migração 024) ───
 // Só olha treinos que terminaram entre 24 h e 48 h atrás: cada treino passa por
 // essa janela uma vez (sem gerar tarefas para semanas antigas).
-type Slot = { day: number; start?: string; end?: string };
-type Team = { id: string; name: string; training_schedule: Slot[] | null };
+type Training = { team_id: string; team_name: string; training_date: string; start_time: string; end_time: string;
+  substitute_id: string | null };
 const DAY = 24 * 3600 * 1000;
 const WEEKDAYS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const shiftDate = (ymd: string, days: number) => {
+  const d = new Date(`${ymd}T12:00:00-03:00`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10);
+};
+const hhmm = (t: string) => String(t).slice(0, 5);
+
+// Quem recebe o aviso: o substituto do dia ou, sem ele, os técnicos ativos da equipe
+// deno-lint-ignore no-explicit-any
+function recipients(t: Training, coaches: any[]): string[] {
+  if (t.substitute_id) return [t.substitute_id];
+  return coaches.filter((x: { team_id: string; profiles: { is_active: boolean } }) => x.team_id === t.team_id && x.profiles?.is_active !== false)
+    .map((x: { coach_id: string }) => x.coach_id);
+}
 
 // deno-lint-ignore no-explicit-any
-async function missedCallTasks(admin: any, teams: Team[], today: string) {
+async function missedCallTasks(admin: any, today: string) {
   const nowAbs = Date.now();
-  const byKey = new Map<string, { team: Team; date: string; start: string; dow: number }>();
-  for (const back of [1, 2]) {
-    const ref = new Date(`${today}T12:00:00-03:00`);
-    ref.setUTCDate(ref.getUTCDate() - back);
-    const date = ref.toISOString().slice(0, 10);
-    const dow = ref.getUTCDay();
-    for (const t of teams) {
-      for (const s of (Array.isArray(t.training_schedule) ? t.training_schedule : [])) {
-        if (Number(s.day) !== dow || !s.start || !s.end) continue;
-        const age = nowAbs - new Date(`${date}T${String(s.end).slice(0, 5)}:00-03:00`).getTime();
-        if (age >= DAY && age < 2 * DAY && !byKey.has(`${t.id}|${date}`)) {
-          byKey.set(`${t.id}|${date}`, { team: t, date, start: String(s.start).slice(0, 5), dow });
-        }
-      }
+  const { data: rows } = await admin.rpc('v2_service_trainings', { p_from: shiftDate(today, -2), p_to: shiftDate(today, -1) });
+  const byKey = new Map<string, { t: Training; date: string; start: string; dow: number }>();
+  for (const t of (rows || []) as Training[]) {
+    const age = nowAbs - new Date(`${t.training_date}T${hhmm(t.end_time)}:00-03:00`).getTime();
+    const key = `${t.team_id}|${t.training_date}`;
+    if (age >= DAY && age < 2 * DAY && !byKey.has(key)) {
+      byKey.set(key, { t, date: t.training_date, start: hhmm(t.start_time), dow: new Date(`${t.training_date}T12:00:00-03:00`).getUTCDay() });
     }
   }
 
   let created = 0, completed = 0;
   const candidates = [...byKey.values()];
   if (candidates.length) {
-    const ids = [...new Set(candidates.map(c => c.team.id))];
+    const ids = [...new Set(candidates.map(c => c.t.team_id))];
     const dates = [...new Set(candidates.map(c => c.date))].sort();
-    const [cancelRes, logsRes, doneRes, coachesRes, authorRes] = await Promise.all([
-      admin.from('v2_training_cancellations').select('team_id, training_date').in('team_id', ids).in('training_date', dates),
+    const [logsRes, doneRes, coachesRes, authorRes] = await Promise.all([
       admin.from('training_logs').select('team_id, started_at, attendance(count)').in('team_id', ids)
         .gte('started_at', `${dates[0]}T00:00:00-03:00`).lte('started_at', `${today}T00:00:00-03:00`),
       admin.from('v2_call_tasks').select('team_id, training_date, coach_id').in('team_id', ids).in('training_date', dates),
@@ -70,7 +75,6 @@ async function missedCallTasks(admin: any, teams: Team[], today: string) {
     const authors = authorRes.data || [];
     const author = (authors.find((a: { email: string }) => a.email === 'apollovoleibol@gmail.com') || authors[0])?.id;
     if (author) {
-      const cancelled = new Set((cancelRes.data || []).map((r: { team_id: string; training_date: string }) => `${r.team_id}|${r.training_date}`));
       const spDate = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10);
       const called = new Set((logsRes.data || [])
         .filter((l: { attendance: { count: number }[] }) => (l.attendance?.[0]?.count || 0) > 0)
@@ -78,31 +82,30 @@ async function missedCallTasks(admin: any, teams: Team[], today: string) {
       const done = new Set((doneRes.data || []).map((r: { team_id: string; training_date: string; coach_id: string }) => `${r.team_id}|${r.training_date}|${r.coach_id}`));
 
       for (const c of candidates) {
-        const key = `${c.team.id}|${c.date}`;
-        if (cancelled.has(key) || called.has(key)) continue;
-        const coaches = (coachesRes.data || []).filter((x: { team_id: string; profiles: { is_active: boolean } }) =>
-          x.team_id === c.team.id && x.profiles?.is_active !== false);
+        const key = `${c.t.team_id}|${c.date}`;
+        if (called.has(key)) continue;
         const label = `${c.date.slice(8, 10)}/${c.date.slice(5, 7)}`;
-        for (const coach of coaches) {
+        for (const coachId of recipients(c.t, coachesRes.data || [])) {
+          const coach = { coach_id: coachId };
           if (done.has(`${key}|${coach.coach_id}`)) continue;
           // Marca antes de criar: execuções concorrentes não duplicam a tarefa
           const { error: markError } = await admin.from('v2_call_tasks')
-            .insert({ team_id: c.team.id, training_date: c.date, coach_id: coach.coach_id });
+            .insert({ team_id: c.t.team_id, training_date: c.date, coach_id: coach.coach_id });
           if (markError) continue;
           const { data: task } = await admin.from('tasks').insert({
-            title: `Chamada pendente: ${c.team.name} (${label})`,
+            title: `Chamada pendente: ${c.t.team_name} (${label})`,
             description: `O treino de ${WEEKDAYS[c.dow]}, ${label}, às ${c.start}, ficou sem chamada. ` +
-              'Registre a presença em Equipe → escolha a equipe → ajuste a data do treino. ' +
+              'Registre a presença em Chamada → Chamadas liberadas. ' +
               'Esta tarefa é concluída automaticamente quando a chamada for salva.',
             assigned_to: coach.coach_id, assigned_by: author, created_by: author,
-            team_id: c.team.id, due_date: today, priority: 'high', is_private: false
+            team_id: c.t.team_id, due_date: today, priority: 'high', is_private: false
           }).select('id').single();
           if (!task) continue;
           await admin.from('v2_call_tasks').update({ task_id: task.id })
-            .eq('team_id', c.team.id).eq('training_date', c.date).eq('coach_id', coach.coach_id);
+            .eq('team_id', c.t.team_id).eq('training_date', c.date).eq('coach_id', coach.coach_id);
           await admin.functions.invoke('send-push-notification', {
             body: { user_id: coach.coach_id, type: 'task_assigned', title: 'Nova tarefa atribuída',
-              body: `Chamada pendente: ${c.team.name} (${label})`, url: '/#/tarefas', data: { task_id: task.id } }
+              body: `Chamada pendente: ${c.t.team_name} (${label})`, url: '/#/tarefas', data: { task_id: task.id } }
           });
           created++;
         }
@@ -161,50 +164,42 @@ Deno.serve(async () => {
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   const now = spNow();
 
-  const { data: teams, error } = await admin.from('teams')
-    .select('id, name, training_schedule').eq('is_active', true);
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-
-  const tasks = await missedCallTasks(admin, (teams || []) as Team[], now.date);
+  const tasks = await missedCallTasks(admin, now.date);
   const payroll = await payrollReminder(admin, now);
 
-  // Treinos de hoje cuja janela de lembrete está aberta
-  const due = (teams || []).flatMap(t => (Array.isArray(t.training_schedule) ? t.training_schedule : [])
-    .filter((s: { day: number; start?: string; end?: string }) => Number(s.day) === now.dow && s.start && s.end)
-    .filter((s: { end: string }) => {
-      const since = now.minutes - (toMin(s.end) + DELAY_MIN);
-      return since >= 0 && since < WINDOW_MIN;
-    })
-    .map((s: { start: string }) => ({ team: t, start: String(s.start).slice(0, 5) })));
+  // Treinos efetivos de hoje cuja janela de lembrete está aberta
+  const { data: rows, error } = await admin.rpc('v2_service_trainings', { p_from: now.date, p_to: now.date });
+  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+  const due = ((rows || []) as Training[]).filter(t => {
+    const since = now.minutes - (toMin(t.end_time) + DELAY_MIN);
+    return since >= 0 && since < WINDOW_MIN;
+  });
   if (!due.length) return new Response(JSON.stringify({ checked: 0, sent: 0, tasks, payroll }));
 
-  const ids = [...new Set(due.map(d => d.team.id))];
-  const [cancelRes, logsRes, sentRes, coachesRes] = await Promise.all([
-    admin.from('v2_training_cancellations').select('team_id').in('team_id', ids).eq('training_date', now.date),
+  const ids = [...new Set(due.map(d => d.team_id))];
+  const [logsRes, sentRes, coachesRes] = await Promise.all([
     admin.from('training_logs').select('team_id, attendance(count)').in('team_id', ids)
       .gte('started_at', `${now.date}T00:00:00-03:00`).lte('started_at', `${now.date}T23:59:59-03:00`),
     admin.from('v2_call_reminders').select('team_id').in('team_id', ids).eq('training_date', now.date),
     admin.from('team_coaches').select('team_id, coach_id, profiles!inner(is_active)').in('team_id', ids)
   ]);
-  const cancelled = new Set((cancelRes.data || []).map(r => r.team_id));
   const called = new Set((logsRes.data || []).filter(l => (l.attendance?.[0]?.count || 0) > 0).map(l => l.team_id));
   const already = new Set((sentRes.data || []).map(r => r.team_id));
 
   let sent = 0;
   for (const d of due) {
-    const id = d.team.id;
-    if (cancelled.has(id) || called.has(id) || already.has(id)) continue;
+    const id = d.team_id;
+    if (called.has(id) || already.has(id)) continue;
     // Marca antes de enviar: se outra execução concorrer, o insert falha e não duplica
     const { error: markError } = await admin.from('v2_call_reminders').insert({ team_id: id, training_date: now.date });
     if (markError) continue;
     already.add(id);
-    const coaches = (coachesRes.data || []).filter(c => c.team_id === id && (c as { profiles: { is_active: boolean } }).profiles?.is_active !== false);
-    for (const c of coaches) {
+    for (const userId of recipients(d, coachesRes.data || [])) {
       await admin.functions.invoke('send-push-notification', {
         body: {
-          user_id: c.coach_id, type: 'call_reminder',
+          user_id: userId, type: 'call_reminder',
           title: 'Chamada pendente',
-          body: `${d.team.name} · treino das ${d.start} ainda sem chamada`,
+          body: `${d.team_name} · treino das ${hhmm(d.start_time)} ainda sem chamada`,
           url: '/#/equipe'
         }
       });

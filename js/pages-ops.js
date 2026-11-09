@@ -79,8 +79,10 @@ function renderOverview() {
 
 function calWeekEvents(d) {
   const key = ymd(d), mine = myTeamIds();
-  return TEAMS.filter(t => t.active && S.cal.nuclei.has(t.n) && mine.includes(t.id)).flatMap(t => t.schedule.filter(s => s.day === d.getDay()).map(s => ({
+  // Treinos efetivos: grade com a mudança de horário do dia, treinos extras e substituto (migração 048)
+  return TEAMS.filter(t => t.active && S.cal.nuclei.has(t.n) && mine.includes(t.id)).flatMap(t => trainingsOn(t, key).map(s => ({
     t, s, key, testBlocked: t.blocked.includes(key), cancelled: t.cancelled?.includes(key),
+    ex: trainingExTag(s), sub: trainingSubId(t.id, key), why: trainingCancelText(t, key),
     tests: BOOKINGS.filter(b => b.teamId === t.id && b.date.slice(0, 10) === key && b.status !== 'Cancelado' && !b.archived)
   }))).sort((a, b) => toMin(a.s.start) - toMin(b.s.start) || a.t.name.localeCompare(b.t.name, 'pt-BR'));
 }
@@ -114,10 +116,12 @@ function openCompetition(id) {
   const rows = [['Equipe', t?.name], ['Data', `${DOW_FULL[d.getDay()]}, ${fmtDate(d)}${k.time ? ' às ' + k.time : ''} (${compCountdown(k)})`], ['Tipo', COMP_TYPE[k.type]], ['Adversário', k.opponent], ['Fase / rodada', k.round], ['Local', k.place], ['Situação', k.status === 'postponed' ? 'Adiada' : k.status === 'completed' ? 'Realizada' : 'Prevista']].filter(([, v]) => v);
   openDialog(dHead('Competição', esc(k.name)) + `<div class="d-body">${rows.map(([l, v]) => `<div class="stat-line"><span class="muted">${l}</span><b>${esc(v)}</b></div>`).join('')}</div><div class="d-foot"><button class="btn" data-act="close-dialog">Fechar</button></div>`);
 }
-const calEventTitle = e => { const c = coachOf(e.t.coach); return `${e.t.name} · ${e.s.start}–${e.s.end} · ${c ? c.name : 'sem técnico'}${e.cancelled ? ' · treino cancelado' : e.testBlocked ? ' · sem novos testes' : ''}${e.tests.length ? ` · ${e.tests.length} teste(s)` : ''}`; };
+// Quem conduz (substituto do dia ou técnico responsável) e a exceção do dia (cancelado, reposição, horário alterado)
+const calWho = e => e.sub ? `substituto: ${trainingPersonName(e.sub)}` : (coachOf(e.t.coach)?.name || 'sem técnico');
+const calNote = e => e.cancelled ? ` · treino cancelado${e.why ? ` (${e.why.toLowerCase()})` : ''}` : `${e.ex ? ' · ' + e.ex : ''}${e.testBlocked ? ' · sem novos testes' : ''}`;
+const calEventTitle = e => `${e.t.name} · ${e.s.start}–${e.s.end} · ${calWho(e)}${calNote(e)}${e.tests.length ? ` · ${e.tests.length} teste(s)` : ''}`;
 function calListItem(e) {
-  const c = coachOf(e.t.coach);
-  return `<button class="item ${NCLASS(e.t.n)} ${e.cancelled ? 'cancelled' : ''}" data-act="cal-event" data-team="${e.t.id}" data-date="${e.key}" aria-label="${esc(calEventTitle(e))}"><span class="bar"></span><span class="time">${e.s.start}–${e.s.end}</span><span style="min-width:0;flex:1"><strong>${esc(e.t.name)}</strong><small>${esc(nucleusLabel(nucleusOf(e.t.n)?.name))} · ${c ? esc(c.name) : 'Sem técnico'}${e.cancelled ? ' · treino cancelado' : e.testBlocked ? ' · sem novos testes' : ''}</small></span>${S.cal.showTests && e.tests.length ? `<span class="tag st-cancelado nodot">${e.tests.length} teste${e.tests.length > 1 ? 's' : ''}</span>` : ''}</button>`;
+  return `<button class="item ${NCLASS(e.t.n)} ${e.cancelled ? 'cancelled' : ''}" data-act="cal-event" data-team="${e.t.id}" data-date="${e.key}" aria-label="${esc(calEventTitle(e))}"><span class="bar"></span><span class="time">${e.s.start}–${e.s.end}</span><span style="min-width:0;flex:1"><strong>${esc(e.t.name)}</strong><small>${esc(nucleusLabel(nucleusOf(e.t.n)?.name))} · ${esc(calWho(e))}${esc(calNote(e))}</small></span>${S.cal.showTests && e.tests.length ? `<span class="tag st-cancelado nodot">${e.tests.length} teste${e.tests.length > 1 ? 's' : ''}</span>` : ''}</button>`;
 }
 function weekCalendarHTML() {
   const ws = startOfWeek(S.cal.cursor), days = [...Array(7)].map((_, i) => addDays(ws, i)), end = addDays(ws, 6);
@@ -152,9 +156,8 @@ function weekCalendarHTML() {
     const isToday = key === ymd(TODAY);
     const html = evs.filter(e => e.show).map(e => {
       const top = (toMin(e.s.start) - H0 * 60) / 60 * PH, h = (toMin(e.s.end) - toMin(e.s.start)) / 60 * PH - 3;
-      const c = coachOf(e.t.coach);
       return `<button class="ev ${e.cancelled ? 'blocked' : NCLASS(e.t.n)} ${e.testBlocked && !e.cancelled ? 'test-unavailable' : ''}" style="top:${top}px;height:${h}px;left:calc(${e.lane / e.L * 100}% + 3px);width:calc(${100 / e.L}% - 6px)" data-act="cal-event" data-team="${e.t.id}" data-date="${key}" title="${esc(calEventTitle(e))}" aria-label="${esc(calEventTitle(e))}">
-        <strong>${esc(e.t.name)}</strong><span>${e.s.start}–${e.s.end}${e.cancelled ? ' · sem treino' : e.testBlocked ? ' · sem testes' : ''}</span>${h > 70 && e.L < 3 ? `<span>${c ? esc(c.name) : 'Sem técnico'}</span>` : ''}${S.cal.showTests && e.tests.length ? `<span class="tests">${icon('target')} ${e.tests.length}</span>` : ''}</button>`;
+        <strong>${esc(e.t.name)}</strong><span>${e.s.start}–${e.s.end}${e.cancelled ? ' · sem treino' : e.ex ? ' · ' + esc(e.ex) : e.testBlocked ? ' · sem testes' : ''}</span>${h > 70 && e.L < 3 ? `<span>${esc(calWho(e))}</span>` : ''}${S.cal.showTests && e.tests.length ? `<span class="tests">${icon('target')} ${e.tests.length}</span>` : ''}</button>`;
     }).join('');
     const nowLine = isToday && NOW.getHours() >= H0 && NOW.getHours() < H1 ? `<div class="now-line" style="top:${((NOW.getHours() - H0) * 60 + NOW.getMinutes()) / 60 * PH}px"></div>` : '';
     return { head: `<div class="cal-head ${isToday ? 'today' : ''}"><div class="dname">${DOW[d.getDay()]}</div><div class="dnum">${d.getDate()}</div><span class="dcount">${evs.filter(e => !e.cancelled).length} treino${evs.filter(e => !e.cancelled).length === 1 ? '' : 's'}</span>${comps.length ? `<div class="cal-comps">${comps.map(compChip).join('')}</div>` : ''}</div>`, col: `<div class="cal-col ${isToday ? 'today' : ''}" style="height:${(H1 - H0) * PH}px;--ph:${PH}px">${html}${more}${nowLine}</div>` };
@@ -189,16 +192,17 @@ function openCalDay(date) {
 }
 
 function openCalEvent(tid, date) {
-  const t = teamOf(tid), d = parseYmd(date), s = t.schedule.find(x => x.day === d.getDay()), n = nucleusOf(t.n), c = coachOf(t.coach);
+  const t = teamOf(tid), d = parseYmd(date), s = trainingsOn(t, date)[0] || t.schedule.find(x => x.day === d.getDay()), n = nucleusOf(t.n), c = coachOf(t.coach);
   const blocked = t.blocked.includes(date), cancelled = t.cancelled?.includes(date);
+  const ex = trainingExTag(s), sub = trainingSubId(tid, date), why = trainingCancelText(t, date), canAgenda = canManageTraining(t) && d >= addDays(TODAY, -7);
   const tests = BOOKINGS.filter(b => b.teamId === tid && b.date.slice(0, 10) === date && !b.archived);
   const count = ATHLETES.filter(a => a.active && a.teamId === tid).length;
   openDialog(dHead(`${DOW_FULL[d.getDay()]}, ${d.getDate()} de ${MONTHS[d.getMonth()]}`, esc(t.name), `${s.start} às ${s.end}`) + `<div class="d-body">
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${nTag(t.n)}<span class="tag nodot">${esc(t.category)}</span><span class="tag nodot">${ageRange(t)} · ${genderLabel(t.gender)}</span>${blocked ? '<span class="tag st-warn">Sem novos testes nesta data</span>' : ''}${cancelled ? '<span class="tag st-cancelado">Treino cancelado</span>' : ''}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${nTag(t.n)}<span class="tag nodot">${esc(t.category)}</span><span class="tag nodot">${ageRange(t)} · ${genderLabel(t.gender)}</span>${blocked ? '<span class="tag st-warn">Sem novos testes nesta data</span>' : ''}${cancelled ? `<span class="tag st-cancelado">Treino cancelado${why ? ' · ' + esc(why) : ''}</span>` : ''}${ex && !cancelled ? `<span class="tag st-info nodot">${esc(ex)}</span>` : ''}${sub ? `<span class="tag st-warn nodot">Substituto: ${esc(trainingPersonName(sub))}</span>` : ''}</div>
     <div class="kv"><div><small>Local</small><strong>${esc(n.venue)}</strong><div class="hint">${esc(n.address)}</div></div><div><small>Técnico responsável</small><strong>${c ? esc(c.name) : '—'}</strong></div><div><small>Atletas ativos</small><strong>${count}</strong></div><div><small>Duração</small><strong>${hoursBetween(s.start, s.end).toLocaleString('pt-BR')} h</strong></div></div>
     <h3>Testes marcados neste treino</h3>
     ${tests.length ? `<ul class="list" style="margin:6px -24px 0">${tests.map(b => `<li><span class="time-pill">${b.date.slice(11)}</span><div style="flex:1;min-width:0"><strong>${esc(b.nomeMenor || b.nome)}</strong><div class="hint">${b.nomeMenor ? (bookingGuardianDuplicated(b) ? 'Responsável não identificado' : 'Resp.: ' + esc(b.nome)) : fmtPhone(b.whatsapp)}</div></div>${stTag(b.status)}</li>`).join('')}</ul>` : '<p class="muted small">Nenhum teste marcado para esta data.</p>'}
-  </div><div class="d-foot"><button class="btn left" data-act="goto-team" data-id="${tid}">${icon('pin')} Abrir equipe</button>${canManageTraining(t) && parseYmd(date) >= TODAY ? `<button class="btn ${cancelled ? '' : 'danger'}" data-act="training-toggle" data-team="${tid}" data-date="${date}">${cancelled ? 'Restaurar treino' : 'Sinalizar sem treino'}</button>` : ''}${!blocked && !cancelled && parseYmd(date) >= TODAY ? `<button class="btn primary" data-act="booking-new" data-team="${tid}" data-date="${date}" data-need="bookings">${icon('plus')} Agendar teste neste treino</button>` : ''}</div>`, 'drawer');
+  </div><div class="d-foot"><button class="btn left" data-act="goto-team" data-id="${tid}">${icon('pin')} Abrir equipe</button>${canAgenda ? `<button class="btn ${cancelled ? '' : 'danger'}" data-act="${cancelled ? 'training-restore' : 'training-cancel-open'}" data-team="${tid}" data-date="${date}">${cancelled ? 'Restaurar treino' : 'Sinalizar sem treino'}</button>` : ''}${!blocked && !cancelled && parseYmd(date) >= TODAY ? `<button class="btn primary" data-act="booking-new" data-team="${tid}" data-date="${date}" data-need="bookings">${icon('plus')} Agendar teste neste treino</button>` : ''}</div>`, 'drawer');
 }
 function canManageTraining(team) {
   const role = APOLLO_AUTH.access?.role;

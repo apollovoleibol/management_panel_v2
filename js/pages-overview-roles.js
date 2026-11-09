@@ -11,7 +11,7 @@ function opsKpisHTML() {
   const next7 = BOOKINGS.filter(b => !b.archived && b.status !== 'Cancelado' && parseLocal(b.date) >= NOW && parseLocal(b.date) <= addDays(TODAY, 8)).length;
   const toEval = BOOKINGS.filter(b => !b.archived && parseLocal(b.date) < NOW && ['Agendado', 'Pendente', 'Em avaliação'].includes(b.status)).length;
   const l30 = SESSIONS.filter(s => parseYmd(s.date) >= m0), ws = startOfWeek(TODAY);
-  const weekTrainings = TEAMS.filter(t => t.active).reduce((n, t) => n + t.schedule.filter(s => !t.cancelled?.includes(ymd(addDays(ws, s.day)))).length, 0);
+  const weekTrainings = TEAMS.filter(t => t.active).reduce((n, t) => n + [0, 1, 2, 3, 4, 5, 6].reduce((k, i) => { const key = ymd(addDays(ws, i)); return k + (t.cancelled?.includes(key) ? 0 : trainingsOn(t, key).length); }, 0), 0);
   const recorded = l30.filter(s => s.recorded).length;
   return `<div class="section-title" style="margin-top:0"><h2>Operação</h2></div>
   <div class="grid g5">${[
@@ -68,7 +68,7 @@ function renderCoachOverview() {
   let next = null;
   for (let k = 0; k < 14 && !next; k++) {
     const d = addDays(TODAY, k);
-    ids.map(teamOf).forEach(t => t.schedule.filter(s => s.day === d.getDay()).forEach(s => {
+    ids.map(teamOf).forEach(t => trainingsOn(t, ymd(d)).forEach(s => {
       const at = new Date(d); const [h, m] = s.start.split(':').map(Number); at.setHours(h, m);
       if (at > NOW && !t.cancelled?.includes(ymd(d)) && (!next || at < next.at)) next = { at, t, s };
     }));

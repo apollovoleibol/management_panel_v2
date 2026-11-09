@@ -38,6 +38,11 @@ function ovTasks() {
     const age = finImportAgeDays();
     if (age === null || age > 10) add({ n: icon('upload'), title: 'Importar relatórios do Tecnofit', hint: age === null ? 'Nenhum relatório importado ainda' : `Última importação há ${age} dias: o Financeiro está desatualizado`, tone: age === null || age > 35 ? 'bad' : 'warn', btn: 'Importar', attrs: 'data-act="ov-finance" data-tab="imports"' });
   }
+  if (canView('overview') && typeof pendingMakeups === 'function') {
+    const mk = pendingMakeups(), old = mk.filter(m => parseYmd(m.date) < addDays(TODAY, -7)).length;
+    add({ n: mk.length, title: 'Reposições pendentes', hint: `Treinos cancelados em cima da hora ainda sem reposição${mk[0] ? ` · o mais antigo em ${trDM(mk[0].date)}` : ''}`,
+      tone: old ? 'bad' : 'warn', btn: 'Ver lista', attrs: 'data-act="ov-makeups"' });
+  }
   pendingItems().forEach(i => add({ n: i.n, title: i.label[0].toUpperCase() + i.label.slice(1), hint: i.hint, tone: '', btn: 'Ver lista', attrs: `data-act="pending-go" data-k="${i.k}"` }));
   return tasks.map((t, i) => ({ ...t, i })).sort((a, b) => OV_TONE[a.tone] - OV_TONE[b.tone] || a.i - b.i);
 }
@@ -55,7 +60,7 @@ function ovTodayHTML() {
   const tests = canView('bookings') ? BOOKINGS.filter(b => mine.includes(b.teamId) && !b.archived && b.status !== 'Cancelado' && parseLocal(b.date) >= NOW && parseLocal(b.date) <= addDays(NOW, 7)).sort((a, b) => a.date.localeCompare(b.date)) : [];
   const comps = COMPETITIONS.filter(k => mine.includes(k.teamId) && k.date >= key && k.date <= ymd(addDays(TODAY, 30)) && k.status !== 'completed').sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`)).slice(0, 3);
   const when = s => { const d = parseLocal(s), dd = Math.round((startOfDay(d) - TODAY) / 864e5); return `${dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : DOW[d.getDay()].toLowerCase() + ' ' + fmtShort(d)} ${s.slice(11, 16)}`; };
-  const training = e => { const c = coachOf(e.t.coach); return `<button class="ov-ev ${e.cancelled ? 'off' : ''} ${NCLASS(e.t.n)}" data-act="cal-event" data-team="${e.t.id}" data-date="${key}"><b>${e.s.start}</b><span>${esc(e.t.name)}<small>${c ? esc(c.name.split(' ')[0]) : 'sem técnico'}${e.cancelled ? ' · cancelado' : ''}</small></span>${e.tests.length ? `<span class="tag st-info nodot">${e.tests.length} teste${e.tests.length > 1 ? 's' : ''}</span>` : ''}</button>`; };
+  const training = e => { const c = e.sub ? { name: trainingPersonName(e.sub) } : coachOf(e.t.coach); return `<button class="ov-ev ${e.cancelled ? 'off' : ''} ${NCLASS(e.t.n)}" data-act="cal-event" data-team="${e.t.id}" data-date="${key}"><b>${e.s.start}</b><span>${esc(e.t.name)}<small>${c ? esc(c.name.split(' ')[0]) + (e.sub ? ' (substituto)' : '') : 'sem técnico'}${e.cancelled ? ' · cancelado' : e.ex ? ' · ' + esc(e.ex) : ''}</small></span>${e.tests.length ? `<span class="tag st-info nodot">${e.tests.length} teste${e.tests.length > 1 ? 's' : ''}</span>` : ''}</button>`; };
   return `<section class="panel ov-today"><div class="panel-head"><div><h2>Hoje</h2><div class="sub">${DOW_FULL[TODAY.getDay()]}, ${fmtShort(TODAY)} · ${payPlural(evs.filter(e => !e.cancelled).length, 'treino', 'treinos')}</div></div><button class="btn sm ghost" data-act="ov-tab" data-v="agenda" data-scroll>Semana ${icon('arrow')}</button></div>
       <div class="ov-ev-list">${evs.map(training).join('') || '<p class="muted small" style="margin:0">Sem treinos hoje.</p>'}</div></section>
     ${canView('bookings') ? `<section class="panel ov-today"><div class="panel-head"><div><h2>Próximos testes</h2><div class="sub">${tests.length ? `${tests.length} nos próximos 7 dias` : 'Nenhum nos próximos 7 dias'}</div></div><button class="btn sm ghost" data-page="bookings">Agendamentos ${icon('arrow')}</button></div>

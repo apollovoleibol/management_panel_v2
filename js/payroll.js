@@ -122,7 +122,9 @@ function payReview(cid) {
     const ses = i.type === 'treino' ? SESSIONS.find(s => s.coach === i.coach && s.teamId === i.teamId && s.date === i.date) : null;
     const present = ses && ses.recorded ? Object.values(ses.att || {}).filter(v => v === 'present').length : null;
     const title = i.type === 'treino' ? (team?.name || String(i.desc).replace(PAY_APP_TAG, '')) : i.desc;
-    const origin = isApp ? 'registrado no app' : i.origin === 'Técnico' ? (i.type === 'competicao' ? 'pedida pelo técnico no app' : 'lançado pelo técnico') : 'lançado pela administração';
+    const tags = i.type === 'treino' && typeof trainingPayTags === 'function' ? trainingPayTags(i.coach, i.teamId, i.date) : [];
+    const origin = (isApp ? 'registrado no app' : i.origin === 'Técnico' ? (i.type === 'competicao' ? 'pedida pelo técnico no app' : 'lançado pelo técnico') : 'lançado pela administração')
+      + (tags.length ? ' · ' + tags.join(' · ') : '');
     const proof = i.type !== 'treino' ? (team ? ` · ${esc(team.name)}` : '') : !ses ? '' : present !== null ? ` · chamada com ${payPlural(present, 'presente', 'presentes')}` : ' · confirmado sem chamada';
     const waiting = i.status === 'pendente' && i.type === 'competicao' && !(c.daily > 0);
     const note = waiting ? ' · aguardando o valor da diária' : '';
