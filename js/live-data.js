@@ -2,6 +2,8 @@
 'use strict';
 
 const LIVE = { ready: false, loading: false, error: '', teamCoachIds: new Map() };
+// Nomes chegam com espaços sobrando de cadastros antigos; sem isso a ordem alfabética e as buscas falham
+const cleanName = s => String(s || '').replace(/\s+/g, ' ').trim();
 let PORTAL_ACCESS = [];
 async function liveReload() {
   await liveLoadPanel();
@@ -21,10 +23,13 @@ async function liveDelete(table, id) {
   if (error) throw error;
   if (!data?.length) throw new Error('Nenhum registro foi excluído. Confira suas permissões.');
 }
-async function liveAll(table, columns = '*') {
+// Ordem fixa: sem ela, a leitura de 500 em 500 pode repetir ou pular linhas (presenças passam de 4 mil)
+async function liveAll(table, columns = '*', order = 'id') {
   const out = [];
   for (let start = 0; ; start += 500) {
-    const { data, error } = await financeDbClient().from(table).select(columns).range(start, start + 499);
+    let query = financeDbClient().from(table).select(columns);
+    for (const column of order.split(',')) query = query.order(column.trim());
+    const { data, error } = await query.range(start, start + 499);
     if (error) throw new Error(`${table}: ${error.message}`);
     out.push(...data);
     if (data.length < 500) return out;
@@ -74,17 +79,17 @@ async function liveLoadPanel() {
     const [locations, teams, links, athletes, tryouts, coaches, unavailable, cancellations, logs, attendance, competitions, staff, portalLinks] = await Promise.all([
       liveAll('training_locations', 'id,name,venue,address,phone,notes,is_active'),
       liveAll('teams', teamColumns),
-      liveAll('team_coaches', 'team_id,coach_id,is_head'),
+      liveAll('team_coaches', 'team_id,coach_id,is_head', 'team_id,coach_id'),
       liveAll('athletes', athleteColumns),
       liveAll('tryouts', 'id,name,minor_name,whatsapp_phone,scheduled_at,target_team,team_id,status,reschedule_count,archived_at,created_at,approved_at,athlete_id,booking_consent'),
       isAdmin ? liveAll('profiles', 'id,full_name,email,phone,role,is_active') : liveAll('profiles', 'id,full_name,email,phone,role,is_active'),
-      liveAll('team_unavailable_dates', 'team_id,date'),
-      liveAll('v2_training_cancellations', 'team_id,training_date'),
+      liveAll('team_unavailable_dates', 'team_id,date', 'team_id,date'),
+      liveAll('v2_training_cancellations', 'team_id,training_date', 'team_id,training_date'),
       liveAll('training_logs', 'id,team_id,coach_id,conducted_by,started_at,ended_at,duration_minutes'),
-      liveAll('attendance', 'log_id,athlete_id,status'),
+      liveAll('attendance', 'log_id,athlete_id,status', 'log_id,athlete_id'),
       liveAll('competitions', 'id,team_id,name,scheduled_at,venue_name,status,opponent,round,competition_type'),
-      isAdmin ? liveAll('v2_staff', 'user_id,role,permissions,is_active') : Promise.resolve([]),
-      isAdmin ? liveAll('v2_athlete_access', 'user_id,athlete_id,relation') : Promise.resolve([])
+      isAdmin ? liveAll('v2_staff', 'user_id,role,permissions,is_active', 'user_id') : Promise.resolve([]),
+      isAdmin ? liveAll('v2_athlete_access', 'user_id,athlete_id,relation', 'user_id,athlete_id') : Promise.resolve([])
     ]);
     const user = APOLLO_AUTH.user;
     LIVE.teamCoachIds = new Map();
@@ -140,9 +145,9 @@ async function liveLoadPanel() {
     }));
     PLANS = [...planMap.values()];
     ATHLETES = athletes.map(a => ({
-      id: a.id, teamId: a.team_id, name: a.full_name, birth: a.birth_date || '',
+      id: a.id, teamId: a.team_id, name: cleanName(a.full_name), birth: a.birth_date || '',
       email: a.email || '', cpf: a.cpf || '', rg: a.rg || '', phone: a.phone || '',
-      parentName: a.parent_name || '', parentPhone: a.parent_phone || '',
+      parentName: cleanName(a.parent_name), parentPhone: a.parent_phone || '',
       address: a.address || '', bank: finance ? (a.payment_bank || '') : '',
       plan: finance ? (a.payment_plan || '') : '',
       planId: finance ? (PLANS.find(p => p.sourceLabel === a.payment_plan && p.teams.includes(a.team_id))
@@ -157,7 +162,7 @@ async function liveLoadPanel() {
     const statuses = { PENDING: 'Pendente', CONFIRMED: 'Agendado', CANCELED: 'Cancelado', CANCELLED: 'Cancelado',
       IN_EVALUATION: 'Em avaliação', IN_REGISTRATION: 'Em cadastro', TECNOFIT: 'Tecnofit', MISSED: 'Ausente' };
     BOOKINGS = tryouts.map(b => ({
-      id: b.id, nome: b.name || '', nomeMenor: b.minor_name || '', whatsapp: b.whatsapp_phone || '',
+      id: b.id, nome: cleanName(b.name), nomeMenor: cleanName(b.minor_name), whatsapp: b.whatsapp_phone || '',
       teamId: b.team_id || TEAMS.find(t => b.target_team === t.name)?.id
         || TEAMS.find(t => String(b.target_team || '').startsWith(`${t.name} - `))?.id || null,
       date: b.scheduled_at ? b.scheduled_at.slice(0, 16) : '', status: statuses[String(b.status || '').toUpperCase()] || 'Pendente',
@@ -178,10 +183,10 @@ async function liveLoadPanel() {
     LEDGER = []; DELINQ = []; IMPORTS = []; COACH_ITEMS = []; PAYOUTS = {};
     if (finance) {
       const [rates, items, payouts, tecnofitLinks] = await Promise.all([
-        liveAll('v2_coach_rates', 'coach_id,hourly_cents,daily_cents,pix_key'),
+        liveAll('v2_coach_rates', 'coach_id,hourly_cents,daily_cents,pix_key', 'coach_id'),
         liveAll('v2_coach_items', 'id,coach_id,team_id,item_date,kind,description,hours,amount_cents,status,created_by'),
-        liveAll('v2_coach_payouts', 'coach_id,month,amount_cents,paid_at'),
-        liveAll('v2_tecnofit_athlete_links', 'athlete_id,client_id')
+        liveAll('v2_coach_payouts', 'coach_id,month,amount_cents,paid_at', 'coach_id,month'),
+        liveAll('v2_tecnofit_athlete_links', 'athlete_id,client_id', 'athlete_id')
       ]);
       const clientByAthlete = new Map(tecnofitLinks.map(link => [link.athlete_id, link.client_id]));
       ATHLETES.forEach(athlete => { athlete.tecnofitClientId = clientByAthlete.get(athlete.id) || ''; });

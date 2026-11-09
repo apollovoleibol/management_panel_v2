@@ -125,6 +125,8 @@ th.sel,td.sel{width:38px;padding-right:0!important}
   table.cards .person strong,table.cards .person small{white-space:normal}
   table.cards td.c-sub .hint{display:inline}
   .table-wrap:has(table.cards){overflow-x:visible}
+  table.cards td.c-sub>div{display:inline-flex!important;vertical-align:middle}
+  table.cards td.c-sub .hint::before{content:'· '}
 }
 
 /* 12 · Indicadores em 2 colunas no celular */

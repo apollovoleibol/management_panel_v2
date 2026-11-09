@@ -1,5 +1,15 @@
 # Histórico de versões
 
+## Varredura técnica — 2026-11-09
+
+- Mensalidades voltou ao menu (administração e financeiro). A migração 043 (Marketing) tinha recriado as permissões sem a página, e o banco negava mensalidades, cobranças e regras de cobrança a todos. Migração 047.
+- Área do atleta: a lista de atletas da conta volta a seguir a regra de vínculo (adulto com a própria conta, menor pelo responsável).
+- Nomes com espaços sobrando (" Giovanna…", "Amanda Pereira ") eram listados fora da ordem e atrapalhavam a comparação de nomes. Novos cadastros e agendamentos chegam normalizados e os atletas atuais foram corrigidos.
+- Leitura dos dados com ordem fixa: a paginação de 500 em 500 podia repetir ou pular linhas (presenças passam de 4 mil).
+- Biblioteca do Supabase em versão fixa (2.119.0) no painel, no login e na Área do atleta.
+- Chatbot Feeder: saiu o botão "Atualizar quadro agora" e o indicador fixo "Sincronização: Pendente", que não faziam nada. As instruções do assistente ficam só para consulta (são alteradas no Apps Script).
+- Celular: em Agendamentos, equipe e núcleo deixam de aparecer colados ("Equipe ArmstrongNúcleo PUC").
+
 ## Folha dos técnicos: fechamento guiado — 2026-11-09
 
 - A página abre no mês a fechar (o anterior, enquanto houver técnico sem pagamento) e mostra a situação do mês: total, quanto já foi pago, quanto falta e os 3 passos (revisar, pagar, pago) com contagens.
