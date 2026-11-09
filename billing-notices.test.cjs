@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 function harness() {
-  const calls = [], button = { setAttribute() {}, hidden: false, textContent: '' };
+  const calls = [], button = { setAttribute() {}, hidden: false, innerHTML: '', title: '' };
   const auth = { user: { id: 'coach-A' }, access: { role: 'coach' } };
   const listeners = {};
   let reply = async () => ({ data: [], error: null });
@@ -15,7 +15,7 @@ function harness() {
       querySelector: () => button, getElementById: () => null, addEventListener: (name, fn) => { listeners[name] = fn; } },
     window: { addEventListener() {} }, MutationObserver: class { observe() {} disconnect() {} }, setInterval() {},
     esc: value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'),
-    toast() {}
+    toast() {}, icon: name => `<svg data-icon="${name}"></svg>`
   });
   vm.runInContext(fs.readFileSync(`${__dirname}/js/billing-notices.js`, 'utf8'), context);
   return { context, calls, auth, button, listeners, reply: fn => { reply = fn; }, run: code => vm.runInContext(code, context) };
@@ -33,7 +33,8 @@ test('staff inbox labels sandbox as simulation, actual restrictions accurately, 
   assert.match(markup, /Simulação · sandbox/);
   assert.match(markup, /Não restringe a participação/);
   assert.match(markup, /Presença restrita/);
-  assert.equal(h.button.textContent, 'Avisos (2)');
+  assert.match(h.button.innerHTML, /<span class="notif-count">2<\/span>/);
+  assert.equal(h.button.title, 'Avisos: 2 pendência(s)');
   assert.deepEqual(h.calls.map(call => call.name), ['billing_staff_notices']);
 });
 
@@ -42,7 +43,8 @@ test('unavailable server shows a confirmation error without a false unread count
   h.reply(async () => ({ data: null, error: { message: 'permission denied' } }));
   await h.run('billingNoticesLoad()');
   assert.match(h.run('billingNoticesMarkup()'), /não puderam ser confirmados/);
-  assert.equal(h.button.textContent, 'Avisos');
+  assert.ok(!h.button.innerHTML.includes('notif-count'));
+  assert.equal(h.button.title, 'Avisos');
 });
 
 test('account switch while loading never displays the previous account notices', async () => {
