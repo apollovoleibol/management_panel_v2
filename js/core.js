@@ -321,13 +321,13 @@ const PAGES = [
   { id: 'athletes', label: 'Atletas', icon: 'users', group: 'OPERAÇÃO' },
   { id: 'teams', label: 'Equipes e núcleos', icon: 'pin', group: 'OPERAÇÃO' },
   { id: 'packages', label: 'Pacotes', icon: 'layers', group: 'OPERAÇÃO' },
-  { id: 'feeder', label: 'Chatbot Feeder', icon: 'bot', group: 'ASSISTENTE' },
+  { id: 'feeder', label: 'Chatbot Feeder', icon: 'bot', group: 'OPERAÇÃO' },
   { id: 'billing', label: 'Mensalidades', icon: 'money', group: 'FINANÇAS' },
   { id: 'payments', label: 'Folha dos técnicos', icon: 'wallet', group: 'FINANÇAS' },
   { id: 'finance', label: 'Financeiro', icon: 'chart', group: 'FINANÇAS' },
   { id: 'marketing', label: 'Planejamento', icon: 'target', group: 'MARKETING' },
   { id: 'studio', label: 'Estúdio de peças', icon: 'sparkle', group: 'MARKETING' },
-  { id: 'settings', label: 'Configurações', icon: 'settings', group: 'SISTEMA' },
+  { id: 'settings', label: 'Configurações', icon: 'settings', group: 'SISTEMA', footer: true },
 ];
 const P = (...pairs) => Object.fromEntries(PAGES.map((p, i) => [p.id, pairs[i] || 'none']));
 const ROLE_PRESETS = {

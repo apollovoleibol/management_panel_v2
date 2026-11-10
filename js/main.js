@@ -5,7 +5,8 @@ const RENDER = { overview: renderOverview, bookings: renderBookings, athletes: r
 
 function renderNav() {
   let html = '', group = '';
-  PAGES.filter(p => canView(p.id)).forEach(p => {
+  // Configurações fica no rodapé, ao lado de Sair: o menu cabe na tela sem rolagem
+  PAGES.filter(p => canView(p.id) && !p.footer).forEach(p => {
     if (p.group !== group) { group = p.group; html += `<div class="nav-label">${group}</div>`; }
     const badge = p.id === 'bookings' ? BOOKINGS.filter(b => !b.archived && b.status === 'Agendado' && parseLocal(b.date) > NOW && parseLocal(b.date) - NOW <= 48 * 36e5).length : p.id === 'finance' ? (FIN_REPORTS.open ? new Set(finAlertRows().map(r => r.clientId)).size : 0) : 0;
     const urgent = p.id === 'finance' && FIN_REPORTS.open && finAlertRows().some(r => r.days > 60);
@@ -14,7 +15,8 @@ function renderNav() {
   });
   $('#nav').innerHTML = html;
   const u = me();
-  $('#sideUser').innerHTML = `<span class="avatar">${initials(u.name)}</span><div style="min-width:0"><strong>${esc(displayName(u.name))}</strong><small>${esc(u.role)}</small></div>${!S.previewRole && apolloHasAthleteAccess() ? `<a class="lock" href="area-do-atleta.html" title="Ir para a Área do atleta" style="margin-left:auto;color:var(--nav-muted)">${icon('users')}</a>` : ''}<button class="icon-btn" data-act="logout" title="Sair" aria-label="Sair" style="margin-left:auto;color:var(--nav-muted)">${icon('logout')}</button>`;
+  const onSettings = S.page === 'settings';
+  $('#sideUser').innerHTML = `<span class="avatar">${initials(u.name)}</span><div class="side-who"><strong>${esc(displayName(u.name))}</strong><small>${esc(u.role)}</small></div><div class="side-actions">${!S.previewRole && apolloHasAthleteAccess() ? `<a class="side-act" href="area-do-atleta.html" title="Ir para a Área do atleta" aria-label="Ir para a Área do atleta">${icon('users')}</a>` : ''}${canView('settings') ? `<button class="side-act ${onSettings ? 'active' : ''}" data-page="settings" title="Configurações" aria-label="Configurações" ${onSettings ? 'aria-current="page"' : ''}>${icon('settings')}</button>` : ''}<button class="side-act" data-act="logout" title="Sair" aria-label="Sair">${icon('logout')}</button></div>`;
   $('#crumb').textContent = PAGES.find(p => p.id === S.page).label;
 }
 function render() {

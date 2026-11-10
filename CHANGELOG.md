@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## Menu lateral sem rolagem — 2026-11-10
+
+- O menu lateral cabe inteiro na tela, sem barra de rolagem: espaços e alturas acompanham a altura da janela; em telas baixas a marca sai e, nas muito baixas, os títulos dos grupos viram linhas.
+- Chatbot Feeder entrou em Operação (o grupo "Assistente" tinha um item só).
+- Configurações virou o ícone de engrenagem no rodapé do menu, ao lado de Sair.
+
 ## Sessão encerrada com o painel aberto — 2026-11-10
 
 - Corrigido: ao sair no Manager App com a mesma conta, o Supabase encerra todas as sessões dela. O Huddle continuava aberto sem sessão e as gravações iam como anônimas e eram descartadas ("Não foi possível salvar todas as alterações: Nenhum registro foi gravado").
