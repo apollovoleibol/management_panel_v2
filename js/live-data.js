@@ -10,7 +10,13 @@ async function liveReload() {
   if (seesFinance()) await financeManualRefresh();
   render();
 }
+// Sem sessão a gravação iria como anônima e o banco descartaria sem erro
+async function liveRequireSession() {
+  if (typeof apolloCheckSession === 'function' && !(await apolloCheckSession()))
+    throw new Error('Sua sessão terminou. Entre novamente para salvar.');
+}
 async function liveWrite(table, payload, id = null) {
+  await liveRequireSession();
   const query = id ? financeDbClient().from(table).update(payload).eq('id', id)
     : financeDbClient().from(table).insert(payload);
   const { data, error } = await query.select('id');
@@ -19,6 +25,7 @@ async function liveWrite(table, payload, id = null) {
   return data[0];
 }
 async function liveDelete(table, id) {
+  await liveRequireSession();
   const { data, error } = await financeDbClient().from(table).delete().eq('id', id).select('id');
   if (error) throw error;
   if (!data?.length) throw new Error('Nenhum registro foi excluído. Confira suas permissões.');

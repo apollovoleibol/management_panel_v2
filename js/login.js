@@ -81,4 +81,6 @@ googleBtn.addEventListener('click', async () => {
   }
 });
 document.getElementById('logoutBtn').addEventListener('click', apolloSignOut);
+if (new URL(location.href).searchParams.get('sessao') === 'expirada')
+  loginStatus('Sua sessão terminou (por exemplo, ao sair no Manager App com a mesma conta). Entre novamente para continuar.', true);
 loginRoute().catch(() => loginStatus('Não foi possível verificar seu acesso. Confira a conexão e recarregue a página.', true));

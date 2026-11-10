@@ -56,3 +56,33 @@ test('Google session with no assigned profile cannot open the panel', async () =
   assert.equal(result.ok, false);
   assert.deepEqual(calls.redirects, ['login.html']);
 });
+
+test('signing out elsewhere sends the open page back to login with the expired notice', async () => {
+  const { calls, context } = harness({ access_token: token('oauth') });
+  let listener;
+  vm.runInContext('financeDbClient()', context).auth.onAuthStateChange = fn => { listener = fn; };
+  const result = await vm.runInContext("apolloRequireArea('panel')", context);
+  assert.equal(result.ok, true);
+  listener('INITIAL_SESSION', { access_token: 'x' });
+  assert.deepEqual(calls.redirects, []);
+  listener('SIGNED_OUT', null);
+  assert.deepEqual(calls.redirects, ['login.html?sessao=expirada']);
+});
+
+test('a revoked session is caught before writing', async () => {
+  const { calls, context } = harness({ access_token: token('oauth') });
+  const auth = vm.runInContext('financeDbClient()', context).auth;
+  let signedOut = null;
+  auth.getUser = async () => ({ data: { user: null }, error: { status: 403, message: 'session_not_found' } });
+  auth.signOut = async options => { signedOut = options; return { error: null }; };
+  assert.equal(await vm.runInContext('apolloCheckSession()', context), false);
+  assert.equal(signedOut?.scope, 'local');
+  assert.deepEqual(calls.redirects, ['login.html?sessao=expirada']);
+});
+
+test('a network failure while checking does not log the user out', async () => {
+  const { calls, context } = harness({ access_token: token('oauth') });
+  vm.runInContext('financeDbClient()', context).auth.getUser = async () => ({ data: { user: null }, error: { status: 0, message: 'Failed to fetch' } });
+  assert.equal(await vm.runInContext('apolloCheckSession()', context), true);
+  assert.deepEqual(calls.redirects, []);
+});

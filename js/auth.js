@@ -51,7 +51,41 @@ async function apolloRequireArea(area) {
   if (!APOLLO_AUTH.user) { location.replace('login.html'); return { ok: false }; }
   const allowed = area === 'panel' ? apolloHasStaffAccess(access) : apolloHasAthleteAccess(access);
   if (!allowed) { location.replace('login.html'); return { ok: false }; }
+  apolloWatchSession();
   return { ok: true, access, user: APOLLO_AUTH.user };
+}
+
+// A sessão pode acabar com a página aberta: "Sair" no Manager App encerra todas as sessões da conta,
+// e um token renovado em outro aparelho invalida este. Sem sessão o Supabase segue respondendo como
+// anônimo e as gravações somem caladas ("Nenhum registro foi gravado"). Aqui a página volta ao login.
+const APOLLO_SESSION_EXPIRED = 'login.html?sessao=expirada';
+let apolloWatching = false;
+function apolloSessionExpired() {
+  APOLLO_AUTH.user = null;
+  location.replace(APOLLO_SESSION_EXPIRED);
+}
+async function apolloCheckSession() {
+  const client = financeDbClient();
+  const { data } = await client.auth.getSession();
+  if (!data.session) { apolloSessionExpired(); return false; }
+  // getUser consulta o servidor: pega a sessão revogada mesmo com o token ainda guardado no navegador
+  const { data: userData, error } = await client.auth.getUser();
+  if (error?.status === 401 || error?.status === 403 || (!error && !userData.user)) {
+    await client.auth.signOut({ scope: 'local' }).catch(() => {});
+    apolloSessionExpired();
+    return false;
+  }
+  return true;
+}
+function apolloWatchSession() {
+  if (apolloWatching) return;
+  apolloWatching = true;
+  financeDbClient().auth.onAuthStateChange?.((event, session) => {
+    if (event === 'SIGNED_OUT' || (event !== 'INITIAL_SESSION' && !session)) apolloSessionExpired();
+  });
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') apolloCheckSession().catch(() => {});
+  });
 }
 
 async function apolloSignOut() {
