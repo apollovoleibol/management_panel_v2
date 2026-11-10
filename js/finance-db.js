@@ -58,7 +58,7 @@ async function financeDbRequireRole() {
 }
 
 async function financeDbSignOut() {
-  await financeDbClient().auth.signOut();
+  await financeDbClient().auth.signOut({ scope: 'local' });
   FIN_DB.session = null; FIN_DB.authorized = false; FIN_DB.canImport = false; FIN_DB.error = ''; FIN_DB.coverage = [];
   FIN_HISTORY.length = 0;
   Object.keys(FIN_REPORTS).forEach(type => { FIN_REPORTS[type] = null; });

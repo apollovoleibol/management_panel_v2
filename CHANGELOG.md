@@ -3,6 +3,7 @@
 ## Sessão encerrada com o painel aberto — 2026-11-10
 
 - Corrigido: ao sair no Manager App com a mesma conta, o Supabase encerra todas as sessões dela. O Huddle continuava aberto sem sessão e as gravações iam como anônimas e eram descartadas ("Não foi possível salvar todas as alterações: Nenhum registro foi gravado").
+- "Sair" no Huddle e no Manager App passa a encerrar só o aparelho em uso; antes derrubava a conta em todos os aparelhos (celulares dos técnicos e painéis abertos).
 - Agora o painel e a Área do atleta percebem a sessão encerrada (ao voltar para a aba e antes de cada gravação) e levam ao login com o aviso "Sua sessão terminou".
 
 ## Exceções de treino — 2026-11-09

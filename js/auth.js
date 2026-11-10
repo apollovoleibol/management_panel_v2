@@ -89,7 +89,7 @@ function apolloWatchSession() {
 }
 
 async function apolloSignOut() {
-  const { error } = await financeDbClient().auth.signOut();
+  const { error } = await financeDbClient().auth.signOut({ scope: 'local' });
   if (error) throw error;
   location.replace('login.html');
 }
