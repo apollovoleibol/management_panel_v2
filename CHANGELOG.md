@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## Status do teste não é mais sobrescrito — 2026-11-13
+
+- Corrigido: "Editar dados e data" em Agendamentos regravava o status que estava na tela ao abrir o formulário. Se o técnico decidisse o teste (Ausente, Em cadastro…) no Manager App nesse intervalo, o painel devolvia "Agendado". Agora o status só é gravado se for alterado no formulário.
+- O painel recarrega os dados ao voltar à aba depois de 2 minutos, para mostrar resultados lançados pelos técnicos.
+
 ## Menu lateral sem rolagem — 2026-11-10
 
 - O menu lateral cabe inteiro na tela, sem barra de rolagem: espaços e alturas acompanham a altura da janela; em telas baixas a marca sai e, nas muito baixas, os títulos dos grupos viram linhas.

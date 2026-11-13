@@ -428,6 +428,9 @@ async function saveBooking(id) {
   const payload = { name: nome, minor_name: minor ? menor : null, whatsapp_phone: minor && before?.whatsapp ? before.whatsapp : wpp, booking_consent: bookingConsent,
     scheduled_at: st.date, target_team: t.name, target_location: nucleusOf(t.n)?.venue || '', team_id: t.id,
     status: selectedStatus };
+  // O resultado do teste costuma ser decidido pelo técnico no Manager App enquanto este formulário está aberto.
+  // Só regrava o status se a pessoa o mudou aqui; senão o formulário devolveria o valor antigo ("Agendado").
+  if (before && $('#fbStatus')?.value === before.status && !(minor && selectedStatus === 'PENDING')) delete payload.status;
   if (before && before.date !== st.date) payload.reschedule_count = before.reag + 1;
   try {
     await liveWrite('tryouts', payload, id);

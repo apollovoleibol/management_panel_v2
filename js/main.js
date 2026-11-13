@@ -296,4 +296,12 @@ async function bootstrapPanel() {
     startup.textContent = `Não foi possível carregar os dados: ${error.message}`;
   }
 }
+// Resultados de teste chegam do Manager App sem o painel saber: ao voltar à aba depois de 2 min,
+// recarrega os dados (sem diálogo aberto, para não atropelar edição em andamento).
+let panelHiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { panelHiddenAt = Date.now(); return; }
+  if (panelHiddenAt && Date.now() - panelHiddenAt > 120000 && LIVE.ready && !$('#dlg')?.open) liveReload().catch(() => {});
+  panelHiddenAt = 0;
+});
 bootstrapPanel();
