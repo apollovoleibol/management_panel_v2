@@ -1,7 +1,7 @@
 /* Financeiro · Configurações (a Folha dos técnicos fica em payroll.js) */
 'use strict';
 // Mensalidades segue o perfil (administração e financeiro); não é gravada por usuário
-const staffPerms = perms => Object.fromEntries(Object.entries(perms || {}).filter(([page]) => page !== 'billing'));
+const staffPerms = perms => Object.fromEntries(Object.entries(perms || {}).filter(([page]) => page !== 'billing' && !PAGE_DERIVED[page]));
 
 const monthOptions = (sel, n = 6) => lastMonths(n).reverse().map(m => { const k = monthKey(m); return `<option value="${k}" ${sel === k ? 'selected' : ''}>${MONTHS[m.getMonth()][0].toUpperCase() + MONTHS[m.getMonth()].slice(1)} ${m.getFullYear()}</option>`; }).join('');
 const monthLabel = k => { const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} de ${y}`; };
@@ -150,16 +150,16 @@ function chargeMessage(key) {
 }
 
 /* ═══════════════ CONFIGURAÇÕES ═══════════════ */
-const permCount = u => ({ e: PAGES.filter(p => perm(p.id, u) === 'edit').length, v: PAGES.filter(p => perm(p.id, u) === 'view').length });
+const permCount = u => ({ e: PERM_PAGES.filter(p => perm(p.id, u) === 'edit').length, v: PERM_PAGES.filter(p => perm(p.id, u) === 'view').length });
 function renderSettings() {
   let body = '';
   if (S.st.tab === 'users') body = `<div class="table-wrap"><table><thead><tr><th>Usuário</th><th>Perfil</th><th>Acesso por página</th><th>Status</th><th>Último acesso</th><th></th></tr></thead><tbody>${USERS.map(u => { const c = permCount(u); return `<tr class="rowlink" data-act="user-open" data-id="${u.id}" tabindex="0">
       <td><div class="person"><span class="avatar">${initials(u.name)}</span><div><strong>${esc(u.name)}${u.id === S.userId ? '<span class="you-tag">VOCÊ</span>' : ''}</strong><small>${esc(u.email)}</small></div></div></td>
       <td><span class="role-pill">${u.unassigned && PORTAL_ACCESS.some(link => link.user_id === u.id) ? 'Área do atleta' : esc(u.role)}</span>${presetDiff(u) && !u.unassigned ? ' <span class="hint">ajustado</span>' : ''}${u.coachId ? `<div class="hint">${TEAMS.filter(t => t.coach === u.coachId).length} equipe(s)</div>` : ''}</td>
-      <td><div class="perm-dots" title="${PAGES.map(p => p.label + ': ' + ({ edit: 'edição', view: 'visualização', none: 'sem acesso' }[perm(p.id, u)])).join('\n')}">${PAGES.map(p => `<i class="${perm(p.id, u) === 'edit' ? 'e' : perm(p.id, u) === 'view' ? 'v' : ''}"></i>`).join('')}</div><div class="hint">${c.e === PAGES.length ? 'Edita todas as páginas' : c.e ? `Edita ${c.e}${c.v ? ` · consulta ${c.v}` : ''} de ${PAGES.length}` : c.v ? `Só consulta ${c.v} de ${PAGES.length}` : 'Sem acesso'}</div></td>
+      <td><div class="perm-dots" title="${PERM_PAGES.map(p => p.label + ': ' + ({ edit: 'edição', view: 'visualização', none: 'sem acesso' }[perm(p.id, u)])).join('\n')}">${PERM_PAGES.map(p => `<i class="${perm(p.id, u) === 'edit' ? 'e' : perm(p.id, u) === 'view' ? 'v' : ''}"></i>`).join('')}</div><div class="hint">${c.e === PERM_PAGES.length ? 'Edita todas as páginas' : c.e ? `Edita ${c.e}${c.v ? ` · consulta ${c.v}` : ''} de ${PERM_PAGES.length}` : c.v ? `Só consulta ${c.v} de ${PERM_PAGES.length}` : 'Sem acesso'}</div></td>
       <td>${u.unassigned ? `<span class="tag">${PORTAL_ACCESS.some(link => link.user_id === u.id) ? 'Área do atleta' : 'Sem acesso à v2'}</span>` : u.active ? '<span class="tag st-ok">Ativo</span>' : '<span class="tag">Inativo</span>'}</td><td class="muted small">${u.last && u.last !== '—' ? esc(u.last) : 'Sem registro'}</td><td style="text-align:right"><button class="btn sm">Gerenciar</button></td></tr>`; }).join('')}</tbody></table></div>
-    <div class="panel-foot"><span class="legend"><span><i style="background:var(--ok)"></i>Edição</span><span><i style="background:color-mix(in srgb,var(--info) 55%,transparent)"></i>Somente visualização</span><span><i style="background:var(--line)"></i>Sem acesso</span></span><span>Ordem dos quadrados: ${PAGES.map(p => p.label).join(' · ')}</span></div>`;
-  if (S.st.tab === 'roles') body = `<div class="panel-pad"><p class="muted small" style="margin-top:0">Perfis são modelos: ao escolher um perfil para um usuário, as permissões são preenchidas e ainda podem ser ajustadas página a página. Páginas com dados financeiros ficam restritas aos perfis Administrador e Financeiro; o perfil Técnico enxerga apenas as próprias equipes.</p></div><div class="table-wrap"><table class="perm-table"><thead><tr><th>Página</th>${Object.keys(ROLE_PRESETS).map(r => `<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>${PAGES.map(p => `<tr><td>${icon(p.icon)} ${esc(p.label)}${FIN_PAGES.includes(p.id) ? ' <span class="src proposta">financeiro</span>' : ''}</td>${Object.values(ROLE_PRESETS).map(r => `<td>${r[p.id] === 'edit' ? '<span class="tag st-ok nodot">Editar</span>' : r[p.id] === 'view' ? '<span class="tag st-info nodot">Visualizar</span>' : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    <div class="panel-foot"><span class="legend"><span><i style="background:var(--ok)"></i>Edição</span><span><i style="background:color-mix(in srgb,var(--info) 55%,transparent)"></i>Somente visualização</span><span><i style="background:var(--line)"></i>Sem acesso</span></span><span>Ordem dos quadrados: ${PERM_PAGES.map(p => p.label).join(' · ')}</span></div>`;
+  if (S.st.tab === 'roles') body = `<div class="panel-pad"><p class="muted small" style="margin-top:0">Perfis são modelos: ao escolher um perfil para um usuário, as permissões são preenchidas e ainda podem ser ajustadas página a página. Páginas com dados financeiros ficam restritas aos perfis Administrador e Financeiro; o perfil Técnico enxerga apenas as próprias equipes.</p></div><div class="table-wrap"><table class="perm-table"><thead><tr><th>Página</th>${Object.keys(ROLE_PRESETS).map(r => `<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>${PERM_PAGES.map(p => `<tr><td>${icon(p.icon)} ${esc(p.label)}${FIN_PAGES.includes(p.id) ? ' <span class="src proposta">financeiro</span>' : ''}</td>${Object.values(ROLE_PRESETS).map(r => `<td>${r[p.id] === 'edit' ? '<span class="tag st-ok nodot">Editar</span>' : r[p.id] === 'view' ? '<span class="tag st-info nodot">Visualizar</span>' : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   if (S.st.tab === 'portal') body = `<div class="panel-pad"><div class="head-actions"><button class="btn primary" data-act="portal-invite" data-edit>${icon('plus')} Convidar responsável ou atleta</button><button class="btn" data-act="portal-link" data-edit>Vincular conta existente</button></div><p class="hint mt">Para menores, o acesso pertence ao responsável. Adultos usam a própria conta. Cada vínculo é autorizado por administrador e pode ser removido aqui.</p></div><div class="table-wrap"><table><thead><tr><th>Conta</th><th>Atleta</th><th>Relação</th><th></th></tr></thead><tbody>${PORTAL_ACCESS.map(link => `<tr><td><strong>${esc(link.userName)}</strong><div class="hint">${esc(link.userEmail)}</div></td><td>${esc(link.athleteName)}</td><td>${link.relation === 'guardian' ? 'Responsável' : 'Próprio atleta'}</td><td><button class="btn sm danger" data-act="portal-unlink" data-user="${link.user_id}" data-athlete="${link.athlete_id}" data-edit>Desvincular</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">Nenhum acesso à Área do atleta vinculado.</td></tr>'}</tbody></table></div>`;
   return `${viewBanner('settings')}
   <div class="page-head"><div><div class="eyebrow">Sistema</div><h1>Configurações</h1><p>Gerencie quem acessa o painel e o que cada pessoa pode ver ou alterar em cada página.</p></div>
@@ -168,7 +168,7 @@ function renderSettings() {
   <section class="panel"><div class="tabs">${[['users', 'Usuários do painel', USERS.length], ['roles', 'Perfis de acesso', Object.keys(ROLE_PRESETS).length], ['portal', 'Área do atleta', PORTAL_ACCESS.length]].map(([k, l, c]) => `<button class="${S.st.tab === k ? 'on' : ''}" data-act="st-tab" data-tab="${k}">${l} <span class="pill">${c}</span></button>`).join('')}</div>${body}</section>`;
 }
 let UE = null;
-const presetDiff = u => ROLE_PRESETS[u.role] && PAGES.some(p => !(FIN_PAGES.includes(p.id) && !FIN_ROLES.includes(u.role)) && ROLE_PRESETS[u.role][p.id] !== u.perms[p.id]);
+const presetDiff = u => ROLE_PRESETS[u.role] && PERM_PAGES.some(p => !(FIN_PAGES.includes(p.id) && !FIN_ROLES.includes(u.role)) && ROLE_PRESETS[u.role][p.id] !== u.perms[p.id]);
 function userDrawer(id) {
   const u = id ? USERS.find(x => x.id === id) : { id: uid('u'), name: '', email: '', role: 'Atendimento', active: true, last: 'Convite pendente', perms: { ...ROLE_PRESETS['Atendimento'] }, isNew: true };
   UE = JSON.parse(JSON.stringify(u)); drawUser();
@@ -176,7 +176,7 @@ function userDrawer(id) {
 function drawUser() {
   const u = UE, ro = !canEdit('settings'), finOk = FIN_ROLES.includes(u.role);
   const eff = p => FIN_PAGES.includes(p) && !finOk ? 'none' : u.perms[p];
-  const c = { e: PAGES.filter(p => eff(p.id) === 'edit').length, v: PAGES.filter(p => eff(p.id) === 'view').length };
+  const c = { e: PERM_PAGES.filter(p => eff(p.id) === 'edit').length, v: PERM_PAGES.filter(p => eff(p.id) === 'view').length };
   const coachTeams = u.coachId ? TEAMS.filter(t => t.coach === u.coachId).map(t => esc(t.name)).join(', ') : '';
   const row = p => {
     const locked = FIN_PAGES.includes(p.id) && !finOk, v = eff(p.id);
@@ -192,8 +192,8 @@ function drawUser() {
     ${u.role === 'Técnico' ? `<div class="hint">${coachTeams ? 'Equipes vinculadas: ' + coachTeams + '.' : 'Vincule este técnico às equipes na página Equipes e núcleos.'}</div>` : ''}
     ${u.role === 'Administrador' && u.legacyRole !== 'admin' ? `<div class="banner note">${icon('shield')}<span>Este perfil concede administração completa do Huddle v2, inclusive dados financeiros e gestão de usuários. O painel v1 mantém as permissões atuais desta pessoa.</span></div>` : ''}
     ${finOk ? '' : `<div class="banner view">${icon('lock')}<span class="small">Dados financeiros (Pacotes, Mensalidades, Folha dos técnicos e Financeiro) só podem ser acessados, mesmo em visualização, pelos perfis <b>Administrador</b> e <b>Financeiro</b>. Para este perfil, valores de mensalidade e dados bancários também ficam ocultos nas demais páginas.</span></div>`}
-    <h3 class="mt">Permissões por página</h3><p class="hint" style="margin:2px 0 8px">${c.e} com edição · ${c.v} somente visualização · ${PAGES.length - c.e - c.v} sem acesso</p>
-    <div class="table-wrap" style="margin:0 -24px"><table class="perm-table"><thead><tr><th>Página</th><th>Visualizar</th><th>Editar</th><th>Resultado</th></tr></thead><tbody>${PAGES.map(row).join('')}</tbody></table></div>
+    <h3 class="mt">Permissões por página</h3><p class="hint" style="margin:2px 0 8px">${c.e} com edição · ${c.v} somente visualização · ${PERM_PAGES.length - c.e - c.v} sem acesso</p>
+    <div class="table-wrap" style="margin:0 -24px"><table class="perm-table"><thead><tr><th>Página</th><th>Visualizar</th><th>Editar</th><th>Resultado</th></tr></thead><tbody>${PERM_PAGES.map(row).join('')}</tbody></table></div>
     <div class="err" id="ueErr" role="alert"></div></fieldset></div>
     <div class="d-foot"><button class="btn" data-act="close-dialog">${ro ? 'Fechar' : 'Cancelar'}</button>${ro ? '' : `<button class="btn primary" data-act="user-save">${u.isNew ? 'Criar acesso' : 'Salvar permissões'}</button>`}</div>`, 'drawer wide');
   const body = $('#dlg .d-body');

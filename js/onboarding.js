@@ -16,6 +16,11 @@ const GUIDE_PAGES = {
     ['Atletas', 'Consulte os atletas e use busca e filtros para encontrar a equipe ou o cadastro desejado.', '.page-head'],
     ['Cadastro', 'Abra um atleta para ver os dados. O perfil com edição pode atualizar o cadastro; menores exigem responsável.', '.table-wrap']
   ],
+  rematricula: [
+    ['Rematrículas 2027', 'Acompanhe quem já renovou, quem está no meio do caminho e quem não vai continuar. Os indicadores filtram a lista.', '.page-head'],
+    ['O que falta', 'A barra mostra o andamento geral. Abra o progresso por equipe ou toque em um item de “O que mais falta” para ver só quem precisa dele.', '.re-progress'],
+    ['Lembrete e atestado', 'Use o WhatsApp para mandar o link do formulário com o que falta. O ícone de arquivo abre o atestado enviado. Abra a linha para ver detalhes ou registrar que a família não vai continuar.', '#reTable']
+  ],
   teams: [
     ['Núcleos', 'Núcleos são locais de treino. Os números mostram equipes, atletas ativos e horários semanais.', '.ngrid'],
     ['Equipes', 'Filtre por núcleo ou nome. Abra uma equipe para revisar técnicos, horários, disponibilidade e dados usados pelo assistente.', '#teamGrid']

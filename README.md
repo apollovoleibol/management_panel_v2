@@ -2,7 +2,7 @@
 
 O endereço da [v2](https://apollovoleibol.github.io/management_panel_v2/) está publicado em paralelo à v1. A branch `main` contém login Google e operações conectadas ao Supabase compartilhado. O cadastro público de novas contas foi desativado, o retorno OAuth da v2 foi autorizado e o perfil legado de recepção recebeu o papel Atendimento. A implantação ainda requer testes com contas reais de cada perfil e o isolamento dos campos financeiros legados das tabelas compartilhadas. Consulte [o estado da implantação](docs/IMPLEMENTACAO_REAL.md) antes de usar o painel para operações sensíveis.
 
-**Como abrir:** use `login.html` com uma conta Supabase autorizada. Para abrir direto numa página após o login, use a âncora: `index.html#bookings`, `#athletes`, `#teams`, `#packages`, `#feeder`, `#payments`, `#finance` ou `#settings`.
+**Como abrir:** use `login.html` com uma conta Supabase autorizada. Para abrir direto numa página após o login, use a âncora: `index.html#bookings`, `#athletes`, `#teams`, `#packages`, `#feeder`, `#payments`, `#finance`, `#rematricula` ou `#settings`.
 
 **Publicação paralela à v1:** consulte [PUBLICACAO_V2.md](PUBLICACAO_V2.md). O endereço da v1 permanece separado.
 
@@ -23,6 +23,13 @@ O endereço da [v2](https://apollovoleibol.github.io/management_panel_v2/) está
   - **Cadastro:** identificação, equipe e núcleo, com registro de consentimento de uso de imagem. Alterações cadastrais e de saúde ainda passam pela secretaria.
 - **Menores de idade (escolinha e base):** o acesso é do responsável, que vê os atletas vinculados à sua conta. O protótipo operacional registra resposta a competições e consentimento de imagem; autorização de viagens e lista de retirada ainda não existem.
 - **Adultos:** a conta própria pode responder a competições e consultar presença. Scout, fundamentos e cadastro inicial ainda não estão conectados.
+
+## Rematrícula 2027
+
+- `rematricula.html` (público, sem login, pensado para o celular): o atleta adulto ou o responsável informa CPF ou WhatsApp cadastrado + data de nascimento do(a) atleta. Etapas: dados cadastrais (cada campo pré-preenchido precisa de "Está correto" ou ser corrigido), endereço e anamnese (sempre reescritos, nunca pré-preenchidos), equipe 2027 (vem a atual), termos (regulamento, LGPD, declaração de saúde e imagem), atestado de aptidão física e revisão. A família também pode declarar que não vai continuar, com pedido opcional de exclusão dos dados.
+- `regulamento-2027.html`: versão preliminar do Regulamento do Atleta, adaptada do texto de 2024. A versão aceita fica gravada (`regulamento-atleta-2027-preliminar-1`).
+- Huddle → **Rematrículas 2027** (`#rematricula`): quem concluiu, quem está em andamento e o que falta, quem não abriu e quem não vai continuar, por equipe; lembrete por WhatsApp, atestado por link temporário e exportação CSV. Usa a permissão de **Atletas** (técnicos veem só as próprias equipes).
+- Banco: migração `049_rematricula_2027.sql`. O navegador anônimo não lê tabelas: tudo passa por funções `reenroll_*` com sessão de 2 h (só o hash fica no banco), limite de tentativas por identificador e IP, e endereço/anamnese nunca são devolvidos. O atestado vai para o bucket privado `rematricula` por um caminho de uso único. Ao concluir, o cadastro em `athletes` é atualizado (a troca de equipe fica como pedido para a coordenação) e a versão anterior fica em `reenrollments.previous_data`. Teste: `node rematricula.test.mjs`; verificação em produção: `supabase/VERIFY_049.sql`.
 
 ## Estrutura
 

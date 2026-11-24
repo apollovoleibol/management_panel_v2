@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## v2.10.0 · Rematrícula 2027 — 2026-11-24
+
+- Novo formulário público `rematricula.html`, pensado para o celular: identificação por CPF ou WhatsApp + data de nascimento; revisão dos dados com confirmação campo a campo; endereço e anamnese reescritos; equipe 2027 (pedido de troca vai para a coordenação); aceite do Regulamento do Atleta 2027, LGPD, declaração de saúde e uso de imagem; envio do atestado de aptidão física (foto ou PDF); irmãos na mesma sessão. Opção direta "Não vamos continuar em 2027", com motivo e pedido de exclusão dos dados.
+- Regulamento do Atleta 2027 (versão preliminar) em `regulamento-2027.html`.
+- Huddle: página **Rematrículas 2027** com indicadores, progresso por equipe, o que falta para quem começou, lembrete por WhatsApp, atestado, detalhe por atleta, registro de "não vai continuar"/reabertura pela equipe e exportação CSV.
+- Banco (migração 049): tabela `reenrollments`, funções `reenroll_*`, bucket privado `rematricula`.
+
 ## Status do teste não é mais sobrescrito — 2026-11-13
 
 - Corrigido: "Editar dados e data" em Agendamentos regravava o status que estava na tela ao abrir o formulário. Se o técnico decidisse o teste (Ausente, Em cadastro…) no Manager App nesse intervalo, o painel devolvia "Agendado". Agora o status só é gravado se for alterado no formulário.
