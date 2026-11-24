@@ -319,6 +319,8 @@ const PAGES = [
   { id: 'overview', label: 'Visão geral', icon: 'grid', group: 'OPERAÇÃO' },
   { id: 'bookings', label: 'Agendamentos', icon: 'calendar', group: 'OPERAÇÃO' },
   { id: 'athletes', label: 'Atletas', icon: 'users', group: 'OPERAÇÃO' },
+  // Rematrícula: mesma permissão de Atletas (derived), sem coluna própria na matriz de permissões
+  { id: 'rematricula', label: 'Rematrículas 2027', icon: 'refresh', group: 'OPERAÇÃO', derived: 'athletes' },
   { id: 'teams', label: 'Equipes e núcleos', icon: 'pin', group: 'OPERAÇÃO' },
   { id: 'packages', label: 'Pacotes', icon: 'layers', group: 'OPERAÇÃO' },
   { id: 'feeder', label: 'Chatbot Feeder', icon: 'bot', group: 'OPERAÇÃO' },
@@ -329,7 +331,9 @@ const PAGES = [
   { id: 'studio', label: 'Estúdio de peças', icon: 'sparkle', group: 'MARKETING' },
   { id: 'settings', label: 'Configurações', icon: 'settings', group: 'SISTEMA', footer: true },
 ];
-const P = (...pairs) => Object.fromEntries(PAGES.map((p, i) => [p.id, pairs[i] || 'none']));
+// Páginas com permissão própria (as derivadas seguem outra página)
+const PERM_PAGES = PAGES.filter(p => !p.derived);
+const P = (...pairs) => Object.fromEntries(PERM_PAGES.map((p, i) => [p.id, pairs[i] || 'none']));
 const ROLE_PRESETS = {
   'Administrador': P('edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit', 'edit'),
   'Coordenação técnica': P('view', 'edit', 'edit', 'edit', 'none', 'edit', 'none', 'none', 'none', 'none'),
@@ -399,7 +403,9 @@ const myTeamIds = (u = me()) => isCoach(u)
   ? TEAMS.filter(t => (typeof LIVE !== 'undefined' && LIVE.ready
     ? LIVE.teamCoachIds.get(t.id)?.includes(u.coachId) : t.coach === u.coachId)).map(t => t.id)
   : TEAMS.map(t => t.id);
-const perm = (p, u = me()) => (FIN_PAGES.includes(p) && !seesFinance(u)) ? 'none' : (u && u.perms[p]) || 'none';
+const PAGE_DERIVED = Object.fromEntries(PAGES.filter(p => p.derived).map(p => [p.id, p.derived]));
+const perm = (p, u = me()) => PAGE_DERIVED[p] ? perm(PAGE_DERIVED[p], u)
+  : (FIN_PAGES.includes(p) && !seesFinance(u)) ? 'none' : (u && u.perms[p]) || 'none';
 /* Rótulo do pacote sem valores para quem não vê dados financeiros */
 const maskPlan = str => seesFinance() ? str : String(str || '').replace(/\s*-\s*R\$.*$/, '');
 const planText = p => seesFinance() ? planLabel(p) : `${p.days}x por semana`;
