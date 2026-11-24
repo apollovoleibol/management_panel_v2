@@ -1,4 +1,4 @@
-// Rematrícula 2027 — migração 049 em PostgreSQL descartável (PGlite).
+// Rematrícula 2027 — migrações 049 e 050 em PostgreSQL descartável (PGlite).
 // Uso: instalar @electric-sql/pglite em .verification e rodar `node rematricula.test.mjs`.
 const { PGlite } = await import(process.env.PGLITE_MODULE || './.verification/node_modules/@electric-sql/pglite/dist/index.js');
 import { readFileSync } from 'node:fs';
@@ -37,6 +37,7 @@ create function private.v2_team_scope(p_team uuid) returns boolean language sql 
   select private.v2_role() <> 'coach' or exists (select 1 from public.team_coaches tc where tc.team_id = p_team and tc.coach_id = auth.uid()) $$;
 `);
 await db.exec(readFileSync('supabase/migrations/049_rematricula_2027.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/050_rematricula_sem_atestado.sql', 'utf8'));
 
 const T1 = '11111111-1111-4111-8111-111111111111', T2 = '22222222-2222-4222-8222-222222222222';
 const ADULT = 'aaaaaaaa-0000-4000-8000-000000000001', KID = 'aaaaaaaa-0000-4000-8000-000000000002', SIB = 'aaaaaaaa-0000-4000-8000-000000000003', OLD = 'aaaaaaaa-0000-4000-8000-000000000004';
@@ -107,7 +108,7 @@ await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: adult
 await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, cpf: '529.982.247-24' }, confirmed: Object.keys(adultFields) }), /CPF do\(a\) atleta inválido/, 'invalid CPF rejected');
 await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, birth_date: 'xx' }, confirmed: Object.keys(adultFields) }), /Data de nascimento inválida/, 'bad date handled');
 r = await call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, email: 'nova@exemplo.com', phone: '(41) 99999-0000' }, confirmed: ['full_name', 'cpf', 'rg', 'birth_date', 'phone', 'emergency_contact'] });
-assert.deepEqual(r.missing, ['endereco', 'saude', 'equipe', 'termos', 'atestado']);
+assert.deepEqual(r.missing, ['endereco', 'saude', 'equipe', 'termos']);
 let row = (await q(`select * from public.reenrollments where athlete_id = $1`, [ADULT]))[0];
 assert.deepEqual(row.changed_fields, ['email'], 'changed field recorded');
 assert.ok(row.confirmed_fields.includes('phone'), 'formatting difference counts as confirmation');
@@ -135,21 +136,8 @@ await call('reenroll_save', adultToken, ADULT, 'saude', health);
 await fails(call('reenroll_save', adultToken, ADULT, 'equipe', { team_id: 'x' }), /invalid input|Escolha a equipe/i);
 await call('reenroll_save', adultToken, ADULT, 'equipe', { team_id: T2, note: 'Quero treinar à noite' });
 await fails(call('reenroll_save', adultToken, ADULT, 'termos', { dados: true, regulamento: false, imagem: true, declaracao: true }), /regulamento/);
-await call('reenroll_save', adultToken, ADULT, 'termos', { dados: true, regulamento: true, imagem: true, declaracao: true, ua: 'Teste' });
-await fails(call('reenroll_finish', adultToken, ADULT), /Ainda falta: atestado/, 'cannot finish without the medical certificate');
-
-// ─── Atestado ───
-await fails(call('reenroll_upload_slot', adultToken, ADULT, 'exe'), /PDF ou foto/);
-const slot = await call('reenroll_upload_slot', adultToken, ADULT, 'pdf');
-assert.match(slot.path, new RegExp(`^2027/${ADULT}/[\\w-]+\\.pdf$`));
-assert.equal((await q(`select public.reenroll_upload_allowed($1) as ok`, [slot.path]))[0].ok, true);
-assert.equal((await q(`select public.reenroll_upload_allowed($1) as ok`, [`2027/${ADULT}/inventado.pdf`]))[0].ok, false, 'arbitrary paths cannot be uploaded');
-await fails(call('reenroll_attach', adultToken, ADULT, slot.path, 'atestado.pdf', 'application/pdf', 1000), /Não recebemos/, 'attach requires the uploaded object');
-await q(`insert into storage.objects(bucket_id, name) values ('rematricula', $1)`, [slot.path]);
-await fails(call('reenroll_attach', famToken, KID, slot.path, 'a.pdf', 'application/pdf', 1), /Não recebemos/, 'slot is bound to its athlete and session');
-r = await call('reenroll_attach', adultToken, ADULT, slot.path, 'atestado.pdf', 'application/pdf', 1000);
-assert.deepEqual(r.missing, []);
-assert.equal((await q(`select public.reenroll_upload_allowed($1) as ok`, [slot.path]))[0].ok, false, 'slot is single use');
+r = await call('reenroll_save', adultToken, ADULT, 'termos', { dados: true, regulamento: true, imagem: true, declaracao: true, ua: 'Teste' });
+assert.deepEqual(r.missing, [], 'no medical certificate is required to finish');
 
 // ─── Conclusão ───
 r = await call('reenroll_finish', adultToken, ADULT);
@@ -167,7 +155,7 @@ row = (await q(`select * from public.reenrollments where athlete_id = $1`, [ADUL
 assert.equal(row.status, 'concluida');
 assert.equal(row.previous_data.address, 'Rua Antiga, 1', 'previous record is kept');
 assert.equal(row.team_2027_id, T2);
-assert.equal(row.regulation_version, 'regulamento-atleta-2027-preliminar-1');
+assert.equal(row.regulation_version, 'regulamento-atleta-2027-preliminar-2');
 await fails(call('reenroll_save', adultToken, ADULT, 'endereco', {}), /já foi concluída/, 'completed reenrollment is locked');
 
 // ─── Não continuar ───
@@ -193,12 +181,10 @@ assert.equal(panel.length, 3, 'admin sees every active athlete');
 const byId = Object.fromEntries(panel.map(p => [p.id, p]));
 assert.equal(byId[ADULT].status, 'concluida');
 assert.equal(byId[KID].status, 'em_andamento');
-assert.deepEqual(byId[KID].missing, ['endereco', 'saude', 'equipe', 'termos', 'atestado']);
+assert.deepEqual(byId[KID].missing, ['endereco', 'saude', 'equipe', 'termos']);
 assert.equal(byId[KID].contact_phone, '(41) 97777-1111');
 assert.equal(byId[SIB].status, 'declinada');
 assert.equal(byId[SIB].delete_requested, true);
-assert.equal(byId[ADULT].atestado_path, slot.path);
-assert.equal((await q(`select private.reenroll_staff_can_read($1) as ok`, [slot.path]))[0].ok, true, 'admin can open the certificate');
 await call('reenroll_staff_set', SIB, 'reopen');
 await call('reenroll_staff_set', KID, 'decline', 'Informou por telefone', null);
 panel = await call('reenroll_panel', 2027);
@@ -208,8 +194,6 @@ await as(COACH);
 panel = await call('reenroll_panel', 2027);
 assert.deepEqual(panel.map(p => p.id).sort(), [ADULT], 'coach sees athletes of own teams');
 await fails(call('reenroll_staff_set', ADULT, 'reopen'), /Sem permissão/, 'coach without edit permission cannot change status');
-await as(COACH);
-assert.equal((await q(`select private.reenroll_staff_can_read($1) as ok`, [slot.path]))[0].ok, true, 'coach of current team can open the certificate');
 
 // Permissões de execução
 const grants = await q(`select p.proname, has_function_privilege('anon', p.oid, 'execute') as anon
@@ -218,7 +202,9 @@ const anonGrant = Object.fromEntries(grants.map(g => [g.proname, g.anon]));
 assert.equal(anonGrant.reenroll_panel, false, 'panel is not available to anonymous users');
 assert.equal(anonGrant.reenroll_staff_set, false);
 assert.equal(anonGrant.reenroll_start, true);
+for (const fn of ['reenroll_upload_slot', 'reenroll_upload_allowed', 'reenroll_attach']) assert.equal(anonGrant[fn], false, `${fn} is closed (no certificate upload)`);
+assert.equal((await q(`select count(*)::int as n from pg_policies where policyname = 'rematricula_upload'`))[0].n, 0, 'anonymous upload rule removed');
 assert.equal((await q(`select has_table_privilege('anon', 'public.reenrollments', 'select') as s`))[0].s, false, 'table is not readable directly');
 
 await db.close();
-console.log('Rematrícula 2027: identificação, limite de tentativas, sessão, validações, atestado, conclusão, recusa e painel do Huddle passaram.');
+console.log('Rematrícula 2027: identificação, limite de tentativas, sessão, validações, conclusão sem atestado, recusa e painel do Huddle passaram.');

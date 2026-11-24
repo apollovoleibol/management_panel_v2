@@ -5,7 +5,7 @@
 
 const REENROLL_URL = 'https://apollovoleibol.github.io/management_panel_v2/rematricula.html';
 const RE = { rows: null, loading: false, error: '', loadedAt: 0, q: '', status: 'pendentes', team: '', missing: '', limit: 50 };
-const RE_MISSING = { cadastro: 'Dados', endereco: 'Endereço', saude: 'Anamnese', equipe: 'Equipe 2027', termos: 'Termos', atestado: 'Atestado' };
+const RE_MISSING = { cadastro: 'Dados', endereco: 'Endereço', saude: 'Anamnese', equipe: 'Equipe 2027', termos: 'Termos' };
 const RE_STATUS = {
   pendente: ['Não iniciada', 'st-pendente'],
   em_andamento: ['Em andamento', 'st-warn'],
@@ -115,7 +115,7 @@ function reWhatsApp(r) {
   const who = displayName(r.contact_name).split(' ')[0];
   const athlete = displayName(r.name).split(' ')[0];
   const miss = r.status === 'em_andamento' && r.missing.length ? `Falta pouco: ${r.missing.map(m => RE_MISSING[m].toLowerCase()).join(', ')}.` : 'Leva cerca de 10 minutos.';
-  const text = `Olá, ${who}! A rematrícula 2027 ${r.minor ? `de ${athlete} ` : ''}na Apollo está aberta. ${miss}\n\nAcesse: ${REENROLL_URL}\nUse o CPF ou o WhatsApp cadastrado e a data de nascimento ${r.minor ? 'do(a) atleta' : ''}.\n\nTenha em mãos o atestado de aptidão física (foto ou PDF).`.replace(/ \./g, '.');
+  const text = `Olá, ${who}! A rematrícula 2027 ${r.minor ? `de ${athlete} ` : ''}na Apollo está aberta. ${miss}\n\nAcesse: ${REENROLL_URL}\nUse o CPF ou o WhatsApp cadastrado e a data de nascimento ${r.minor ? 'do(a) atleta' : ''}.`.replace(/ \./g, '.');
   const tel = digits(r.contact_phone);
   window.open(`https://wa.me/55${tel.slice(-11)}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
@@ -134,8 +134,8 @@ async function reOpenFile(r) {
 
 function reDetail(r) {
   const name = displayName(r.name), [label, cls] = RE_STATUS[r.status] || RE_STATUS.pendente;
-  const steps = ['cadastro', 'endereco', 'saude', 'equipe', 'termos', 'atestado'];
-  const stepAt = k => k === 'atestado' ? r.atestado_at : r.steps?.[k];
+  const steps = Object.keys(RE_MISSING);
+  const stepAt = k => r.steps?.[k];
   const edit = canEdit('rematricula');
   openDialog(dHead('Rematrícula 2027', esc(name), `${esc(reTeamName(r.team_id))}${r.minor ? ` · responsável: ${esc(displayName(r.contact_name))}` : ''}`) + `<div class="d-body">
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px"><span class="tag ${cls}">${label}</span>${r.updated_at ? `<span class="hint">atualizada em ${fmtTs(r.updated_at)}</span>` : ''}</div>

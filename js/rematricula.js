@@ -6,7 +6,6 @@
 const SB_URL = 'https://hrakdydodcmllwnkmrkg.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyYWtkeWRvZGNtbGx3bmttcmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDEwNTAsImV4cCI6MjA5MTA3NzA1MH0.LFDcJNf2_uWzmj6zRyc7xUSww7G7mIpgta-1ro4oPFc';
 const SESSION_KEY = 'apollo-rematricula-2027';
-const MAX_UPLOAD = 15 * 1024 * 1024;
 
 const STEPS = [
   { id: 'cadastro', title: 'Dados cadastrais' },
@@ -14,10 +13,10 @@ const STEPS = [
   { id: 'saude', title: 'Saúde (anamnese)' },
   { id: 'equipe', title: 'Equipe em 2027' },
   { id: 'termos', title: 'Termos e autorizações' },
-  { id: 'atestado', title: 'Atestado de aptidão física' },
   { id: 'revisao', title: 'Revisão e conclusão' },
 ];
-const MISSING_LABEL = { cadastro: 'dados cadastrais', endereco: 'endereço', saude: 'anamnese', equipe: 'equipe 2027', termos: 'termos', atestado: 'atestado' };
+const REQUIRED = ['cadastro', 'endereco', 'saude', 'equipe', 'termos'];
+const MISSING_LABEL = { cadastro: 'dados cadastrais', endereco: 'endereço', saude: 'anamnese', equipe: 'equipe 2027', termos: 'termos' };
 const DECLINE_REASONS = ['Mudança de cidade', 'Horários ou dias de treino', 'Valor da mensalidade', 'Vai praticar outro esporte ou atividade', 'Saúde ou lesão', 'Insatisfação com o projeto', 'Outro motivo'];
 
 const ST = { token: '', ident: '', data: null, others: 0, athleteId: '', step: 0, drafts: {}, screen: 'ident' };
@@ -105,7 +104,7 @@ async function reload() { ST.data = await rpc('reenroll_get', { p_token: ST.toke
 const athlete = () => ST.data?.athletes.find(a => a.id === ST.athleteId);
 const reen = a => a?.reenrollment || {};
 const stepsDone = a => reen(a).steps || {};
-const missingOf = a => ['cadastro', 'endereco', 'saude', 'equipe', 'termos'].filter(s => !stepsDone(a)[s]).concat(reen(a).atestado ? [] : ['atestado']);
+const missingOf = a => REQUIRED.filter(s => !stepsDone(a)[s]);
 const teamName = id => ST.data?.teams.find(t => t.id === id)?.name || '';
 const respondentName = () => { const a = ST.data?.athletes[0]; return a ? (a.minor ? a.data.parent_name : a.data.full_name) : ''; };
 
@@ -140,12 +139,11 @@ function renderIdent(message = '', push = true) {
   $('#app').innerHTML = `<section class="screen">
     <div class="eyebrow">Temporada 2027</div>
     <h1>Vamos renovar a matrícula?</h1>
-    <p class="lead">Revise o cadastro, escolha a equipe para 2027 e envie o atestado de aptidão física. Leva cerca de 10 minutos.</p>
+    <p class="lead">Revise o cadastro, responda a anamnese e escolha a equipe para 2027. Leva cerca de 10 minutos.</p>
     <div class="alert-slot" id="formAlert">${message ? `<div class="alert" role="alert">${icon('alert')}<div>${esc(message)}</div></div>` : ''}</div>
     <div class="card">
       <h3>Tenha em mãos</h3>
       <ul class="checklist">
-        <li>${icon('camera')}<span><b>Atestado de aptidão física</b>: foto ou PDF</span></li>
         <li>${icon('pin')}<span><b>Endereço com CEP</b>: ele precisa ser preenchido de novo</span></li>
         <li>${icon('heart')}<span><b>Informações de saúde</b>: a anamnese é respondida a cada ano</span></li>
       </ul>
@@ -235,14 +233,14 @@ function renderHub(push = true) {
 }
 function hubCard(a) {
   const r = reen(a), done = stepsDone(a), miss = missingOf(a);
-  const nDone = 6 - miss.length;
+  const nDone = REQUIRED.length - miss.length;
   const name = titleName(a.data.full_name);
   let body;
   if (r.status === 'concluida') body = `<div class="state ok">${icon('check')}<div><b>Rematrícula concluída</b> em ${fmtDate(r.completed_at)}.<br>Equipe 2027: <b>${esc(teamName(r.team_2027_id))}</b>${r.team_2027_id && r.team_2027_id !== a.team?.id ? ' (mudança em análise pela coordenação)' : ''}</div></div>`;
   else if (r.status === 'declinada') body = `<div class="state no">${icon('info')}<div>Vocês informaram em ${fmtDate(r.declined_at)} que <b>não vão continuar em 2027</b>.</div></div>
     <div class="ath-actions"><button class="btn block" type="button" data-reopen data-id="${a.id}">Mudei de ideia, quero rematricular</button></div>`;
-  else body = `<div class="steps-mini" aria-hidden="true">${['cadastro', 'endereco', 'saude', 'equipe', 'termos', 'atestado'].map(s => `<i class="${(s === 'atestado' ? r.atestado : done[s]) ? 'on' : ''}"></i>`).join('')}</div>
-    <p class="small muted" style="margin:0 0 12px">${nDone ? `${nDone} de 6 etapas concluídas. Falta: ${miss.map(m => MISSING_LABEL[m]).join(', ')}.` : 'Nenhuma etapa preenchida ainda.'}</p>
+  else body = `<div class="steps-mini" aria-hidden="true">${REQUIRED.map(s => `<i class="${done[s] ? 'on' : ''}"></i>`).join('')}</div>
+    <p class="small muted" style="margin:0 0 12px">${nDone ? `${nDone} de ${REQUIRED.length} etapas concluídas. Falta: ${miss.map(m => MISSING_LABEL[m]).join(', ')}.` : 'Nenhuma etapa preenchida ainda.'}</p>
     <div class="ath-actions">
       <button class="btn primary block" type="button" data-go data-id="${a.id}">${nDone ? 'Continuar rematrícula' : 'Sim, vamos continuar'} ${icon('arrow')}</button>
       <button class="btn block" type="button" data-decline data-id="${a.id}">Não vamos continuar em 2027</button>
@@ -264,9 +262,9 @@ function renderStep(push = true) {
   if (reen(a).status === 'concluida') return renderDone();
   if (reen(a).status === 'declinada') return renderHub();
   const s = STEPS[ST.step];
-  const saved = s.id === 'atestado' ? reen(a).atestado?.uploaded_at : stepsDone(a)[s.id];
-  const body = { cadastro: stepCadastro, endereco: stepEndereco, saude: stepSaude, equipe: stepEquipe, termos: stepTermos, atestado: stepAtestado, revisao: stepRevisao }[s.id](a);
-  const savedNote = saved && !['cadastro', 'equipe', 'atestado', 'revisao'].includes(s.id) && !draft(s.id)
+  const saved = stepsDone(a)[s.id];
+  const body = { cadastro: stepCadastro, endereco: stepEndereco, saude: stepSaude, equipe: stepEquipe, termos: stepTermos, revisao: stepRevisao }[s.id](a);
+  const savedNote = saved && !['cadastro', 'equipe', 'revisao'].includes(s.id) && !draft(s.id)
     ? `<div class="section-note">${icon('check')}<div>Esta etapa já foi salva em ${fmtDate(saved)}. Por segurança, as respostas não são exibidas de novo. Preencha novamente só se quiser corrigir, ou toque em <b>Manter e continuar</b>.</div></div>` : '';
   $('#app').innerHTML = `<section class="screen">
     <div class="eyebrow">${esc(titleName(a.data.full_name))}</div>
@@ -286,7 +284,7 @@ function renderStep(push = true) {
     actions: `<button class="btn back" type="button" id="stepBack" aria-label="Voltar">${icon('back')}</button>${keep}${primary}`,
   });
   bindMasks();
-  ({ cadastro: bindCadastro, endereco: bindEndereco, saude: bindSaude, equipe: bindEquipe, termos: () => {}, atestado: bindAtestado, revisao: bindRevisao }[s.id])(a);
+  ({ cadastro: bindCadastro, endereco: bindEndereco, saude: bindSaude, equipe: bindEquipe, termos: () => {}, revisao: bindRevisao }[s.id])(a);
   $('#stepBack').onclick = () => { stashDraft(); if (ST.step === 0) renderHub(); else { ST.step--; renderStep(); } };
   if ($('#keepGo')) $('#keepGo').onclick = () => { ST.step++; renderStep(); };
   $('#stepGo').onclick = () => submitStep($('#stepGo'));
@@ -310,7 +308,6 @@ async function submitStep(btn) {
   const a = athlete(), s = STEPS[ST.step].id;
   showAlert('');
   if (s === 'revisao') return finish(btn);
-  if (s === 'atestado') { if (!reen(a).atestado) return showAlert('Envie o atestado para continuar.'); ST.step++; return renderStep(); }
   const payload = { cadastro: collectCadastro, endereco: collectEndereco, saude: collectSaude, equipe: collectEquipe, termos: collectTermos }[s](a);
   if (!payload) return focusFirstError();
   setBusy(btn, true);
@@ -621,7 +618,7 @@ const DECLARACAO = 'Declaro, para os devidos fins, que todas as informações fo
 const IMAGEM = ['Autorizo, de forma gratuita, irrevogável e por prazo indeterminado, a captação, utilização e divulgação da minha imagem e/ou de meus dependentes legais, bem como voz e nome, em fotos, vídeos e gravações de áudio realizados durante atividades, treinos, eventos, jogos e demais ações vinculadas ao projeto. Esta autorização inclui o uso em materiais promocionais, institucionais, publicitários ou educacionais, físicos ou digitais, inclusive em redes sociais, sites e outros meios de comunicação, a critério da organização.',
   'Declaro estar ciente de que a presente autorização é concedida a título gratuito, não sendo devida qualquer remuneração, compensação ou reembolso pela utilização da imagem, voz ou nome, e que não há limitação territorial para o uso do material, podendo este ser utilizado no Brasil e/ou no exterior.'];
 const LGPD = `<p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), autorizo o <b>Grupo Apollo de Voleibol (GAV)</b>, de Curitiba/PR, a tratar os dados pessoais informados nesta rematrícula.</p>
-<p><b>Quais dados:</b> identificação (nome, CPF, RG, data de nascimento), contato (telefone, e-mail, endereço), dados do(a) responsável legal, contato de emergência, dados de saúde (anamnese, medidas e atestado de aptidão física) e registros de treinos e competições.</p>
+<p><b>Quais dados:</b> identificação (nome, CPF, RG, data de nascimento), contato (telefone, e-mail, endereço), dados do(a) responsável legal, contato de emergência, dados de saúde (anamnese e medidas) e registros de treinos e competições.</p>
 <p><b>Para quê:</b></p><ul>
 <li>manter a matrícula e organizar equipes, treinos, chamadas e competições;</li>
 <li>zelar pela segurança na prática esportiva e agir em caso de emergência;</li>
@@ -654,80 +651,12 @@ function collectTermos() {
   return { regulamento: true, dados: true, declaracao: true, imagem: true, ua: navigator.userAgent };
 }
 
-/* Atestado */
-function stepAtestado(a) {
-  const at = reen(a).atestado;
-  return `<p class="lead">Envie o atestado médico que libera ${a.minor ? 'o(a) atleta' : 'você'} para a prática de atividade física (voleibol).</p>
-    <div class="card"><ul class="checklist">
-      <li>${icon('check')}<span>Com nome ${a.minor ? 'do(a) atleta' : 'completo'}, data, assinatura e carimbo (CRM) do médico</span></li>
-      <li>${icon('check')}<span>Foto nítida, com o documento inteiro e sem reflexo</span></li>
-      <li>${icon('check')}<span>PDF ou foto (JPG, PNG, HEIC), até 15 MB</span></li>
-    </ul></div>
-    <div id="fileBox">${at ? fileCard(at) : ''}</div>
-    <div class="drop" id="drop">${dropButtons(!!at)}</div>
-    <div id="upState" style="margin-top:14px"></div>
-    ${at ? '' : `<div class="section-note" id="laterNote">${icon('clock')}<div><b>Ainda não tem o atestado?</b> Pode sair e voltar depois: tudo o que você preencheu fica salvo. Para voltar, abra este mesmo link e informe de novo o CPF ou WhatsApp e a data de nascimento${a.minor ? ' do(a) atleta' : ''}.</div></div>`}
-    <p class="small muted" style="margin-top:14px">O arquivo fica num armazenamento privado. Somente a administração e a comissão técnica podem abri-lo.</p>`;
-}
-function dropButtons(has) {
-  return `<label class="upload-btn${has ? '' : ' primary'}">${icon('camera')}<span>${has ? 'Tirar outra foto' : 'Tirar foto do atestado'}</span><input type="file" accept="image/*" capture="environment" data-file></label>
-      <label class="upload-btn">${icon('file')}<span>${has ? 'Trocar por outro arquivo' : 'Escolher PDF ou imagem'}</span><input type="file" accept="application/pdf,image/*" data-file></label>`;
-}
-function fileCard(at, preview = '') {
-  return `<div class="file-card"><span class="thumb">${preview ? `<img src="${preview}" alt="">` : icon('doc')}</span>
-    <span><b>${esc(at.name || 'Atestado')}</b><small>${icon('check')} Enviado ${at.uploaded_at ? 'em ' + fmtDate(at.uploaded_at) : 'agora'}</small></span></div>`;
-}
-function bindAtestado(a) {
-  $$('[data-file]').forEach(inp => inp.addEventListener('change', () => { const f = inp.files?.[0]; inp.value = ''; if (f) uploadAtestado(a, f); }));
-}
-async function shrinkImage(file) {
-  // Fotos de celular passam de 5 MB: reduz para até 2000 px em JPEG. Se o navegador não ler o formato (ex.: HEIC), envia o original.
-  if (!/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) || file.size < 900 * 1024) return file;
-  try {
-    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
-    const c = document.createElement('canvas');
-    c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
-    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.84));
-    if (!blob || blob.size >= file.size) return file;
-    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
-  } catch (e) { return file; }
-}
-async function uploadAtestado(a, original) {
-  const state = $('#upState');
-  const btns = $$('#drop .upload-btn');
-  showAlert('');
-  const extOf = f => (f.type === 'application/pdf' ? 'pdf' : (f.type.split('/')[1] || f.name.split('.').pop() || '').toLowerCase().replace('jpeg', 'jpg'));
-  if (!/^(application\/pdf|image\/)/.test(original.type) && !/\.(pdf|heic|heif|jpe?g|png|webp)$/i.test(original.name)) return showAlert('Envie um PDF ou uma foto.');
-  btns.forEach(b => b.style.pointerEvents = 'none');
-  state.innerHTML = `<p class="small" style="margin:0 0 8px">Enviando atestado…</p><div class="uploading"><i></i></div>`;
-  try {
-    const file = await shrinkImage(original);
-    if (file.size > MAX_UPLOAD) throw new Error('O arquivo passa de 15 MB. Tire uma nova foto ou envie um PDF menor.');
-    const ext = extOf(file) || 'jpg';
-    const type = file.type || (ext === 'pdf' ? 'application/pdf' : 'image/' + (ext === 'jpg' ? 'jpeg' : ext));
-    const slot = await rpc('reenroll_upload_slot', { p_token: ST.token, p_athlete: a.id, p_ext: ext });
-    const { error } = await sb.storage.from(slot.bucket).upload(slot.path, file, { contentType: type, upsert: false });
-    if (error) throw new Error(/mime|type/i.test(error.message) ? 'Formato não aceito. Envie PDF, JPG, PNG ou HEIC.' : /size|large/i.test(error.message) ? 'Arquivo grande demais (máximo 15 MB).' : 'Não foi possível enviar o arquivo. Tente de novo.');
-    await rpc('reenroll_attach', { p_token: ST.token, p_athlete: a.id, p_path: slot.path, p_name: original.name || 'atestado.' + ext, p_mime: type, p_size: file.size });
-    await reload();
-    const preview = type.startsWith('image/') && type !== 'image/heic' && type !== 'image/heif' ? URL.createObjectURL(file) : '';
-    $('#fileBox').innerHTML = fileCard({ name: original.name, uploaded_at: null }, preview);
-    $('#drop').innerHTML = dropButtons(true); bindAtestado(a); $('#laterNote')?.remove();
-    state.innerHTML = '';
-    toast('Atestado recebido!');
-    const go = $('#stepGo'); go.innerHTML = `Continuar ${icon('arrow')}`;
-  } catch (e) { state.innerHTML = ''; if (!e.handled) showAlert(friendlyError(e)); }
-  finally { btns.forEach(b => b.style.pointerEvents = ''); }
-}
-
 /* Revisão */
 function stepRevisao(a) {
   const done = stepsDone(a), r = reen(a);
   const items = [['cadastro', 'Dados cadastrais revisados'], ['endereco', 'Endereço preenchido'], ['saude', 'Anamnese respondida'],
-    ['equipe', `Equipe 2027: ${teamName(r.team_2027_id) || '—'}`], ['termos', 'Termos e autorizações aceitos'], ['atestado', 'Atestado de aptidão enviado']];
-  const ok = k => k === 'atestado' ? !!r.atestado : !!done[k];
+    ['equipe', `Equipe 2027: ${teamName(r.team_2027_id) || '—'}`], ['termos', 'Termos e autorizações aceitos']];
+  const ok = k => !!done[k];
   const missing = items.filter(([k]) => !ok(k)).length;
   return `<p class="lead">${missing ? 'Quase lá! Complete os itens pendentes para concluir.' : 'Tudo pronto. Confira o resumo e conclua a rematrícula.'}</p>
     <div class="card"><ul class="summary">${items.map(([k, t]) => `<li class="${ok(k) ? '' : 'miss'}">${ok(k) ? icon('check') : icon('x')}<span>${esc(t)}</span>
