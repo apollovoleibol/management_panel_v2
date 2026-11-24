@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## v2.10.1 · Rematrícula: voltar depois para o atestado — 2026-11-24
+
+- Na etapa do atestado, aviso para quem ainda não tem o documento: pode sair e voltar depois pelo mesmo link, identificando-se de novo; o que já foi preenchido fica salvo.
+
 ## v2.10.0 · Rematrícula 2027 — 2026-11-24
 
 - Novo formulário público `rematricula.html`, pensado para o celular: identificação por CPF ou WhatsApp + data de nascimento; revisão dos dados com confirmação campo a campo; endereço e anamnese reescritos; equipe 2027 (pedido de troca vai para a coordenação); aceite do Regulamento do Atleta 2027, LGPD, declaração de saúde e uso de imagem; envio do atestado de aptidão física (foto ou PDF); irmãos na mesma sessão. Opção direta "Não vamos continuar em 2027", com motivo e pedido de exclusão dos dados.

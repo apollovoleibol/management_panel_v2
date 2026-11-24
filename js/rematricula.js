@@ -666,6 +666,7 @@ function stepAtestado(a) {
     <div id="fileBox">${at ? fileCard(at) : ''}</div>
     <div class="drop" id="drop">${dropButtons(!!at)}</div>
     <div id="upState" style="margin-top:14px"></div>
+    ${at ? '' : `<div class="section-note" id="laterNote">${icon('clock')}<div><b>Ainda não tem o atestado?</b> Pode sair e voltar depois: tudo o que você preencheu fica salvo. Para voltar, abra este mesmo link e informe de novo o CPF ou WhatsApp e a data de nascimento${a.minor ? ' do(a) atleta' : ''}.</div></div>`}
     <p class="small muted" style="margin-top:14px">O arquivo fica num armazenamento privado. Somente a administração e a comissão técnica podem abri-lo.</p>`;
 }
 function dropButtons(has) {
@@ -713,7 +714,7 @@ async function uploadAtestado(a, original) {
     await reload();
     const preview = type.startsWith('image/') && type !== 'image/heic' && type !== 'image/heif' ? URL.createObjectURL(file) : '';
     $('#fileBox').innerHTML = fileCard({ name: original.name, uploaded_at: null }, preview);
-    $('#drop').innerHTML = dropButtons(true); bindAtestado(a);
+    $('#drop').innerHTML = dropButtons(true); bindAtestado(a); $('#laterNote')?.remove();
     state.innerHTML = '';
     toast('Atestado recebido!');
     const go = $('#stepGo'); go.innerHTML = `Continuar ${icon('arrow')}`;
