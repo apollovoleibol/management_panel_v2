@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## v2.11.0 · Rematrícula sem atestado — 2026-11-24
+
+- O atestado de aptidão física saiu da rematrícula: o formulário tem 5 etapas e a revisão; a conclusão não exige mais o documento. Tela inicial, lembrete do WhatsApp e painel do Huddle já não citam o atestado.
+- Regulamento do Atleta 2027 passa à versão preliminar-2: o Art. 1º não exige mais o atestado. Quem aceitar a partir de agora fica registrado com a nova versão.
+- Banco (migração 050): envio de arquivos fechado (regra de upload removida e funções de upload sem permissão). Colunas e bucket do atestado ficam sem uso.
+
 ## v2.10.1 · Rematrícula: voltar depois para o atestado — 2026-11-24
 
 - Na etapa do atestado, aviso para quem ainda não tem o documento: pode sair e voltar depois pelo mesmo link, identificando-se de novo; o que já foi preenchido fica salvo.

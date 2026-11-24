@@ -1,3 +1,4 @@
+-- Obsoleto desde a migração 050 (sem atestado): as etapas de upload deste roteiro agora falham por falta de permissão.
 -- Verificação da migração 049 (Rematrícula 2027) no banco real.
 -- Tudo roda numa transação com um atleta sintético e termina em ROLLBACK: nada fica gravado.
 -- Confere, contra os gatilhos e permissões reais: o fluxo completo como "anon" (o papel do formulário público),
