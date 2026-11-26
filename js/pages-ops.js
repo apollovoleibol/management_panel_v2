@@ -561,7 +561,7 @@ function athleteForm(id) {
     </fieldset>
     <div class="err" id="faErr" role="alert"></div>
   </fieldset></form>
-  ${a && seesFinance() ? `<div class="d-body"><div class="field"><label for="faClientId">Código do cliente no Tecnofit</label><div class="cell-actions"><input class="input" id="faClientId" inputmode="numeric" pattern="[0-9]+" value="${esc(a.tecnofitClientId || '')}" placeholder="Código numérico do relatório"><button type="button" class="btn sm" id="faLinkBtn" ${canEdit('finance') ? '' : 'disabled'}>Vincular</button></div><span class="hint">Vincule pelo código do relatório antes de mostrar mensalidades na Área do atleta. Confira a identidade do atleta no Tecnofit.</span><div class="err" id="faLinkErr" role="alert"></div></div></div>` : ''}
+  ${a && seesFinance() ? `<div class="d-body fit"><div class="field"><label for="faClientId">Código do cliente no Tecnofit</label><div class="cell-actions"><input class="input" id="faClientId" inputmode="numeric" pattern="[0-9]+" value="${esc(a.tecnofitClientId || '')}" placeholder="Código numérico do relatório"><button type="button" class="btn sm" id="faLinkBtn" ${canEdit('finance') ? '' : 'disabled'}>Vincular</button></div><span class="hint">Vincule pelo código do relatório antes de mostrar mensalidades na Área do atleta. Confira a identidade do atleta no Tecnofit.</span><div class="err" id="faLinkErr" role="alert"></div></div></div>` : ''}
   <div class="d-foot">${id && !ro ? `<button class="btn danger left" data-act="athlete-delete" data-id="${id}">${icon('trash')} Excluir</button>` : ''}<button class="btn" data-act="try-close">${ro ? 'Fechar' : 'Cancelar'}</button>${ro ? '' : `<button class="btn ok" data-act="athlete-save" data-id="${id || ''}">${icon('check')} Salvar</button>`}</div>`, 'drawer');
   const dlg = $('#dlg'); dlg.dataset.dirty = '0';
   const sync = () => {
@@ -598,13 +598,19 @@ function athleteForm(id) {
 async function saveAthlete(id) {
   const t = teamOf($('#faTeam').value), minor = isMinorTeam(t), v = i => $('#' + i).value.trim();
   const planSel = $('#faPlan').value, plan = PLANS.find(p => String(p.id) === planSel);
-  const err = m => { $('#faErr').textContent = m; return false; };
+  // A mensagem fica no fim do formulário, que rola: leva o olho até ela e repete num aviso
+  const err = m => { const box = $('#faErr'); box.textContent = m; box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); toast(m, true); return false; };
+  // Atleta já cadastrado (qualquer edição, inclusive inativar) nunca é barrado por dado que falta: só novos cadastros exigem tudo
+  const lenient = !!id;
   if (!t) return err('Selecione a equipe.');
   if (!v('faName')) return err('Informe o nome completo do atleta.');
-  if (digits(v('faCpf')).length !== 11) return err('Informe um CPF com 11 dígitos.');
-  if (plansOfTeam(t.id).length && !planSel) return err('Selecione o plano / mensalidade.');
-  if (!minor && digits(v('faWpp')).length < 10) return err('Informe o WhatsApp do atleta.');
-  if (minor && (!v('faResp') || digits(v('faRespWpp')).length < 10)) return err('Equipe de menores: informe nome e WhatsApp do responsável.');
+  if (lenient && v('faCpf') && digits(v('faCpf')).length !== 11) return err('O CPF informado está incompleto. Corrija ou apague o campo.');
+  if (!lenient) {
+    if (digits(v('faCpf')).length !== 11) return err('Informe um CPF com 11 dígitos.');
+    if (plansOfTeam(t.id).length && !planSel) return err('Selecione o plano / mensalidade.');
+    if (!minor && digits(v('faWpp')).length < 10) return err('Informe o WhatsApp do atleta.');
+    if (minor && (!v('faResp') || digits(v('faRespWpp')).length < 10)) return err('Equipe de menores: informe nome e WhatsApp do responsável.');
+  }
   const data = { name: v('faName'), birth: v('faBirth'), email: v('faEmail'), cpf: v('faCpf'), rg: v('faRg'), phone: digits(v('faWpp')), parentName: minor ? v('faResp') : '', parentPhone: minor ? digits(v('faRespWpp')) : '', teamId: t.id, address: v('faAddr'), bank: v('faBank'), active: $('#faStatus').value === 'ativo' };
   if (plan) Object.assign(data, { plan: planLabel(plan), planId: plan.id });
   const payload = { full_name: data.name, birth_date: data.birth || null,
@@ -613,6 +619,7 @@ async function saveAthlete(id) {
     parent_phone: data.parentPhone || null, team_id: data.teamId,
     address: data.address || null,
     is_active: data.active };
+  if (lenient && !data.cpf) delete payload.cpf; // CPF em branco no cadastro antigo: não grava vazio
   if (seesFinance()) {
     payload.payment_bank = data.bank || null;
     if (plan) payload.payment_plan = planLabel(plan);
