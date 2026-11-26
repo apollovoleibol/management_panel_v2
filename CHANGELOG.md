@@ -1,9 +1,9 @@
 # Histórico de versões
 
-## v2.11.1 · Inativar atleta com cadastro incompleto — 2026-11-26
+## v2.11.1 · Editar e inativar atleta com cadastro incompleto — 2026-11-26
 
 - Cadastro do atleta no Huddle: ao clicar em Salvar, o aviso de campo faltando (ex.: CPF) ficava no fim do formulário, fora da tela, e parecia que o botão não fazia nada. O formulário agora usa a altura toda da janela, o aviso rola até aparecer e também surge como mensagem.
-- Mudar um atleta já cadastrado para Inativo deixa de exigir CPF, WhatsApp, responsável e plano completos (cadastros antigos ou incompletos não conseguiam ser inativados). Para ativos e novos cadastros nada muda.
+- Editar um atleta já cadastrado (inclusive inativar) deixa de exigir CPF, WhatsApp, responsável e plano completos: quem já está no sistema com dados faltando não fica mais travado. Só um CPF preenchido pela metade é recusado. Novos cadastros continuam exigindo tudo.
 
 ## v2.11.0 · Rematrícula sem atestado — 2026-11-24
 

@@ -600,10 +600,11 @@ async function saveAthlete(id) {
   const planSel = $('#faPlan').value, plan = PLANS.find(p => String(p.id) === planSel);
   // A mensagem fica no fim do formulário, que rola: leva o olho até ela e repete num aviso
   const err = m => { const box = $('#faErr'); box.textContent = m; box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); toast(m, true); return false; };
-  // Inativar um atleta já cadastrado não depende de CPF, contato ou plano completos (cadastros antigos ou incompletos)
-  const lenient = !!id && $('#faStatus').value !== 'ativo';
+  // Atleta já cadastrado (qualquer edição, inclusive inativar) nunca é barrado por dado que falta: só novos cadastros exigem tudo
+  const lenient = !!id;
   if (!t) return err('Selecione a equipe.');
   if (!v('faName')) return err('Informe o nome completo do atleta.');
+  if (lenient && v('faCpf') && digits(v('faCpf')).length !== 11) return err('O CPF informado está incompleto. Corrija ou apague o campo.');
   if (!lenient) {
     if (digits(v('faCpf')).length !== 11) return err('Informe um CPF com 11 dígitos.');
     if (plansOfTeam(t.id).length && !planSel) return err('Selecione o plano / mensalidade.');
@@ -618,7 +619,7 @@ async function saveAthlete(id) {
     parent_phone: data.parentPhone || null, team_id: data.teamId,
     address: data.address || null,
     is_active: data.active };
-  if (lenient && digits(data.cpf).length !== 11) delete payload.cpf; // não apaga nem grava CPF incompleto
+  if (lenient && !data.cpf) delete payload.cpf; // CPF em branco no cadastro antigo: não grava vazio
   if (seesFinance()) {
     payload.payment_bank = data.bank || null;
     if (plan) payload.payment_plan = planLabel(plan);
