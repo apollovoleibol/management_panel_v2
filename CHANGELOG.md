@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## v2.12.1 · Turma Armstrong renomeada — 2026-11-26
+
+- A turma "Armstrong – Adulto Start" passa a se chamar **Armstrong – adulto iniciante** no formulário, no contrato (Anexo I) e no Huddle (migração 052).
+
 ## v2.12.0 · Rematrícula com contrato 2027 e taxa via Pix — 2026-11-26
 
 - Contrato de Prestação de Serviços 2027 (`contrato-2027.html`, versão `contrato-2027-v1`): 18 cláusulas e anexos de turmas e política de cobrança. Prevê a migração da cobrança da Tecnofit para plataforma própria e pacotes com desconto sem exigir novo contrato; desconto de pontualidade (a mensalidade cheia é o valor da tabela + 5%; quem paga até o dia 10 paga o valor da tabela); depois do vencimento, valor cheio com multa de 2%, juros simples de 1% ao mês dia a dia e correção pelo IPCA até o pagamento; suspensão com 30 dias de atraso; registro no SPC/Serasa ou protesto após aviso escrito com 10 dias de prazo; encerramento com mais de 60 dias; frequência mínima de 75%; mensalidade devida mesmo com faltas; uniforme obrigatório a partir de 01/03/2027; retenção de dados por 3 anos; uso de imagem opcional.
