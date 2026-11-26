@@ -11,12 +11,15 @@ const STEPS = [
   { id: 'cadastro', title: 'Dados cadastrais' },
   { id: 'endereco', title: 'Endereço' },
   { id: 'saude', title: 'Saúde (anamnese)' },
-  { id: 'equipe', title: 'Equipe em 2027' },
-  { id: 'termos', title: 'Termos e autorizações' },
+  { id: 'equipe', title: 'Turma em 2027' },
+  { id: 'termos', title: 'Contrato e autorizações' },
+  { id: 'pagamento', title: 'Taxa de rematrícula' },
   { id: 'revisao', title: 'Revisão e conclusão' },
 ];
-const REQUIRED = ['cadastro', 'endereco', 'saude', 'equipe', 'termos'];
-const MISSING_LABEL = { cadastro: 'dados cadastrais', endereco: 'endereço', saude: 'anamnese', equipe: 'equipe 2027', termos: 'termos' };
+const REQUIRED = ['cadastro', 'endereco', 'saude', 'equipe', 'termos', 'pagamento'];
+const MISSING_LABEL = { cadastro: 'dados cadastrais', endereco: 'endereço', saude: 'anamnese', equipe: 'turma 2027', termos: 'contrato', pagamento: 'comprovante do Pix' };
+const MAX_UPLOAD = 15 * 1024 * 1024;
+const RELATIONS = ['Mãe', 'Pai', 'Responsável legal', 'Avó', 'Avô', 'Irmã', 'Irmão', 'Tia', 'Tio', 'Cônjuge', 'Companheiro(a)', 'Filha', 'Filho', 'Amigo(a)', 'Outro parente'];
 const DECLINE_REASONS = ['Mudança de cidade', 'Horários ou dias de treino', 'Valor da mensalidade', 'Vai praticar outro esporte ou atividade', 'Saúde ou lesão', 'Insatisfação com o projeto', 'Outro motivo'];
 
 const ST = { token: '', ident: '', data: null, others: 0, athleteId: '', step: 0, drafts: {}, screen: 'ident' };
@@ -28,7 +31,14 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const digits = v => String(v || '').replace(/\D/g, '');
 const firstName = n => String(n || '').trim().split(/\s+/)[0] || '';
-const titleName = n => String(n || '').toLowerCase().replace(/(^|\s)(\S)/g, (m, s, c) => s + c.toUpperCase()).replace(/\b(Da|De|Do|Das|Dos|E)\b/g, w => w.toLowerCase());
+// "joão DA silva" → "João da Silva" (mesma regra de private.reenroll_title no banco)
+const PARTICLES = ['da', 'de', 'do', 'das', 'dos', 'e', 'di', 'du', 'del', 'la'];
+const titleName = n => String(n || '').trim().replace(/\s+/g, ' ').split(' ').filter(Boolean).map((w, i) => {
+  if (i > 0 && PARTICLES.includes(w.toLowerCase())) return w.toLowerCase();
+  return w.split('-').map(p => /^d['’]./i.test(p) ? 'd' + p[1] + p.charAt(2).toUpperCase() + p.slice(3).toLowerCase() : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join('-');
+}).join(' ');
+// Nome completo: só letras, ao menos nome e sobrenome (mesma regra de private.reenroll_name_ok)
+const nameOk = n => { const v = String(n || '').trim().replace(/\s+/g, ' '); return /^[A-Za-zÀ-ÖØ-öø-ÿ'’-]+( [A-Za-zÀ-ÖØ-öø-ÿ'’-]+)+$/.test(v) && v.split(' ').filter(w => w.length >= 2 && !['da', 'de', 'do', 'das', 'dos', 'e'].includes(w.toLowerCase())).length >= 2; };
 const initials = n => String(n || '').trim().split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase();
 const isoToBr = iso => /^\d{4}-\d{2}-\d{2}/.test(iso || '') ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '';
 const brToIso = br => { const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); if (!m) return ''; const d = new Date(+m[3], +m[2] - 1, +m[1]); return d.getFullYear() === +m[3] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[1] ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
@@ -57,7 +67,8 @@ function phoneNorm(v) {
   return d.length === 11 && d[2] === '9' ? d : '';
 }
 const fmtCpf = v => { const d = digits(v).slice(0, 11); return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2'); };
-const fmtPhone = v => { const d = digits(v).slice(0, 11); if (d.length <= 2) return d; if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`; if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`; return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`; };
+// Telefone sempre (XX) XXXXXXXXX
+const fmtPhone = v => { const d = digits(v).slice(0, 11); return d.length <= 2 ? d : `(${d.slice(0, 2)}) ${d.slice(2)}`; };
 const fmtDateMask = v => { const d = digits(v).slice(0, 8); return d.replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})\/(\d{2})(\d)/, '$1/$2/$3'); };
 const fmtCep = v => { const d = digits(v).slice(0, 8); return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d; };
 const emailOk = v => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v || '').trim());
@@ -66,7 +77,7 @@ const MASKS = { cpf: fmtCpf, phone: fmtPhone, date: fmtDateMask, cep: fmtCep };
 function same(kind, a, b) {
   if (kind === 'cpf' || kind === 'date') return digits(a) === digits(b);
   if (kind === 'phone') return (phoneNorm(a) || digits(a)) === (phoneNorm(b) || digits(b));
-  if (kind === 'email') return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  if (kind === 'email' || kind === 'name') return String(a || '').trim().replace(/\s+/g, ' ').toLowerCase() === String(b || '').trim().replace(/\s+/g, ' ').toLowerCase();
   return String(a || '').trim().replace(/\s+/g, ' ') === String(b || '').trim().replace(/\s+/g, ' ');
 }
 
@@ -104,7 +115,8 @@ async function reload() { ST.data = await rpc('reenroll_get', { p_token: ST.toke
 const athlete = () => ST.data?.athletes.find(a => a.id === ST.athleteId);
 const reen = a => a?.reenrollment || {};
 const stepsDone = a => reen(a).steps || {};
-const missingOf = a => REQUIRED.filter(s => !stepsDone(a)[s]);
+// O aceite precisa ser da versão atual do contrato (mesma regra de private.reenroll_missing)
+const missingOf = a => REQUIRED.filter(s => !stepsDone(a)[s] || (s === 'termos' && reen(a).contract_version !== ST.data?.contract) || (s === 'equipe' && !reen(a).offer_key));
 const teamName = id => ST.data?.teams.find(t => t.id === id)?.name || '';
 const respondentName = () => { const a = ST.data?.athletes[0]; return a ? (a.minor ? a.data.parent_name : a.data.full_name) : ''; };
 
@@ -139,13 +151,14 @@ function renderIdent(message = '', push = true) {
   $('#app').innerHTML = `<section class="screen">
     <div class="eyebrow">Temporada 2027</div>
     <h1>Vamos renovar a matrícula?</h1>
-    <p class="lead">Revise o cadastro, responda a anamnese e escolha a equipe para 2027. Leva cerca de 10 minutos.</p>
+    <p class="lead">Revise o cadastro, responda a anamnese, escolha a turma, aceite o contrato e pague a taxa por Pix. Leva cerca de 10 minutos.</p>
     <div class="alert-slot" id="formAlert">${message ? `<div class="alert" role="alert">${icon('alert')}<div>${esc(message)}</div></div>` : ''}</div>
     <div class="card">
       <h3>Tenha em mãos</h3>
       <ul class="checklist">
         <li>${icon('pin')}<span><b>Endereço com CEP</b>: ele precisa ser preenchido de novo</span></li>
         <li>${icon('heart')}<span><b>Informações de saúde</b>: a anamnese é respondida a cada ano</span></li>
+        <li>${icon('file')}<span><b>Pix de R$ 40,00</b> da taxa de rematrícula e o comprovante (foto ou print)</span></li>
       </ul>
     </div>
     <form class="card" id="identForm" novalidate>
@@ -164,7 +177,7 @@ function renderIdent(message = '', push = true) {
       <button type="submit" class="sr" tabindex="-1">Continuar</button>
     </form>
     <p class="lock-note">${icon('lock')} Conexão protegida. Usamos esses dados só para confirmar sua identidade.</p>
-    <p class="foot">Dúvidas? Fale com a secretaria pelo WhatsApp oficial da Apollo.<br><a href="regulamento-2027.html" target="_blank" rel="noopener">Regulamento do Atleta 2027</a></p>
+    <p class="foot">Dúvidas? Fale com a secretaria pelo WhatsApp oficial da Apollo.<br><a href="contrato-2027.html" target="_blank" rel="noopener">Contrato 2027</a> · <a href="regulamento-2027.html" target="_blank" rel="noopener">Regulamento do Atleta 2027</a></p>
   </section>`;
   setScreen('ident', { exit: false, push, actions: `<button class="btn primary block" type="button" id="identGo">Continuar ${icon('arrow')}</button>` });
   bindMasks();
@@ -208,12 +221,13 @@ function renderHub(push = true) {
         <span class="err">Informe a data no formato DD/MM/AAAA.</span></div>
       <button class="btn dark block" type="submit" id="sibGo">Incluir atleta</button>
     </form>` : ''}
-    <p class="foot">Dúvidas? Fale com a secretaria pelo WhatsApp oficial da Apollo.<br><a href="regulamento-2027.html" target="_blank" rel="noopener">Regulamento do Atleta 2027</a></p>
+    <p class="foot">Dúvidas? Fale com a secretaria pelo WhatsApp oficial da Apollo.<br><a href="contrato-2027.html" target="_blank" rel="noopener">Contrato 2027</a> · <a href="regulamento-2027.html" target="_blank" rel="noopener">Regulamento do Atleta 2027</a></p>
   </section>`;
   setScreen('hub', { push });
   bindMasks();
   $$('[data-go]').forEach(b => b.onclick = () => { ST.athleteId = b.dataset.id; ST.step = firstOpenStep(athlete()); renderStep(); });
   $$('[data-decline]').forEach(b => b.onclick = () => { ST.athleteId = b.dataset.id; renderDecline(); });
+  $$('[data-fee]').forEach(b => b.onclick = () => { ST.athleteId = b.dataset.id; ST.step = STEPS.findIndex(s => s.id === 'pagamento'); renderStep(); });
   $$('[data-reopen]').forEach(b => b.onclick = async () => {
     setBusy(b, true);
     try { await rpc('reenroll_reopen', { p_token: ST.token, p_athlete: b.dataset.id }); await reload(); renderHub(); toast('Rematrícula reaberta.'); }
@@ -236,7 +250,12 @@ function hubCard(a) {
   const nDone = REQUIRED.length - miss.length;
   const name = titleName(a.data.full_name);
   let body;
-  if (r.status === 'concluida') body = `<div class="state ok">${icon('check')}<div><b>Rematrícula concluída</b> em ${fmtDate(r.completed_at)}.<br>Equipe 2027: <b>${esc(teamName(r.team_2027_id))}</b>${r.team_2027_id && r.team_2027_id !== a.team?.id ? ' (mudança em análise pela coordenação)' : ''}</div></div>`;
+  const fee = r.fee || {}, o = offerOf(r.offer_key);
+  const turma = `Turma 2027: <b>${esc(o?.label || teamName(r.team_2027_id))}</b>${r.team_2027_id && r.team_2027_id !== a.team?.id ? ' (mudança em análise pela coordenação)' : ''}`;
+  if (r.status === 'concluida' && fee.status === 'recusado') body = `<div class="state no">${icon('alert')}<div><b>Comprovante do Pix recusado</b>${fee.note ? `: ${esc(fee.note)}` : ''}.<br>Envie um novo comprovante para confirmar.</div></div>
+    <div class="ath-actions"><button class="btn primary block" type="button" data-fee data-id="${a.id}">Enviar novo comprovante ${icon('arrow')}</button></div>`;
+  else if (r.status === 'concluida' && fee.status === 'aprovado') body = `<div class="state ok">${icon('check')}<div><b>Rematrícula confirmada</b>.<br>${turma}</div></div>`;
+  else if (r.status === 'concluida') body = `<div class="state ok">${icon('clock')}<div><b>Rematrícula enviada</b> em ${fmtDate(r.completed_at)}. Aguardando a validação do comprovante do Pix.<br>${turma}</div></div>`;
   else if (r.status === 'declinada') body = `<div class="state no">${icon('info')}<div>Vocês informaram em ${fmtDate(r.declined_at)} que <b>não vão continuar em 2027</b>.</div></div>
     <div class="ath-actions"><button class="btn block" type="button" data-reopen data-id="${a.id}">Mudei de ideia, quero rematricular</button></div>`;
   else body = `<div class="steps-mini" aria-hidden="true">${REQUIRED.map(s => `<i class="${done[s] ? 'on' : ''}"></i>`).join('')}</div>
@@ -259,12 +278,14 @@ function setDraft(step, val) { const k = ST.athleteId; ST.drafts[k] = ST.drafts[
 
 function renderStep(push = true) {
   const a = athlete(); if (!a) return renderHub();
-  if (reen(a).status === 'concluida') return renderDone();
-  if (reen(a).status === 'declinada') return renderHub();
   const s = STEPS[ST.step];
+  // Concluída: só volta à etapa do Pix quando o comprovante foi recusado
+  const feeRetry = reen(a).status === 'concluida' && reen(a).fee?.status === 'recusado' && s.id === 'pagamento';
+  if (reen(a).status === 'concluida' && !feeRetry) return renderDone();
+  if (reen(a).status === 'declinada') return renderHub();
   const saved = stepsDone(a)[s.id];
-  const body = { cadastro: stepCadastro, endereco: stepEndereco, saude: stepSaude, equipe: stepEquipe, termos: stepTermos, revisao: stepRevisao }[s.id](a);
-  const savedNote = saved && !['cadastro', 'equipe', 'revisao'].includes(s.id) && !draft(s.id)
+  const body = { cadastro: stepCadastro, endereco: stepEndereco, saude: stepSaude, equipe: stepEquipe, termos: stepTermos, pagamento: stepPagamento, revisao: stepRevisao }[s.id](a);
+  const savedNote = saved && !['cadastro', 'equipe', 'termos', 'pagamento', 'revisao'].includes(s.id) && !draft(s.id)
     ? `<div class="section-note">${icon('check')}<div>Esta etapa já foi salva em ${fmtDate(saved)}. Por segurança, as respostas não são exibidas de novo. Preencha novamente só se quiser corrigir, ou toque em <b>Manter e continuar</b>.</div></div>` : '';
   $('#app').innerHTML = `<section class="screen">
     <div class="eyebrow">${esc(titleName(a.data.full_name))}</div>
@@ -277,6 +298,8 @@ function renderStep(push = true) {
   const keep = savedNote ? `<button class="btn" type="button" id="keepGo">Manter e continuar</button>` : '';
   const primary = isLast
     ? `<button class="btn primary" type="button" id="stepGo" ${missingOf(a).length ? 'disabled' : ''}>Concluir rematrícula</button>`
+    : s.id === 'pagamento' ? `<button class="btn primary" type="button" id="stepGo">${feeRetry ? 'Voltar' : 'Continuar'} ${icon('arrow')}</button>`
+    : s.id === 'termos' ? `<button class="btn primary" type="button" id="stepGo">Aceitar e continuar ${icon('arrow')}</button>`
     : keep ? `<button class="btn primary" type="button" id="stepGo">Salvar</button>` : `<button class="btn primary" type="button" id="stepGo">Salvar e continuar ${icon('arrow')}</button>`;
   setScreen('step', {
     push,
@@ -284,8 +307,8 @@ function renderStep(push = true) {
     actions: `<button class="btn back" type="button" id="stepBack" aria-label="Voltar">${icon('back')}</button>${keep}${primary}`,
   });
   bindMasks();
-  ({ cadastro: bindCadastro, endereco: bindEndereco, saude: bindSaude, equipe: bindEquipe, termos: () => {}, revisao: bindRevisao }[s.id])(a);
-  $('#stepBack').onclick = () => { stashDraft(); if (ST.step === 0) renderHub(); else { ST.step--; renderStep(); } };
+  ({ cadastro: bindCadastro, endereco: bindEndereco, saude: bindSaude, equipe: bindEquipe, termos: bindTermos, pagamento: bindPagamento, revisao: bindRevisao }[s.id])(a);
+  $('#stepBack').onclick = () => { stashDraft(); if (ST.step === 0 || feeRetry) renderHub(); else { ST.step--; renderStep(); } };
   if ($('#keepGo')) $('#keepGo').onclick = () => { ST.step++; renderStep(); };
   $('#stepGo').onclick = () => submitStep($('#stepGo'));
   $('#stepForm').onsubmit = e => { e.preventDefault(); submitStep($('#stepGo')); };
@@ -308,9 +331,14 @@ async function submitStep(btn) {
   const a = athlete(), s = STEPS[ST.step].id;
   showAlert('');
   if (s === 'revisao') return finish(btn);
-  const payload = { cadastro: collectCadastro, endereco: collectEndereco, saude: collectSaude, equipe: collectEquipe, termos: collectTermos }[s](a);
-  if (!payload) return focusFirstError();
+  if (s === 'pagamento') {
+    if (reen(a).status === 'concluida') return renderDone();
+    if (!reen(a).fee?.name || reen(a).fee?.status === 'recusado') return showAlert('Anexe o comprovante do Pix para continuar.');
+    ST.step++; return renderStep();
+  }
   setBusy(btn, true);
+  const payload = await { cadastro: collectCadastro, endereco: collectEndereco, saude: collectSaude, equipe: collectEquipe, termos: collectTermos }[s](a);
+  if (!payload) { setBusy(btn, false); return focusFirstError(); }
   try {
     await rpc('reenroll_save', { p_token: ST.token, p_athlete: a.id, p_step: s, p_data: payload });
     setDraft(s, null);
@@ -361,24 +389,41 @@ function cadastroFields(a) {
   // Menores: o WhatsApp cadastrado pelo chatbot costuma ser do responsável
   const parentPhone = d.parent_phone || (m ? d.phone : '');
   const atleta = [
-    { k: 'full_name', label: 'Nome completo do(a) atleta', v: d.full_name, req: true, ac: 'name' },
-    { k: 'cpf', label: 'CPF do(a) atleta', v: d.cpf, req: true, kind: 'cpf', mask: 'cpf', im: 'numeric' },
-    { k: 'rg', label: 'RG do(a) atleta', v: d.rg, req: !m },
+    { k: 'full_name', label: 'Nome completo do(a) atleta', v: titleName(d.full_name), req: true, ac: 'name', kind: 'name', hint: 'Nome e sobrenome, sem abreviar. Ex.: Ana Maria da Silva' },
+    { k: 'cpf', label: 'CPF do(a) atleta', v: d.cpf, req: !m, kind: 'cpf', mask: 'cpf', im: 'numeric', hint: m ? 'Se a criança ainda não tem CPF, deixe em branco: vale o do(a) responsável.' : '' },
+    { k: 'rg', label: 'RG do(a) atleta', v: d.rg, req: !m, kind: 'rg', hint: m ? 'Se ainda não tem RG, deixe em branco.' : '' },
     { k: 'birth_date', label: 'Data de nascimento', v: isoToBr(d.birth_date), req: true, kind: 'date', mask: 'date', im: 'numeric', ph: 'DD/MM/AAAA' },
     { k: 'phone', label: m ? 'WhatsApp do(a) atleta' : 'WhatsApp', v: m && d.phone && same('phone', d.phone, parentPhone) && !d.parent_phone ? '' : d.phone, req: !m, kind: 'phone', mask: 'phone', im: 'tel', ac: 'tel' },
     { k: 'email', label: m ? 'E-mail para contato' : 'E-mail', v: d.email, req: true, kind: 'email', im: 'email', ac: 'email', type: 'email' },
   ];
   const resp = m ? [
-    { k: 'parent_name', label: 'Nome completo do(a) responsável', v: d.parent_name, req: true },
+    { k: 'parent_name', label: 'Nome completo do(a) responsável', v: titleName(d.parent_name), req: true, kind: 'name', hint: 'Quem assina o contrato. Nome e sobrenome, sem abreviar.' },
     { k: 'parent_cpf', label: 'CPF do(a) responsável', v: d.parent_cpf, req: true, kind: 'cpf', mask: 'cpf', im: 'numeric' },
-    { k: 'parent_rg', label: 'RG do(a) responsável', v: d.parent_rg, req: false },
-    { k: 'parent_phone', label: 'WhatsApp do(a) responsável', v: parentPhone, req: true, kind: 'phone', mask: 'phone', im: 'tel', ac: 'tel' },
+    { k: 'parent_rg', label: 'RG do(a) responsável', v: d.parent_rg, req: false, kind: 'rg' },
+    { k: 'parent_phone', label: 'WhatsApp do(a) responsável', v: parentPhone, req: true, kind: 'phone', mask: 'phone', im: 'tel', ac: 'tel', ph: '(41) 999999999' },
     { k: 'parent_email', label: 'E-mail do(a) responsável', v: d.parent_email, req: false, kind: 'email', im: 'email', type: 'email' },
   ] : [];
-  const emerg = [{ k: 'emergency_contact', label: 'Contato de emergência', v: d.emergency_contact, req: true, hint: 'Nome, parentesco e telefone. Ex.: Maria (mãe) - (41) 99999-9999' }];
+  // Contato de emergência em três campos: o banco grava "Nome Sobrenome (parentesco) - (41) 999999999"
+  const emerg = [
+    { k: 'emergency_name', label: 'Nome do contato', req: true, kind: 'ename', ac: 'off' },
+    { k: 'emergency_relation', label: 'Parentesco ou relação', req: true, kind: 'select', opts: RELATIONS },
+    { k: 'emergency_phone', label: 'Telefone do contato', req: true, kind: 'phone', mask: 'phone', im: 'tel', ph: '(41) 999999999' },
+  ];
   return { atleta, resp, emerg };
 }
+// Campo de nome: ao sair, ajusta para "Nome Sobrenome"
+function bindNames() {
+  $$('[data-kind="name"] .in, [data-f="emergency_name"] .in').forEach(el => el.addEventListener('blur', () => {
+    const t = titleName(el.value); if (t !== el.value) { el.value = t; el.dispatchEvent(new Event('input', { bubbles: true })); }
+  }));
+}
 function fieldHtml(f, dr) {
+  if (f.kind === 'select') {
+    const val = dr?.[f.k] || '';
+    return `<div class="fld" data-f="${f.k}"><label for="f_${f.k}">${esc(f.label)}</label>
+      <select class="in" id="f_${f.k}" name="${f.k}"><option value="">Escolha</option>${f.opts.map(o => `<option ${o.toLowerCase() === String(val).toLowerCase() ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
+      <span class="err">Escolha uma opção.</span></div>`;
+  }
   const val = dr && dr[f.k] !== undefined ? dr[f.k] : f.v || '';
   const attrs = `id="f_${f.k}" name="${f.k}" ${f.im ? `inputmode="${f.im}"` : ''} ${f.ac ? `autocomplete="${f.ac}"` : 'autocomplete="off"'} ${f.mask ? `data-mask="${f.mask}"` : ''} ${f.ph ? `placeholder="${f.ph}"` : ''} type="${f.type || 'text'}"`;
   const req = f.req ? '' : ' <span class="opt">(opcional)</span>';
@@ -397,7 +442,7 @@ function fieldHtml(f, dr) {
       <span class="err">Confirme que está correto ou corrija o dado.</span>
     </div>`;
   }
-  return `<div class="fld" data-f="${f.k}"><label for="f_${f.k}">${esc(f.label)}${req}</label>
+  return `<div class="fld" data-f="${f.k}" data-kind="${f.kind || 'text'}"><label for="f_${f.k}">${esc(f.label)}${req}</label>
     <input class="in" ${attrs} value="${esc(val)}">
     ${f.hint ? `<span class="hint">${esc(f.hint)}</span>` : ''}
     <span class="err">Preencha este campo.</span></div>`;
@@ -407,10 +452,11 @@ function stepCadastro(a) {
   // Volta à etapa: mostra o que foi revisado nesta visita ou já salvo nesta rematrícula
   const sv = reen(a).cadastro;
   const dr = draft('cadastro') || (sv ? { ...sv, birth_date: isoToBr(sv.birth_date), __ok: reen(a).confirmed || [] } : null);
+  const oldEm = a.data.emergency_contact && !sv ? `<p class="small muted" style="margin:-4px 0 12px">No cadastro anterior: <b>${esc(a.data.emergency_contact)}</b></p>` : '';
   return `<p class="lead">Confira cada dado. Se estiver certo, marque <b>Está correto</b>. Se algo mudou, é só corrigir no próprio campo.</p>
     <div class="card"><div class="card-head"><div><h2>Atleta</h2></div></div>${atleta.map(f => fieldHtml(f, dr)).join('')}</div>
-    ${resp.length ? `<div class="card"><div class="card-head"><div><h2>Responsável legal</h2><p>Quem responde pelo(a) atleta menor de idade.</p></div></div>${resp.map(f => fieldHtml(f, dr)).join('')}</div>` : ''}
-    <div class="card"><div class="card-head"><div><h2>Emergência</h2></div></div>${emerg.map(f => fieldHtml(f, dr)).join('')}</div>`;
+    ${resp.length ? `<div class="card"><div class="card-head"><div><h2>Responsável legal</h2><p>Quem responde pelo(a) atleta menor de idade e assina o contrato.</p></div></div>${resp.map(f => fieldHtml(f, dr)).join('')}</div>` : ''}
+    <div class="card"><div class="card-head"><div><h2>Contato de emergência</h2><p>Quem avisamos se algo acontecer durante o treino${a.minor ? '' : ' (outra pessoa, não você)'}.</p></div></div>${oldEm}${emerg.map(f => fieldHtml(f, dr)).join('')}</div>`;
 }
 function bindCadastro() {
   $$('.pf').forEach(pf => {
@@ -427,6 +473,8 @@ function bindCadastro() {
     undo.onclick = () => { input.value = pf.dataset.orig; sync(); input.focus(); };
   });
   $$('#stepForm .fld .in').forEach(el => el.addEventListener('input', () => el.closest('.fld').classList.remove('has-err')));
+  $$('#stepForm select.in').forEach(el => el.addEventListener('change', () => el.closest('.fld').classList.remove('has-err')));
+  bindNames();
 }
 function collectCadastro(a) {
   const { atleta, resp, emerg } = cadastroFields(a);
@@ -434,14 +482,19 @@ function collectCadastro(a) {
   const fields = {}, confirmed = [];
   let bad = 0;
   for (const f of all) {
-    const el = $(`#f_${f.k}`), box = el.closest('[data-f]'), v = el.value.trim();
+    const el = $(`#f_${f.k}`), box = el.closest('[data-f]');
+    if (f.kind === 'name' || f.kind === 'ename') el.value = titleName(el.value);
+    if (f.kind === 'phone' && phoneNorm(el.value)) el.value = fmtPhone(phoneNorm(el.value));
+    const v = el.value.trim();
     let msg = '';
-    if (!v && f.req) msg = 'Preencha este campo.';
+    if (!v && f.req) msg = f.kind === 'select' ? 'Escolha uma opção.' : 'Preencha este campo.';
+    else if (v && f.kind === 'name' && !nameOk(v)) msg = 'Escreva nome e sobrenome completos, só com letras (sem números ou símbolos).';
+    else if (v && f.kind === 'ename' && !/^[A-Za-zÀ-ÖØ-öø-ÿ'’ -]+$/.test(v)) msg = 'Use só letras no nome.';
     else if (v && f.kind === 'cpf' && !cpfOk(v)) msg = 'CPF inválido. Confira os números.';
-    else if (v && f.kind === 'phone' && !phoneNorm(v)) msg = 'Informe o celular com DDD. Ex.: (41) 99999-9999';
+    else if (v && f.kind === 'phone' && !phoneNorm(v)) msg = 'Informe o celular com DDD e 9 dígitos. Ex.: (41) 999999999';
     else if (v && f.kind === 'email' && !emailOk(v)) msg = 'E-mail inválido.';
     else if (v && f.kind === 'date' && !brToIso(v)) msg = 'Data inválida. Use DD/MM/AAAA.';
-    else if (f.v && v && same(f.kind, v, f.v) && !box.querySelector('input[name="__ok"]').checked) msg = 'Marque “Está correto” ou corrija o dado.';
+    else if (f.v && v && same(f.kind, v, f.v) && !box.querySelector('input[name="__ok"]')?.checked) msg = 'Marque “Está correto” ou corrija o dado.';
     if (!msg && f.k === 'cpf' && a.minor && v && digits(v) === digits($('#f_parent_cpf')?.value)) msg = 'O CPF do(a) atleta não pode ser igual ao do(a) responsável.';
     markErr(f.k, !!msg, msg || undefined);
     if (msg) { bad++; continue; }
@@ -460,12 +513,19 @@ function stepEndereco() {
     <div class="card">
       ${f('cep', 'CEP', 'inputmode="numeric" autocomplete="postal-code" data-mask="cep" placeholder="00000-000" maxlength="9" style="max-width:200px"')}
       <p class="small muted" id="cepState" aria-live="polite" style="margin:-8px 0 12px">Digite o CEP para preencher rua, bairro e cidade.</p>
-      ${f('rua', 'Rua ou avenida', 'autocomplete="address-line1"')}
-      <div class="row2">${f('numero', 'Número', 'inputmode="numeric"')}${f('complemento', 'Complemento', 'placeholder="Apto, bloco, casa (opcional)" aria-describedby="optComp"', true).replace('Complemento</label>', 'Complemento</label><span class="sr" id="optComp">Campo opcional</span>')}</div>
+      ${f('rua', 'Logradouro (rua, avenida, travessa…)', 'autocomplete="address-line1" placeholder="Ex.: Rua das Flores"')}
+      <div class="row2">
+        <div class="fld" data-f="numero"><label for="a_numero">Número</label><input class="in" id="a_numero" name="numero" value="${esc(d.numero || '')}" placeholder="Ex.: 120" maxlength="7" autocomplete="off">
+          <label class="sn"><input type="checkbox" id="a_sn" ${String(d.numero || '').toUpperCase() === 'S/N' ? 'checked' : ''}> Sem número (S/N)</label>
+          <span class="err">Informe o número ou marque “Sem número”.</span></div>
+        ${f('complemento', 'Complemento', 'placeholder="Apto, bloco, casa" maxlength="60"', false)}
+      </div>
       ${f('bairro', 'Bairro')}
       <div class="row2">${f('cidade', 'Cidade', 'autocomplete="address-level2"')}${f('uf', 'Estado (UF)', 'maxlength="2" autocomplete="address-level1" style="text-transform:uppercase"')}</div>
     </div>`;
 }
+// "120", "120A" ou "S/N" (mesma regra do banco)
+const numeroNorm = v => { const s = String(v || '').toUpperCase().replace(/\s+/g, ''); return ['SN', 'S/N', 'S.N', 'S.N.'].includes(s) ? 'S/N' : s; };
 function bindEndereco() {
   const cep = $('#a_cep'), state = $('#cepState');
   let last = '';
@@ -483,13 +543,23 @@ function bindEndereco() {
     } catch (e) { state.textContent = 'Não foi possível buscar o CEP. Preencha o endereço abaixo.'; }
   });
   $$('#stepForm .in').forEach(el => el.addEventListener('input', () => el.closest('.fld').classList.remove('has-err')));
+  const num = $('#a_numero'), sn = $('#a_sn');
+  const syncSn = () => { if (sn.checked) num.value = 'S/N'; else if (num.value === 'S/N') num.value = ''; num.readOnly = sn.checked; num.closest('.fld').classList.remove('has-err'); };
+  sn.addEventListener('change', () => { syncSn(); if (!sn.checked) num.focus(); });
+  if (sn.checked) syncSn();
+  num.addEventListener('blur', () => { num.value = numeroNorm(num.value); if (num.value === 'S/N') { sn.checked = true; syncSn(); } });
+  ['rua', 'bairro', 'cidade'].forEach(k => $('#a_' + k).addEventListener('blur', e => { e.target.value = titleName(e.target.value); }));
 }
 function collectEndereco() {
+  ['rua', 'bairro', 'cidade'].forEach(k => { $('#a_' + k).value = titleName($('#a_' + k).value); });
+  $('#a_numero').value = numeroNorm($('#a_numero').value);
   const v = k => $('#a_' + k).value.trim();
   let bad = 0;
   for (const k of ['cep', 'rua', 'numero', 'bairro', 'cidade', 'uf']) {
-    const wrong = !v(k) || (k === 'cep' && digits(v(k)).length !== 8) || (k === 'uf' && !/^[A-Za-z]{2}$/.test(v(k)));
-    markErr(k, wrong, k === 'cep' && v(k) ? 'CEP inválido.' : k === 'uf' && v(k) ? 'Use a sigla do estado. Ex.: PR' : undefined);
+    const wrong = !v(k) || (k === 'cep' && digits(v(k)).length !== 8) || (k === 'uf' && !/^[A-Za-z]{2}$/.test(v(k)))
+      || (k === 'numero' && v(k) !== 'S/N' && !/^\d{1,6}[A-Z]?$/.test(v(k)));
+    markErr(k, wrong, k === 'cep' && v(k) ? 'CEP inválido.' : k === 'uf' && v(k) ? 'Use a sigla do estado. Ex.: PR'
+      : k === 'numero' && v(k) ? 'Só o número (ex.: 120 ou 120A). Apto e bloco vão no complemento.' : undefined);
     if (wrong) bad++;
   }
   if (bad) { showAlert('Complete o endereço.'); return null; }
@@ -541,7 +611,7 @@ function stepSaude(a) {
   return `<div class="section-note">${icon('shield')}<div>A anamnese é respondida de novo a cada ano, porque a saúde muda. As respostas ficam restritas à comissão técnica e à administração.</div></div>
     <div class="card"><div class="card-head"><div><h2>Medidas</h2><p>Informe a estatura e o peso ${who === 'sua' ? 'atuais' : 'atuais do(a) atleta'}.</p></div></div>
       <div class="row2">
-        <div class="fld" data-f="estatura"><label for="h_estatura">Estatura (cm)</label><input class="in" id="h_estatura" name="estatura" inputmode="numeric" placeholder="Ex.: 165" value="${esc(d.estatura || '')}" maxlength="3"><span class="err">Em centímetros. Ex.: 165</span></div>
+        <div class="fld" data-f="estatura"><label for="h_estatura">Altura (em centímetros)</label><input class="in" id="h_estatura" name="estatura" inputmode="decimal" placeholder="Ex.: 165" value="${esc(d.estatura || '')}" maxlength="6"><span class="err">Em centímetros, só números. Ex.: 165</span></div>
         <div class="fld" data-f="peso"><label for="h_peso">Peso (kg)</label><input class="in" id="h_peso" name="peso" inputmode="decimal" placeholder="Ex.: 58" value="${esc(d.peso || '')}" maxlength="5"><span class="err">Em quilos. Ex.: 58</span></div>
       </div></div>
     <div class="card"><div class="card-head"><div><h2>Questionário de saúde</h2><p>Responda pensando na saúde ${who}.</p></div></div>${QUESTIONS.slice(0, 10).map(q).join('')}</div>
@@ -564,7 +634,11 @@ function bindSaude() {
 function collectSaude() {
   const f = formSnapshot(), out = {};
   let bad = 0;
-  const est = String(f.estatura || '').trim(), peso = String(f.peso || '').trim().replace(',', '.');
+  // Altura sempre em centímetros: "1,65" ou "1.65 m" viram 165
+  let est = String(f.estatura || '').trim().toLowerCase().replace(/\s*(cm|m)$/, '');
+  if (/^[12][.,]\d{1,2}$/.test(est)) est = String(Math.round(parseFloat(est.replace(',', '.')) * 100));
+  const peso = String(f.peso || '').trim().toLowerCase().replace(/\s*kg$/, '').replace(',', '.');
+  if ($('#h_estatura')) $('#h_estatura').value = est;
   const estOk = /^\d{2,3}$/.test(est) && +est >= 50 && +est <= 250, pesoOk = /^\d{1,3}(\.\d)?$/.test(peso) && +peso >= 10 && +peso <= 250;
   markErr('estatura', !estOk); markErr('peso', !pesoOk);
   if (!estOk) bad++; if (!pesoOk) bad++;
@@ -586,82 +660,206 @@ function collectSaude() {
   return out;
 }
 
-/* Equipe 2027 */
+/* Turma 2027 */
+const offerOf = key => ST.data?.offers?.find(o => o.key === key);
+const defaultOffer = a => reen(a).offer_key || ST.data?.offers?.find(o => o.team_id && o.team_id === a.team?.id)?.key || '';
+function offerCard(o, checked, current) {
+  return `<label class="team"><input type="radio" name="offer" value="${esc(o.key)}" ${checked ? 'checked' : ''}><span class="radio" aria-hidden="true"></span>
+    <span><b>${esc(o.label)}${current ? '<span class="tag ok">Turma atual</span>' : ''}</b>
+    <small>${esc(o.days)} · ${esc(o.time)}</small><small>${esc(o.freq)} · mensalidade ${ctMoney(ctCheia(o.fee_cents))}, <b>${ctMoney(o.fee_cents)}</b> pagando até o dia ${TEMPORADA.vencimento}${o.note ? ` · ${esc(o.note)}` : ''}</small></span></label>`;
+}
 function stepEquipe(a) {
-  const r = reen(a), cur = a.team?.id, chosen = r.team_2027_id || cur;
-  const teams = ST.data.teams;
-  const opt = t => `<label class="team"><input type="radio" name="team" value="${t.id}" ${t.id === chosen ? 'checked' : ''}><span class="radio" aria-hidden="true"></span>
-    <span><b>${esc(t.name)}${t.id === cur ? '<span class="tag ok">Equipe atual</span>' : ''}</b><small>${esc([t.category, t.location].filter(Boolean).join(' · '))}</small></span></label>`;
-  const current = teams.find(t => t.id === cur);
-  const others = teams.filter(t => t.id !== cur);
-  const showOthers = chosen && chosen !== cur;
-  return `<p class="lead">Por padrão, ${a.minor ? 'o(a) atleta segue' : 'você segue'} na mesma equipe. Se quiser mudar, escolha outra opção.</p>
-    ${current ? opt(current) : `<div class="section-note warn">${icon('info')}<div>Não encontramos a equipe atual. Escolha a equipe para 2027.</div></div>`}
-    <button class="disclose" type="button" id="otherTeams" aria-expanded="${showOthers || !current}" ${!current ? 'hidden' : ''}><span>Quero mudar de equipe</span>${icon('arrow')}</button>
-    <div id="otherList" ${showOthers || !current ? '' : 'hidden'} style="margin-top:10px">${others.map(opt).join('')}</div>
+  const r = reen(a), offers = ST.data.offers || [];
+  const cur = offers.find(o => o.team_id && o.team_id === a.team?.id);
+  const chosen = defaultOffer(a);
+  const groups = [...new Set(offers.map(o => o.location))];
+  const showAll = !cur || (chosen && chosen !== cur.key);
+  return `<p class="lead">${cur ? `Por padrão, ${a.minor ? 'o(a) atleta segue' : 'você segue'} na mesma turma. Confira dias, horário e valor de 2027.` : 'Escolha a turma de 2027.'}</p>
+    ${cur ? offerCard(cur, chosen === cur.key, true) : `<div class="section-note warn">${icon('info')}<div>A turma atual (${esc(a.team?.name || 'sem turma')}) não terá continuidade em 2027 com esse nome. Escolha a turma para 2027.</div></div>`}
+    <button class="disclose" type="button" id="otherTeams" aria-expanded="${showAll}" ${cur ? '' : 'hidden'}><span>Quero mudar de turma</span>${icon('arrow')}</button>
+    <div id="otherList" ${showAll ? '' : 'hidden'} style="margin-top:10px">${groups.map(g => `<p class="group-title">${esc(g)}</p>${offers.filter(o => o.location === g && o.key !== cur?.key).map(o => offerCard(o, o.key === chosen, false)).join('')}`).join('')}</div>
     <div class="fld" style="margin-top:16px"><label for="teamNote">Observação para a coordenação <span class="opt">(opcional)</span></label>
       <textarea class="in" id="teamNote" name="note" maxlength="500" placeholder="Ex.: prefiro treinar à noite">${esc(r.team_note || '')}</textarea></div>
-    <div class="section-note">${icon('info')}<div>A mudança de equipe depende de vaga e da avaliação da comissão técnica. A coordenação confirma com vocês.</div></div>`;
+    <div class="section-note">${icon('info')}<div>A mudança de turma depende de vaga e da avaliação da comissão técnica. A coordenação confirma com vocês. O valor da turma escolhida vai para o contrato.</div></div>`;
 }
 function bindEquipe() {
   const btn = $('#otherTeams');
   if (btn) btn.onclick = () => { const list = $('#otherList'); list.hidden = !list.hidden; btn.setAttribute('aria-expanded', String(!list.hidden)); };
 }
 function collectEquipe() {
-  const t = $('input[name=team]:checked');
-  if (!t) { showAlert('Escolha a equipe para 2027.'); return null; }
-  return { team_id: t.value, note: $('#teamNote').value.trim() };
+  const t = $('input[name=offer]:checked');
+  if (!t) { showAlert('Escolha a turma para 2027.'); return null; }
+  return { offer_key: t.value, note: $('#teamNote').value.trim() };
 }
 
-/* Termos */
-const DECLARACAO = 'Declaro, para os devidos fins, que todas as informações fornecidas nesta ficha de anamnese são verdadeiras e de minha inteira responsabilidade, prestadas de forma livre e espontânea. Reconheço, ainda, que sou responsável pela minha própria integridade física e/ou pela integridade de meus dependentes legais, especialmente no que se refere à aptidão para a prática de atividades físicas, eximindo a organização responsável de qualquer responsabilidade por eventuais consequências decorrentes da omissão ou falsidade dessas informações.';
-const IMAGEM = ['Autorizo, de forma gratuita, irrevogável e por prazo indeterminado, a captação, utilização e divulgação da minha imagem e/ou de meus dependentes legais, bem como voz e nome, em fotos, vídeos e gravações de áudio realizados durante atividades, treinos, eventos, jogos e demais ações vinculadas ao projeto. Esta autorização inclui o uso em materiais promocionais, institucionais, publicitários ou educacionais, físicos ou digitais, inclusive em redes sociais, sites e outros meios de comunicação, a critério da organização.',
-  'Declaro estar ciente de que a presente autorização é concedida a título gratuito, não sendo devida qualquer remuneração, compensação ou reembolso pela utilização da imagem, voz ou nome, e que não há limitação territorial para o uso do material, podendo este ser utilizado no Brasil e/ou no exterior.'];
-const LGPD = `<p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), autorizo o <b>Grupo Apollo de Voleibol (GAV)</b>, de Curitiba/PR, a tratar os dados pessoais informados nesta rematrícula.</p>
-<p><b>Quais dados:</b> identificação (nome, CPF, RG, data de nascimento), contato (telefone, e-mail, endereço), dados do(a) responsável legal, contato de emergência, dados de saúde (anamnese e medidas) e registros de treinos e competições.</p>
-<p><b>Para quê:</b></p><ul>
-<li>manter a matrícula e organizar equipes, treinos, chamadas e competições;</li>
-<li>zelar pela segurança na prática esportiva e agir em caso de emergência;</li>
-<li>inscrever o(a) atleta em competições, federações e eventos;</li>
-<li>gerir mensalidades e cobranças;</li>
-<li>comunicar avisos, convocações e informações do projeto.</li></ul>
-<p><b>Dados de saúde</b> são dados sensíveis. O acesso fica restrito à comissão técnica e à administração, apenas no necessário para a segurança do(a) atleta.</p>
-<p><b>Compartilhamento:</b> somente com organizadores de competições e federações (para inscrições), com sistemas de gestão e de pagamento usados pela Apollo e com autoridades, quando a lei exigir. A Apollo não vende dados pessoais.</p>
-<p><b>Por quanto tempo:</b> enquanto durar o vínculo com o projeto e, depois, pelo prazo exigido em lei para registros financeiros e de segurança.</p>
-<p><b>Seus direitos:</b> você pode pedir acesso, correção, portabilidade ou exclusão dos dados e revogar este consentimento a qualquer momento, pelo e-mail <b>apollovoleibol@gmail.com</b>. A revogação pode impedir a continuidade nas atividades que dependem desses dados.</p>
-<p>Quando o(a) atleta é menor de idade, este consentimento é dado pelo(a) responsável legal, no melhor interesse da criança ou do adolescente.</p>`;
+/* Contrato e autorizações */
+const DECLARACAO = 'Declaro que as informações de saúde prestadas nesta anamnese são verdadeiras, completas e atuais, e me comprometo a informar à Apollo, antes do treino seguinte, qualquer mudança de saúde, lesão, medicação ou restrição. Estou ciente de que a omissão ou a falsidade dessas informações pode colocar em risco a integridade do(a) atleta e afasta a responsabilidade da Apollo pelas consequências que delas decorram, sem prejuízo das responsabilidades que a lei atribui à Apollo.';
+const LGPD = `<p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), consinto, de forma específica e destacada, que o <b>GAV – Grupo Apollo de Voleibol</b> (CNPJ 53.617.328/0001-18) trate os <b>dados de saúde</b> informados nesta rematrícula (anamnese, altura e peso) para zelar pela segurança do(a) atleta na prática esportiva e agir em caso de emergência.</p>
+<p>Os demais dados (identificação, contato, endereço, dados do(a) responsável e contato de emergência) são tratados para executar o contrato, cumprir obrigações legais e inscrever o(a) atleta em competições, conforme a Cláusula 12 do contrato.</p>
+<p><b>Acesso:</b> dados de saúde ficam restritos à comissão técnica e à administração. <b>Compartilhamento:</b> organizadores de competições e federações, plataforma de cobrança, provedores de tecnologia (inclusive com servidores fora do Brasil) e autoridades, quando a lei exigir. A Apollo não vende dados.</p>
+<p><b>Por quanto tempo:</b> até 3 (três) anos depois do fim do vínculo; depois, os dados são eliminados ou anonimizados, salvo os que a lei obriga a guardar por mais tempo.</p>
+<p><b>Seus direitos:</b> acesso, correção, portabilidade, eliminação, informação sobre compartilhamento e revogação deste consentimento, pelo e-mail <b>apollovoleibol@gmail.com</b> (canal do encarregado). Sem os dados de saúde, o(a) atleta não pode participar das atividades físicas, por segurança.</p>
+<p>Quando o(a) atleta é menor de idade, este consentimento é dado pelo(a) responsável legal, no melhor interesse da criança ou do adolescente (art. 14 da LGPD).</p>`;
+const IMAGEM = `<p>Uso gratuito da imagem, da voz e do nome do(a) atleta, em fotos e vídeos de treinos, jogos e eventos, exclusivamente para fins institucionais, esportivos e de comunicação da Apollo (redes sociais, site, materiais impressos e vídeos institucionais), vedado uso ofensivo, vexatório ou alheio a essas finalidades e sem venda a terceiros.</p>
+<p>A autorização vale enquanto não for revogada. Pode ser revogada a qualquer momento, por escrito, pelos canais oficiais: novas publicações param e o que estiver nos canais da Apollo é retirado em até 15 dias, quando tecnicamente possível. <b>Não autorizar não prejudica a matrícula nem a participação nas atividades.</b></p>`;
+let CT = { data: null, html: '' };
+const ctData = imagem => ({ ...CT.data.data, imagem });
+const imageChoice = () => { const v = $('input[name=imagem]:checked')?.value; return v === 'sim' ? true : v === 'nao' ? false : null; };
 function stepTermos(a) {
-  const who = a.minor ? `Como responsável legal por ${esc(titleName(a.data.full_name))}, ` : '';
+  const r = reen(a), who = a.minor ? `Como responsável legal por ${esc(titleName(a.data.full_name))}, ` : '';
+  const prevImg = r.contract_version === ST.data.contract ? r.image_consent : null;
+  const accepted = r.contract_version === ST.data.contract && stepsDone(a).termos;
   const term = (k, title, text, doc) => `<div class="term">
-    <label class="term-check"><input type="checkbox" name="${k}" value="1"><span class="box">${yes()}</span><span><b>${title}</b><span class="t">${who}${text}</span></span></label>
+    <label class="term-check"><input type="checkbox" name="${k}" value="1" ${accepted ? 'checked' : ''}><span class="box">${yes()}</span><span><b>${title}</b><span class="t">${who}${text}</span></span></label>
     ${doc ? `<details><summary>Ler o texto completo</summary><div class="doc">${doc}</div></details>` : ''}</div>`;
-  return `<p class="lead">Leia e marque cada item para continuar.</p>
-    ${term('regulamento', 'Regulamento do Atleta 2027', 'li e aceito o Regulamento do Atleta 2027 do Grupo Apollo de Voleibol.',
-      `<p>O regulamento trata de documentação, treinos e frequência mínima, comportamento, mensalidades, uniformes, competições e viagens, uso de imagem e canais de contato.</p><p><a href="regulamento-2027.html" target="_blank" rel="noopener">Abrir o regulamento completo em nova aba</a></p>`)}
-    ${term('dados', 'Tratamento de dados pessoais (LGPD)', 'autorizo o tratamento dos dados pessoais, inclusive de saúde, para as finalidades descritas.', LGPD)}
-    ${term('declaracao', 'Declaração de saúde e responsabilidade', 'declaro que as informações de saúde são verdadeiras e assumo a responsabilidade descrita.', `<p>${DECLARACAO}</p>`)}
-    ${term('imagem', 'Uso de imagem, voz e nome', 'autorizo o uso de imagem, voz e nome nas condições descritas.', IMAGEM.map(p => `<p>${p}</p>`).join(''))}`;
+  return `<p class="lead">Leia o contrato, já preenchido com os dados ${a.minor ? 'do(a) responsável e do(a) atleta' : 'informados'}, a turma e o valor de 2027.</p>
+    ${accepted ? `<div class="section-note">${icon('check')}<div>Contrato aceito em ${fmtDate(r.contract_at)}. Se mudar algum dado, a turma ou a escolha de imagem, será preciso aceitar de novo.</div></div>` : ''}
+    <div class="contract-wrap"><div class="contract" id="ctBox" tabindex="0" aria-label="Texto do contrato"><p class="muted">Carregando o contrato…</p></div>
+      <div class="contract-tools"><button class="btn" type="button" id="ctPrint">${icon('file')} Baixar em PDF</button>
+      <a class="btn" href="regulamento-2027.html" target="_blank" rel="noopener">Regulamento do Atleta</a></div></div>
+    <div class="card fld" data-f="imagem"><span class="lbl" id="lblImg"><b>Uso de imagem, voz e nome</b></span>
+      <div class="doc small">${IMAGEM}</div>
+      <div class="seg" role="radiogroup" aria-labelledby="lblImg">
+        <label class="choice"><input type="radio" name="imagem" value="sim" ${prevImg === true ? 'checked' : ''}>Autorizo</label>
+        <label class="choice"><input type="radio" name="imagem" value="nao" ${prevImg === false ? 'checked' : ''}>Não autorizo</label></div>
+      <span class="err">Escolha uma das opções.</span></div>
+    ${term('contrato', 'Contrato de Prestação de Serviços 2027', 'li e aceito o contrato acima, que inclui o Regulamento do Atleta 2027, e reconheço este aceite eletrônico como minha assinatura.')}
+    ${term('dados', 'Dados de saúde (LGPD)', 'autorizo o tratamento dos dados de saúde para as finalidades descritas.', LGPD)}
+    ${term('declaracao', 'Declaração de saúde', 'declaro que as informações de saúde são verdadeiras e completas.', `<p>${DECLARACAO}</p>`)}`;
 }
-function collectTermos() {
-  const keys = ['regulamento', 'dados', 'declaracao', 'imagem'];
+function renderContract() {
+  if (!CT.data) return;
+  CT.html = contratoHtml(ctData(imageChoice()));
+  $('#ctBox').innerHTML = CT.html;
+}
+async function bindTermos(a) {
+  CT = { data: null, html: '' };
+  $$('input[name=imagem]').forEach(el => el.addEventListener('change', () => { markErr('imagem', false); renderContract(); }));
+  $('#ctPrint').onclick = () => CT.html && printContract(CT.html, `Contrato 2027 – ${titleName(a.data.full_name)}`);
+  try {
+    CT.data = await rpc('reenroll_contract_preview', { p_token: ST.token, p_athlete: a.id, p_image: null });
+    if (CT.data.version !== CONTRATO_VERSION) return showAlert('O contrato foi atualizado. Recarregue a página para ler a versão nova.');
+    renderContract();
+  } catch (e) { if (!e.handled) { $('#ctBox').innerHTML = ''; showAlert(friendlyError(e)); } }
+}
+function printContract(html, title) {
+  const w = window.open('', '_blank');
+  if (!w) return toast('Permita a abertura de nova janela para baixar o PDF.');
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(title)}</title>
+    <link rel="stylesheet" href="${new URL('rematricula.css?v=3', location.href)}"></head><body class="ct-print">${html}
+    <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.close();
+}
+async function collectTermos() {
+  const img = imageChoice();
+  markErr('imagem', img === null);
+  const keys = ['contrato', 'dados', 'declaracao'];
   const miss = keys.filter(k => !$(`input[name=${k}]`).checked);
   $$('.term').forEach(t => t.style.borderColor = '');
   miss.forEach(k => { $(`input[name=${k}]`).closest('.term').style.borderColor = 'var(--red)'; });
+  if (img === null) { showAlert('Escolha se autoriza ou não o uso de imagem.'); return null; }
   if (miss.length) { showAlert(miss.length === 1 ? 'Falta marcar 1 item.' : `Faltam marcar ${miss.length} itens.`); return null; }
-  return { regulamento: true, dados: true, declaracao: true, imagem: true, ua: navigator.userAgent };
+  if (!CT.data) { showAlert('O contrato ainda não carregou. Aguarde um instante.'); return null; }
+  const hash = await contratoHash(contratoHtml(ctData(img)));
+  return { contrato: true, dados: true, declaracao: true, imagem: img, hash, version: CT.data.version, ua: navigator.userAgent };
+}
+
+/* Taxa de rematrícula (Pix) */
+const PIX = { key: 'apollovoleibol@gmail.com', amount: '40.00', name: 'APOLLO VOLEIBOL', city: 'CURITIBA' };
+// Pix copia e cola estático (padrão EMV do Banco Central), com valor fixo
+function pixCode() {
+  const f = (id, v) => id + String(v.length).padStart(2, '0') + v;
+  const body = f('00', '01') + f('26', f('00', 'br.gov.bcb.pix') + f('01', PIX.key)) + f('52', '0000') + f('53', '986') + f('54', PIX.amount)
+    + f('58', 'BR') + f('59', PIX.name) + f('60', PIX.city) + f('62', f('05', 'REMATRICULA2027')) + '6304';
+  let crc = 0xFFFF;
+  for (const ch of body) { crc ^= ch.charCodeAt(0) << 8; for (let i = 0; i < 8; i++) crc = (crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1) & 0xFFFF; }
+  return body + crc.toString(16).toUpperCase().padStart(4, '0');
+}
+const feeOf = a => reen(a).fee || { status: 'pendente' };
+function stepPagamento(a) {
+  const fee = feeOf(a), has = fee.status !== 'pendente' && fee.name;
+  const code = pixCode();
+  return `<p class="lead">Pague a taxa de rematrícula por Pix e anexe o comprovante. A rematrícula é confirmada depois que a administração validar o pagamento.</p>
+    ${fee.status === 'recusado' ? `<div class="alert" role="alert">${icon('alert')}<div><b>O comprovante enviado foi recusado.</b>${fee.note ? `<br>Motivo: ${esc(fee.note)}` : ''}<br>Envie um novo comprovante abaixo.</div></div>` : ''}
+    <div class="card pix">
+      <div class="pix-amount"><span>Valor</span><b>R$ 40,00</b><small>antecipação da mensalidade de janeiro: é descontado dela</small></div>
+      <div class="pix-row"><span>Chave Pix (e-mail)</span><b>${PIX.key}</b><button class="btn sm" type="button" data-copy="${PIX.key}">Copiar chave</button></div>
+      <div class="pix-row"><span>Pix copia e cola</span><code class="pix-code">${code}</code><button class="btn sm primary" type="button" data-copy="${code}">Copiar código</button></div>
+      <p class="small muted" style="margin:8px 0 0">No app do banco, escolha <b>Pix copia e cola</b> e cole o código, ou pague para a chave acima. Confira o favorecido: <b>Apollo Voleibol</b>.</p>
+    </div>
+    <div id="fileBox">${has ? fileCard(fee) : ''}</div>
+    <div class="drop" id="drop">${dropButtons(has)}</div>
+    <div id="upState" style="margin-top:14px"></div>
+    <p class="small muted" style="margin-top:14px">PDF ou imagem, até 15 MB. O arquivo fica em armazenamento privado: só a administração e o financeiro podem abri-lo.</p>
+    <div class="section-note">${icon('info')}<div>Os R$ 40,00 são parte da mensalidade de janeiro paga antecipadamente: em janeiro você paga só o saldo. Em caso de desistência antes de janeiro, o valor não é devolvido, exceto nos 7 dias seguintes à confirmação (direito de arrependimento) ou se a Apollo não oferecer vaga na turma (Cláusula 2 do contrato).</div></div>`;
+}
+function dropButtons(has) {
+  return `<label class="upload-btn${has ? '' : ' primary'}">${icon('camera')}<span>${has ? 'Enviar outra foto' : 'Tirar foto do comprovante'}</span><input type="file" accept="image/*" capture="environment" data-file></label>
+    <label class="upload-btn">${icon('file')}<span>${has ? 'Trocar por outro arquivo' : 'Escolher PDF ou print da tela'}</span><input type="file" accept="application/pdf,image/*" data-file></label>`;
+}
+function fileCard(fee, preview = '') {
+  const label = { enviado: 'Enviado · aguardando validação', aprovado: 'Validado pela administração', recusado: 'Recusado' }[fee.status] || 'Enviado';
+  return `<div class="file-card ${fee.status === 'recusado' ? 'bad' : ''}"><span class="thumb">${preview ? `<img src="${preview}" alt="">` : icon('doc')}</span>
+    <span><b>${esc(fee.name || 'Comprovante')}</b><small>${fee.status === 'recusado' ? icon('x') : icon('check')} ${label}${fee.uploaded_at ? ' · ' + fmtDate(fee.uploaded_at) : ''}</small></span></div>`;
+}
+function bindPagamento(a) {
+  $$('[data-copy]').forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast('Copiado!'); } catch (e) { toast('Não foi possível copiar. Selecione e copie manualmente.'); }
+  });
+  $$('[data-file]').forEach(inp => inp.addEventListener('change', () => { const f = inp.files?.[0]; inp.value = ''; if (f) uploadReceipt(a, f); }));
+}
+async function shrinkImage(file) {
+  // Fotos de celular passam de 5 MB: reduz para até 2000 px em JPEG. Se o navegador não ler o formato (ex.: HEIC), envia o original.
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) || file.size < 900 * 1024) return file;
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.84));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch (e) { return file; }
+}
+async function uploadReceipt(a, original) {
+  const state = $('#upState'), btns = $$('#drop .upload-btn');
+  showAlert('');
+  const extOf = f => (f.type === 'application/pdf' ? 'pdf' : (f.type.split('/')[1] || f.name.split('.').pop() || '').toLowerCase().replace('jpeg', 'jpg'));
+  if (!/^(application\/pdf|image\/)/.test(original.type) && !/\.(pdf|heic|heif|jpe?g|png|webp)$/i.test(original.name)) return showAlert('Envie um PDF ou uma imagem do comprovante.');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+  state.innerHTML = `<p class="small" style="margin:0 0 8px">Enviando comprovante…</p><div class="uploading"><i></i></div>`;
+  try {
+    const file = await shrinkImage(original);
+    if (file.size > MAX_UPLOAD) throw new Error('O arquivo passa de 15 MB. Envie um print da tela ou um PDF menor.');
+    const ext = extOf(file) || 'jpg';
+    const type = file.type || (ext === 'pdf' ? 'application/pdf' : 'image/' + (ext === 'jpg' ? 'jpeg' : ext));
+    const slot = await rpc('reenroll_upload_slot', { p_token: ST.token, p_athlete: a.id, p_ext: ext });
+    const { error } = await sb.storage.from(slot.bucket).upload(slot.path, file, { contentType: type, upsert: false });
+    if (error) throw new Error(/mime|type/i.test(error.message) ? 'Formato não aceito. Envie PDF, JPG, PNG ou HEIC.' : /size|large/i.test(error.message) ? 'Arquivo grande demais (máximo 15 MB).' : 'Não foi possível enviar o arquivo. Tente de novo.');
+    await rpc('reenroll_attach_fee', { p_token: ST.token, p_athlete: a.id, p_path: slot.path, p_name: original.name || 'comprovante.' + ext, p_mime: type, p_size: file.size });
+    await reload();
+    if (reen(athlete()).status === 'concluida') return renderDone();
+    const preview = type.startsWith('image/') && !/hei[cf]/.test(type) ? URL.createObjectURL(file) : '';
+    $('#fileBox').innerHTML = fileCard({ ...feeOf(athlete()), name: original.name }, preview);
+    $('#drop').innerHTML = dropButtons(true); bindPagamento(a);
+    state.innerHTML = '';
+    toast('Comprovante recebido!');
+  } catch (e) { state.innerHTML = ''; if (!e.handled) showAlert(friendlyError(e)); }
+  finally { btns.forEach(b => b.style.pointerEvents = ''); }
 }
 
 /* Revisão */
 function stepRevisao(a) {
-  const done = stepsDone(a), r = reen(a);
+  const done = stepsDone(a), r = reen(a), o = offerOf(r.offer_key), miss = missingOf(a);
   const items = [['cadastro', 'Dados cadastrais revisados'], ['endereco', 'Endereço preenchido'], ['saude', 'Anamnese respondida'],
-    ['equipe', `Equipe 2027: ${teamName(r.team_2027_id) || '—'}`], ['termos', 'Termos e autorizações aceitos']];
-  const ok = k => !!done[k];
-  const missing = items.filter(([k]) => !ok(k)).length;
-  return `<p class="lead">${missing ? 'Quase lá! Complete os itens pendentes para concluir.' : 'Tudo pronto. Confira o resumo e conclua a rematrícula.'}</p>
+    ['equipe', `Turma 2027: ${o ? `${o.label} · ${ctMoney(ctCheia(o.fee_cents))}/mês (${ctMoney(o.fee_cents)} até o vencimento)` : '—'}`], ['termos', `Contrato aceito${r.image_consent === false ? ' (sem uso de imagem)' : ''}`],
+    ['pagamento', 'Comprovante do Pix enviado']];
+  const ok = k => !miss.includes(k) && !!done[k];
+  return `<p class="lead">${miss.length ? 'Quase lá! Complete os itens pendentes para concluir.' : 'Tudo pronto. Confira o resumo e conclua a rematrícula.'}</p>
     <div class="card"><ul class="summary">${items.map(([k, t]) => `<li class="${ok(k) ? '' : 'miss'}">${ok(k) ? icon('check') : icon('x')}<span>${esc(t)}</span>
       <button class="go" type="button" data-edit-step="${k}">${ok(k) ? 'Editar' : 'Preencher'}</button></li>`).join('')}</ul></div>
-    <p class="small muted">Ao concluir, o cadastro do(a) atleta é atualizado com as informações revisadas.</p>`;
+    <p class="small muted">Ao concluir, o cadastro do(a) atleta é atualizado. A rematrícula fica <b>confirmada</b> quando a administração validar o comprovante do Pix; vocês recebem o aviso pelos canais oficiais.</p>`;
 }
 function bindRevisao() {
   $$('[data-edit-step]').forEach(b => b.onclick = () => { ST.step = STEPS.findIndex(s => s.id === b.dataset.editStep); renderStep(); });
@@ -677,23 +875,35 @@ async function finish(btn) {
   finally { setBusy(btn, false); }
 }
 function renderDone() {
-  const a = athlete(), r = reen(a);
+  const a = athlete(), r = reen(a), o = offerOf(r.offer_key), fee = feeOf(a);
   const pending = ST.data.athletes.filter(x => !['concluida', 'declinada'].includes(reen(x).status) && x.id !== a.id);
+  const moved = r.team_2027_id && r.team_2027_id !== a.team?.id;
+  const title = fee.status === 'aprovado' ? 'Rematrícula confirmada!' : fee.status === 'recusado' ? 'Comprovante recusado' : 'Rematrícula enviada!';
+  const msg = fee.status === 'aprovado' ? `<b>${esc(titleName(a.data.full_name))}</b> está com a matrícula renovada para 2027${o ? ` na turma <b>${esc(o.label)}</b>` : ''}.`
+    : fee.status === 'recusado' ? `A administração não conseguiu validar o comprovante${fee.note ? `: <b>${esc(fee.note)}</b>` : ''}. Envie um novo comprovante para confirmar a rematrícula.`
+    : `Recebemos a rematrícula de <b>${esc(titleName(a.data.full_name))}</b>${o ? ` para a turma <b>${esc(o.label)}</b>` : ''}. Ela fica confirmada assim que a administração validar o comprovante do Pix.${moved ? ' O pedido de mudança de turma também passa pela coordenação, que confirma com vocês.' : ''}`;
   $('#app').innerHTML = `<section class="screen done">
-    <div class="seal">${icon('check')}</div>
+    <div class="seal ${fee.status === 'recusado' ? 'bad' : ''}">${fee.status === 'recusado' ? icon('alert') : icon('check')}</div>
     <div class="eyebrow">Rematrícula 2027</div>
-    <h1>Rematrícula concluída!</h1>
-    <p class="lead"><b>${esc(titleName(a.data.full_name))}</b> está com a matrícula renovada para 2027${r.team_2027_id && r.team_2027_id !== a.team?.id
-      ? `. O pedido de mudança para a equipe <b>${esc(teamName(r.team_2027_id))}</b> foi enviado à coordenação, que confirma com vocês`
-      : r.team_2027_id ? ` na equipe <b>${esc(teamName(r.team_2027_id))}</b>` : ''}. Os avisos sobre o início dos treinos chegam pelos canais oficiais da Apollo.</p>
+    <h1>${title}</h1>
+    <p class="lead">${msg} Os avisos sobre o início dos treinos chegam pelos canais oficiais da Apollo.</p>
+    ${r.contract_version ? `<p><button class="btn" type="button" id="doneContract">${icon('file')} Baixar o contrato em PDF</button></p>` : ''}
     <p class="small muted">Para corrigir algum dado depois de concluir, fale com a secretaria.</p>
   </section>`;
-  setScreen('done', { actions: pending.length
-    ? `<button class="btn primary block" type="button" id="doneNext">Rematricular ${esc(firstName(titleName(pending[0].data.full_name)))} ${icon('arrow')}</button>`
-    : ST.data.athletes.length > 1 || ST.others ? `<button class="btn dark block" type="button" id="doneHub">Voltar ao início</button>` : `<button class="btn block" type="button" id="doneExit">Sair</button>` });
+  const actions = fee.status === 'recusado' ? `<button class="btn primary block" type="button" id="doneFee">Enviar novo comprovante ${icon('arrow')}</button>`
+    : pending.length ? `<button class="btn primary block" type="button" id="doneNext">Rematricular ${esc(firstName(titleName(pending[0].data.full_name)))} ${icon('arrow')}</button>`
+    : ST.data.athletes.length > 1 || ST.others ? `<button class="btn dark block" type="button" id="doneHub">Voltar ao início</button>` : `<button class="btn block" type="button" id="doneExit">Sair</button>`;
+  setScreen('done', { actions });
+  if ($('#doneFee')) $('#doneFee').onclick = () => { ST.step = STEPS.findIndex(s => s.id === 'pagamento'); renderStep(); };
   if ($('#doneNext')) $('#doneNext').onclick = () => { ST.athleteId = pending[0].id; ST.step = firstOpenStep(pending[0]); renderStep(); };
   if ($('#doneHub')) $('#doneHub').onclick = () => renderHub();
   if ($('#doneExit')) $('#doneExit').onclick = exit;
+  if ($('#doneContract')) $('#doneContract').onclick = async () => {
+    try {
+      const p = await rpc('reenroll_contract_preview', { p_token: ST.token, p_athlete: a.id, p_image: r.image_consent });
+      printContract(contratoHtml({ ...p.data, assinatura: { name: titleName(p.data.contratante?.name), at: new Date(r.contract_at).toLocaleString('pt-BR'), hash: r.contract_hash } }), `Contrato 2027 – ${titleName(a.data.full_name)}`);
+    } catch (e) { if (!e.handled) toast(friendlyError(e)); }
+  };
 }
 
 /* ─── 4. Não continuar ─── */
