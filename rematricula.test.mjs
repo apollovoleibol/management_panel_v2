@@ -1,8 +1,10 @@
-// Rematrícula 2027 — migrações 049 e 050 em PostgreSQL descartável (PGlite).
+// Rematrícula 2027 — migrações 049, 050 e 051 em PostgreSQL descartável (PGlite).
 // Uso: instalar @electric-sql/pglite em .verification e rodar `node rematricula.test.mjs`.
 const { PGlite } = await import(process.env.PGLITE_MODULE || './.verification/node_modules/@electric-sql/pglite/dist/index.js');
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
+const { TURMAS_2027, CONTRATO_VERSION } = createRequire(import.meta.url)('./js/contrato-2027.js');
 
 const db = new PGlite();
 // Estrutura mínima do Supabase usada pela migração
@@ -38,6 +40,9 @@ create function private.v2_team_scope(p_team uuid) returns boolean language sql 
 `);
 await db.exec(readFileSync('supabase/migrations/049_rematricula_2027.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/050_rematricula_sem_atestado.sql', 'utf8'));
+// Equipes que existem antes da 051 (a ligação das turmas 2027 é pelo nome)
+await db.exec(`insert into public.teams(id, name, category) values ('11111111-1111-4111-8111-111111111111', 'Equipe Collins', 'Adulto'), ('22222222-2222-4222-8222-222222222222', 'Escolinha B', 'Escolinha');`);
+await db.exec(readFileSync('supabase/migrations/051_rematricula_contrato_pix.sql', 'utf8'));
 
 const T1 = '11111111-1111-4111-8111-111111111111', T2 = '22222222-2222-4222-8222-222222222222';
 const ADULT = 'aaaaaaaa-0000-4000-8000-000000000001', KID = 'aaaaaaaa-0000-4000-8000-000000000002', SIB = 'aaaaaaaa-0000-4000-8000-000000000003', OLD = 'aaaaaaaa-0000-4000-8000-000000000004';
@@ -45,7 +50,6 @@ const ADMIN = 'bbbbbbbb-0000-4000-8000-000000000001', COACH = 'bbbbbbbb-0000-400
 const kidBirth = new Date(new Date().getFullYear() - 12, 4, 10).toISOString().slice(0, 10);
 const sibBirth = new Date(new Date().getFullYear() - 9, 1, 3).toISOString().slice(0, 10);
 await db.exec(`
-insert into public.teams(id, name, category) values ('${T1}', 'Equipe Collins', 'Adulto'), ('${T2}', 'Escolinha B', 'Escolinha');
 insert into public.athletes(id, team_id, full_name, birth_date, cpf, rg, email, phone, emergency_contact, address, anamnesis_restrictions, height)
   values ('${ADULT}', '${T1}', 'Carla Souza', '1990-05-20', '529.982.247-25', '12.345.678-9', 'carla@exemplo.com', '41999990000', 'Mãe - 41 98888-0000', 'Rua Antiga, 1', 'Sim: joelho', '170');
 insert into public.athletes(id, team_id, full_name, birth_date, cpf, phone, parent_name, parent_cpf, parent_phone, email, emergency_contact)
@@ -78,7 +82,12 @@ assert.equal(adult.data.cpf, '529.982.247-25');
 assert.equal(adult.data.address, undefined, 'address is never returned');
 assert.equal(JSON.stringify(adult).includes('joelho'), false, 'anamnesis is never returned');
 assert.equal(JSON.stringify(adult).includes('170'), false, 'height is never returned');
-assert.ok(data.teams.length === 2, 'active teams are listed for 2027 choice');
+assert.ok(data.teams.length === 2, 'active teams are listed');
+assert.equal(data.contract, CONTRATO_VERSION, 'server and contract text agree on the version');
+// Turmas do banco = Anexo I do contrato
+assert.deepEqual(data.offers.map(o => [o.key, o.fee_cents, o.label, o.days, o.time]), TURMAS_2027.map(t => [t.key, t.fee_cents, t.label, t.days, t.time]), 'offers match contract annex I');
+assert.equal(data.offers.find(o => o.key === 'escolinha-b').team_id, T2, 'offer linked to existing team by name');
+assert.equal(data.offers.find(o => o.key === 'collins').team_id, T1);
 await fails(call('reenroll_get', 'token-invalido'), /sessão expirou/, 'invalid token is rejected');
 
 // Responsável por WhatsApp (formato antigo, sem o 9) e irmão na mesma sessão
@@ -102,13 +111,34 @@ r = await call('reenroll_start', '111.444.777-35', kidBirth);
 assert.equal(r.ok, false, 'identifier is locked after 5 failures, even with correct data');
 assert.match(r.error, /Muitas tentativas/);
 
+// ─── Padrões de nome ───
+const nameOk = async n => (await q(`select private.reenroll_name_ok($1) as ok`, [n]))[0].ok;
+for (const n of ['João Ávila', 'Ana-Luíza D’Ângelo', 'Maria da Silva', 'Lia Ng']) assert.equal(await nameOk(n), true, `${n} accepted`);
+for (const n of ['João', 'João da', 'João 2 Silva', 'João_Silva', 'João S']) assert.equal(await nameOk(n), false, `${n} rejected`);
+assert.equal((await q(`select private.reenroll_title('maria DE lourdes d''avila') as t`))[0].t, "Maria de Lourdes d'Avila");
+
 // ─── Cadastro ───
-const adultFields = { ...adult.data };
+const EMERG = { emergency_name: 'maria souza', emergency_relation: 'Mãe', emergency_phone: '41988880000' };
+const adultFields = { ...adult.data, ...EMERG };
+const allKeys = Object.keys(adult.data);
 await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: adultFields, confirmed: [] }), /Confirme que está correto: CPF/, 'unconfirmed prefilled data is rejected');
-await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, cpf: '529.982.247-24' }, confirmed: Object.keys(adultFields) }), /CPF do\(a\) atleta inválido/, 'invalid CPF rejected');
-await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, birth_date: 'xx' }, confirmed: Object.keys(adultFields) }), /Data de nascimento inválida/, 'bad date handled');
-r = await call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, email: 'nova@exemplo.com', phone: '(41) 99999-0000' }, confirmed: ['full_name', 'cpf', 'rg', 'birth_date', 'phone', 'emergency_contact'] });
-assert.deepEqual(r.missing, ['endereco', 'saude', 'equipe', 'termos']);
+await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, cpf: '529.982.247-24' }, confirmed: allKeys }), /CPF do\(a\) atleta inválido/, 'invalid CPF rejected');
+await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, birth_date: 'xx' }, confirmed: allKeys }), /Data de nascimento inválida/, 'bad date handled');
+await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, full_name: 'Carla' }, confirmed: allKeys }), /nome e sobrenome completos/, 'first name alone is rejected');
+await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, full_name: 'Carla Souza 2' }, confirmed: allKeys }), /nome e sobrenome completos/, 'digits in the name are rejected');
+await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, emergency_phone: '123' }, confirmed: allKeys }), /contato de emergência inválido/, 'emergency phone validated');
+await fails(call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, emergency_relation: '' }, confirmed: allKeys }), /nome, parentesco e telefone/, 'emergency relation required');
+r = await call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, full_name: 'CARLA  SOUZA', email: 'Nova@Exemplo.com', phone: '(41) 99999-0000' }, confirmed: ['full_name', 'cpf', 'rg', 'birth_date', 'phone'] });
+assert.deepEqual(r.missing, ['endereco', 'saude', 'equipe', 'termos', 'pagamento']);
+let saved = (await q(`select submitted from public.reenrollments where athlete_id = $1`, [ADULT]))[0].submitted.cadastro;
+assert.equal(saved.full_name, 'Carla Souza', 'all caps name is saved as Nome Sobrenome and counts as the same name');
+assert.equal(saved.phone, '(41) 999990000', 'phone saved as (XX) XXXXXXXXX');
+assert.equal(saved.email, 'nova@exemplo.com');
+assert.equal(saved.emergency_contact, 'Maria Souza (mãe) - (41) 988880000', 'emergency contact composed in one standard');
+await call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, full_name: 'ana maria DA silva', email: 'nova@exemplo.com' }, confirmed: allKeys });
+saved = (await q(`select submitted from public.reenrollments where athlete_id = $1`, [ADULT]))[0].submitted.cadastro;
+assert.equal(saved.full_name, 'Ana Maria da Silva', 'particles stay lowercase');
+await call('reenroll_save', adultToken, ADULT, 'cadastro', { fields: { ...adultFields, email: 'nova@exemplo.com', phone: '(41) 99999-0000' }, confirmed: ['full_name', 'cpf', 'rg', 'birth_date', 'phone'] });
 let row = (await q(`select * from public.reenrollments where athlete_id = $1`, [ADULT]))[0];
 assert.deepEqual(row.changed_fields, ['email'], 'changed field recorded');
 assert.ok(row.confirmed_fields.includes('phone'), 'formatting difference counts as confirmation');
@@ -117,15 +147,21 @@ const adultAgain = await call('reenroll_get', adultToken);
 assert.equal(adultAgain.athletes[0].reenrollment.cadastro.email, 'nova@exemplo.com', 'reviewed identification comes back for editing');
 assert.ok(adultAgain.athletes[0].reenrollment.confirmed.includes('cpf'));
 
-// Menor: responsável obrigatório
+// Menor: responsável obrigatório; o(a) atleta pode não ter CPF nem RG
 const kid = data.athletes.find(a => a.id === KID);
-await fails(call('reenroll_save', famToken, KID, 'cadastro', { fields: { ...kid.data, parent_cpf: '' }, confirmed: Object.keys(kid.data) }), /Preencha: CPF do\(a\) responsável/, 'minor requires guardian CPF');
-await fails(call('reenroll_save', famToken, KID, 'cadastro', { fields: { ...kid.data, cpf: kid.data.parent_cpf }, confirmed: Object.keys(kid.data) }), /não podem ser iguais/, 'athlete and guardian CPF must differ');
-await call('reenroll_save', famToken, KID, 'cadastro', { fields: kid.data, confirmed: Object.keys(kid.data) });
-assert.equal((await q(`select respondent_relation, respondent_name from public.reenrollments where athlete_id = $1`, [KID]))[0].respondent_name, 'Paula Lima');
+const kidFields = { ...kid.data, ...EMERG };
+await fails(call('reenroll_save', famToken, KID, 'cadastro', { fields: { ...kidFields, parent_cpf: '' }, confirmed: Object.keys(kid.data) }), /Preencha: CPF do\(a\) responsável/, 'minor requires guardian CPF');
+await fails(call('reenroll_save', famToken, KID, 'cadastro', { fields: { ...kidFields, cpf: kid.data.parent_cpf }, confirmed: Object.keys(kid.data) }), /não podem ser iguais/, 'athlete and guardian CPF must differ');
+await call('reenroll_save', famToken, KID, 'cadastro', { fields: { ...kidFields, cpf: '', rg: '' }, confirmed: Object.keys(kid.data) });
+assert.equal((await q(`select respondent_relation, respondent_name from public.reenrollments where athlete_id = $1`, [KID]))[0].respondent_name, 'Paula Lima', 'minor without CPF or RG is accepted');
 
 // ─── Endereço, saúde, equipe, termos ───
 await fails(call('reenroll_save', adultToken, ADULT, 'endereco', { cep: '123' }), /CEP inválido/);
+await fails(call('reenroll_save', adultToken, ADULT, 'endereco', { cep: '80000-000', rua: 'Rua Nova', numero: '', bairro: 'Centro', cidade: 'Curitiba', uf: 'PR' }), /S\/N/, 'number or S/N required');
+await fails(call('reenroll_save', adultToken, ADULT, 'endereco', { cep: '80000-000', rua: 'Rua Nova', numero: 'casa 3', bairro: 'Centro', cidade: 'Curitiba', uf: 'PR' }), /Número inválido/, 'number field takes only the number');
+await call('reenroll_save', adultToken, ADULT, 'endereco', { cep: '80000000', rua: 'rua das flores', numero: 's/n', bairro: 'CENTRO', cidade: 'curitiba', uf: 'pr' });
+assert.deepEqual((await q(`select submitted from public.reenrollments where athlete_id = $1`, [ADULT]))[0].submitted.endereco,
+  { cep: '80000-000', rua: 'Rua das Flores', numero: 'S/N', complemento: '', bairro: 'Centro', cidade: 'Curitiba', uf: 'PR' }, 'address saved in one standard, s/n accepted');
 await call('reenroll_save', adultToken, ADULT, 'endereco', { cep: '80000-000', rua: 'Rua Nova', numero: '10', complemento: 'Ap 2', bairro: 'Centro', cidade: 'Curitiba', uf: 'pr' });
 const health = { estatura: '171', peso: '68,5', q3: 'Não', q4: ['Não'], q9: 'Regular', q9_1: '4', q10: ['Sedentarismo'], q12: ['Asma', 'Diabetes'], q13: ['Mãe'], q15: '' };
 for (const n of [1, 2, 5, 6, 7, 8, 11, 14]) health['q' + n + '_yn'] = 'Não';
@@ -133,18 +169,51 @@ health.q14_yn = 'Sim';
 await fails(call('reenroll_save', adultToken, ADULT, 'saude', health), /Detalhe a resposta da pergunta 14/, 'yes answers need detail');
 health.q14_text = 'Insulina';
 await call('reenroll_save', adultToken, ADULT, 'saude', health);
-await fails(call('reenroll_save', adultToken, ADULT, 'equipe', { team_id: 'x' }), /invalid input|Escolha a equipe/i);
-await call('reenroll_save', adultToken, ADULT, 'equipe', { team_id: T2, note: 'Quero treinar à noite' });
-await fails(call('reenroll_save', adultToken, ADULT, 'termos', { dados: true, regulamento: false, imagem: true, declaracao: true }), /regulamento/);
-r = await call('reenroll_save', adultToken, ADULT, 'termos', { dados: true, regulamento: true, imagem: true, declaracao: true, ua: 'Teste' });
-assert.deepEqual(r.missing, [], 'no medical certificate is required to finish');
+await fails(call('reenroll_save', adultToken, ADULT, 'equipe', { offer_key: 'x' }), /Escolha a turma/i);
+await fails(call('reenroll_contract_preview', adultToken, ADULT, true), /antes do contrato/, 'contract needs the chosen class');
+await call('reenroll_save', adultToken, ADULT, 'equipe', { offer_key: 'escolinha-b', note: 'Quero treinar à noite' });
+const preview = await call('reenroll_contract_preview', adultToken, ADULT, false);
+assert.equal(preview.version, CONTRATO_VERSION);
+assert.equal(preview.data.minor, false);
+assert.equal(preview.data.contratante.name, 'Carla Souza');
+assert.equal(preview.data.contratante.phone, '(41) 999990000');
+assert.equal(preview.data.turma.fee_cents, 11090, 'contract carries the class fee');
+assert.equal(preview.data.endereco, 'Rua Nova, 10 - Ap 2 - Centro - Curitiba/PR - CEP 80000-000');
+const HASH = 'a'.repeat(64), TERMS = { contrato: true, dados: true, declaracao: true, imagem: false, hash: HASH, version: CONTRATO_VERSION, ua: 'Teste' };
+await fails(call('reenroll_save', adultToken, ADULT, 'termos', { ...TERMS, contrato: false }), /contrato/);
+await fails(call('reenroll_save', adultToken, ADULT, 'termos', { ...TERMS, imagem: null }), /uso de imagem/, 'image choice is required (yes or no)');
+await fails(call('reenroll_save', adultToken, ADULT, 'termos', { ...TERMS, version: 'contrato-antigo' }), /atualizado/, 'old contract version is refused');
+r = await call('reenroll_save', adultToken, ADULT, 'termos', TERMS);
+assert.deepEqual(r.missing, ['pagamento'], 'Pix receipt is still missing');
+row = (await q(`select * from public.reenrollments where athlete_id = $1`, [ADULT]))[0];
+assert.equal(row.image_consent, false, 'refusing image use does not block');
+assert.equal(row.contract_hash, HASH);
+assert.deepEqual(row.contract_data, preview.data, 'accepted data equals the preview the family read');
+await fails(call('reenroll_finish', adultToken, ADULT), /pagamento/, 'cannot finish without the Pix receipt');
+
+// Alterar dados depois do aceite exige aceitar de novo
+await call('reenroll_save', adultToken, ADULT, 'equipe', { offer_key: 'collins' });
+r = await call('reenroll_save', adultToken, ADULT, 'equipe', { offer_key: 'escolinha-b' });
+assert.ok(r.missing.includes('termos'), 'changing the class voids the previous acceptance');
+await call('reenroll_save', adultToken, ADULT, 'termos', TERMS);
+
+// Comprovante do Pix
+await fails(call('reenroll_upload_slot', adultToken, ADULT, 'exe'), /PDF ou imagem/);
+const slot = await call('reenroll_upload_slot', adultToken, ADULT, 'jpg');
+assert.match(slot.path, /^2027\/pix\//);
+await fails(call('reenroll_attach_fee', adultToken, ADULT, slot.path, 'pix.jpg', 'image/jpeg', 1000), /Não recebemos/, 'file must exist in storage');
+await q(`insert into storage.objects(bucket_id, name) values ('rematricula', $1)`, [slot.path]);
+r = await call('reenroll_attach_fee', adultToken, ADULT, slot.path, 'pix.jpg', 'image/jpeg', 1000);
+assert.deepEqual(r.missing, [], 'everything done');
+await fails(call('reenroll_attach_fee', adultToken, ADULT, slot.path, 'pix.jpg', 'image/jpeg', 1000), /Não recebemos/, 'slot is single use');
 
 // ─── Conclusão ───
 r = await call('reenroll_finish', adultToken, ADULT);
 assert.equal(r.ok, true);
 const a = (await q(`select * from public.athletes where id = $1`, [ADULT]))[0];
 assert.equal(a.email, 'nova@exemplo.com');
-assert.equal(a.phone, '(41) 99999-0000');
+assert.equal(a.phone, '(41) 999990000');
+assert.equal(a.emergency_contact, 'Maria Souza (mãe) - (41) 988880000');
 assert.equal(a.address, 'Rua Nova, 10 - Ap 2 - Centro - Curitiba/PR - CEP 80000-000');
 assert.equal(a.anamnesis_restrictions, 'Não');
 assert.equal(a.anamnesis_medications, 'Sim: Insulina');
@@ -155,7 +224,12 @@ row = (await q(`select * from public.reenrollments where athlete_id = $1`, [ADUL
 assert.equal(row.status, 'concluida');
 assert.equal(row.previous_data.address, 'Rua Antiga, 1', 'previous record is kept');
 assert.equal(row.team_2027_id, T2);
-assert.equal(row.regulation_version, 'regulamento-atleta-2027-preliminar-2');
+assert.equal(row.regulation_version, 'regulamento-atleta-2027-v1');
+assert.equal(row.contract_version, CONTRATO_VERSION);
+assert.equal(row.fee_status, 'enviado', 'receipt waits for validation');
+data = await call('reenroll_get', adultToken);
+assert.equal(data.athletes[0].reenrollment.fee.status, 'enviado');
+await fails(call('reenroll_upload_slot', adultToken, ADULT, 'jpg'), /não aceita novo comprovante/, 'no new receipt while waiting');
 await fails(call('reenroll_save', adultToken, ADULT, 'endereco', {}), /já foi concluída/, 'completed reenrollment is locked');
 
 // ─── Não continuar ───
@@ -181,8 +255,31 @@ assert.equal(panel.length, 3, 'admin sees every active athlete');
 const byId = Object.fromEntries(panel.map(p => [p.id, p]));
 assert.equal(byId[ADULT].status, 'concluida');
 assert.equal(byId[KID].status, 'em_andamento');
-assert.deepEqual(byId[KID].missing, ['endereco', 'saude', 'equipe', 'termos']);
-assert.equal(byId[KID].contact_phone, '(41) 97777-1111');
+assert.deepEqual(byId[KID].missing, ['endereco', 'saude', 'equipe', 'termos', 'pagamento']);
+assert.equal(byId[KID].contact_phone, '(41) 977771111');
+assert.equal(byId[ADULT].fee_status, 'enviado');
+assert.equal(byId[ADULT].fee_path, slot.path, 'admin sees the receipt');
+assert.equal(byId[ADULT].offer_label, 'Escolinha B');
+assert.equal(byId[ADULT].image_consent, false);
+const ct = await call('reenroll_staff_contract', ADULT);
+assert.equal(ct.hash, HASH);
+assert.equal(ct.data.turma.key, 'escolinha-b');
+await fails(call('reenroll_staff_fee', ADULT, 'reject', ''), /motivo/, 'rejection needs a reason');
+await call('reenroll_staff_fee', ADULT, 'reject', 'Valor diferente de R$ 40');
+await as(null);
+data = await call('reenroll_start', '52998224725', '1990-05-20');
+const adultToken2 = data.token;
+data = await call('reenroll_get', adultToken2);
+assert.equal(data.athletes[0].reenrollment.fee.status, 'recusado');
+assert.equal(data.athletes[0].reenrollment.fee.note, 'Valor diferente de R$ 40', 'family sees the reason');
+const slot2 = await call('reenroll_upload_slot', adultToken2, ADULT, 'pdf');
+await q(`insert into storage.objects(bucket_id, name) values ('rematricula', $1)`, [slot2.path]);
+await call('reenroll_attach_fee', adultToken2, ADULT, slot2.path, 'pix.pdf', 'application/pdf', 900);
+await as(ADMIN);
+await call('reenroll_staff_fee', ADULT, 'approve');
+panel = await call('reenroll_panel', 2027);
+assert.equal(panel.find(p => p.id === ADULT).fee_status, 'aprovado', 'confirmed after validation');
+assert.equal(panel.find(p => p.id === ADULT).fee_reviewed_by, 'Admin');
 assert.equal(byId[SIB].status, 'declinada');
 assert.equal(byId[SIB].delete_requested, true);
 await call('reenroll_staff_set', SIB, 'reopen');
@@ -194,6 +291,9 @@ await as(COACH);
 panel = await call('reenroll_panel', 2027);
 assert.deepEqual(panel.map(p => p.id).sort(), [ADULT], 'coach sees athletes of own teams');
 await fails(call('reenroll_staff_set', ADULT, 'reopen'), /Sem permissão/, 'coach without edit permission cannot change status');
+assert.equal(panel.find(p => p.id === ADULT).fee_path, null, 'coach does not see the receipt');
+await fails(call('reenroll_staff_fee', ADULT, 'reset'), /administração e o financeiro/, 'coach cannot validate receipts');
+await fails(call('reenroll_staff_contract', ADULT), /Sem permissão/, 'coach cannot open the contract with personal data');
 
 // Permissões de execução
 const grants = await q(`select p.proname, has_function_privilege('anon', p.oid, 'execute') as anon
@@ -202,9 +302,12 @@ const anonGrant = Object.fromEntries(grants.map(g => [g.proname, g.anon]));
 assert.equal(anonGrant.reenroll_panel, false, 'panel is not available to anonymous users');
 assert.equal(anonGrant.reenroll_staff_set, false);
 assert.equal(anonGrant.reenroll_start, true);
-for (const fn of ['reenroll_upload_slot', 'reenroll_upload_allowed', 'reenroll_attach']) assert.equal(anonGrant[fn], false, `${fn} is closed (no certificate upload)`);
-assert.equal((await q(`select count(*)::int as n from pg_policies where policyname = 'rematricula_upload'`))[0].n, 0, 'anonymous upload rule removed');
+assert.equal(anonGrant.reenroll_attach, false, 'medical certificate upload stays closed');
+for (const fn of ['reenroll_upload_slot', 'reenroll_upload_allowed', 'reenroll_attach_fee', 'reenroll_contract_preview']) assert.equal(anonGrant[fn], true, `${fn} open for the Pix receipt`);
+for (const fn of ['reenroll_staff_fee', 'reenroll_staff_contract']) assert.equal(anonGrant[fn], false, `${fn} is staff only`);
+assert.equal((await q(`select count(*)::int as n from pg_policies where policyname = 'rematricula_upload'`))[0].n, 1, 'single-use upload rule is back for receipts');
+assert.equal((await q(`select has_table_privilege('anon', 'public.reenroll_offers', 'select') as s`))[0].s, false, 'offers table is not readable directly');
 assert.equal((await q(`select has_table_privilege('anon', 'public.reenrollments', 'select') as s`))[0].s, false, 'table is not readable directly');
 
 await db.close();
-console.log('Rematrícula 2027: identificação, limite de tentativas, sessão, validações, conclusão sem atestado, recusa e painel do Huddle passaram.');
+console.log('Rematrícula 2027: identificação, sessão, dados padronizados, turmas 2027, contrato, comprovante Pix, validação, recusa e painel do Huddle passaram.');
