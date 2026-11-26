@@ -38,7 +38,7 @@ const TURMAS_2027 = [
   { key: 'borman', label: 'Borman – adulto masculino', location: 'Núcleo PUC – Prado Velho', days: 'Sábado', time: '12h–14h', freq: '1x por semana', fee_cents: 10390 },
   { key: 'collins', label: 'Collins – adulto masculino', location: 'Núcleo PUC – Prado Velho', days: 'Sexta', time: '20h–22h', freq: '1x por semana', fee_cents: 10390 },
   { key: 'hopper', label: 'Hopper – adulto feminino', location: 'Núcleo PUC – Prado Velho', days: 'Quarta', time: '20h–22h', freq: '1x por semana', fee_cents: 10390 },
-  { key: 'armstrong', label: 'Armstrong – Adulto Start', location: 'Núcleo PUC – Prado Velho', days: 'Segunda, quarta e sábado', time: '19h–20h (seg. e qua.); 9h–10h15 (sáb.)', freq: '3x por semana', fee_cents: 19000 },
+  { key: 'armstrong', label: 'Armstrong – adulto iniciante', location: 'Núcleo PUC – Prado Velho', days: 'Segunda, quarta e sábado', time: '19h–20h (seg. e qua.); 9h–10h15 (sáb.)', freq: '3x por semana', fee_cents: 19000 },
 ];
 
 const ctEsc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

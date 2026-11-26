@@ -43,6 +43,7 @@ await db.exec(readFileSync('supabase/migrations/050_rematricula_sem_atestado.sql
 // Equipes que existem antes da 051 (a ligação das turmas 2027 é pelo nome)
 await db.exec(`insert into public.teams(id, name, category) values ('11111111-1111-4111-8111-111111111111', 'Equipe Collins', 'Adulto'), ('22222222-2222-4222-8222-222222222222', 'Escolinha B', 'Escolinha');`);
 await db.exec(readFileSync('supabase/migrations/051_rematricula_contrato_pix.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/052_rematricula_turma_armstrong.sql', 'utf8'));
 
 const T1 = '11111111-1111-4111-8111-111111111111', T2 = '22222222-2222-4222-8222-222222222222';
 const ADULT = 'aaaaaaaa-0000-4000-8000-000000000001', KID = 'aaaaaaaa-0000-4000-8000-000000000002', SIB = 'aaaaaaaa-0000-4000-8000-000000000003', OLD = 'aaaaaaaa-0000-4000-8000-000000000004';
