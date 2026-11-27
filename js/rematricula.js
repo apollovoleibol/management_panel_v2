@@ -151,7 +151,6 @@ function renderIdent(message = '', push = true) {
   $('#app').innerHTML = `<section class="screen">
     <div class="eyebrow">Temporada 2027</div>
     <h1>Vamos renovar a matrícula?</h1>
-    <p class="lead">Revise o cadastro, responda a anamnese, escolha a turma, aceite o contrato e pague a taxa por Pix. Leva cerca de 10 minutos.</p>
     <div class="alert-slot" id="formAlert">${message ? `<div class="alert" role="alert">${icon('alert')}<div>${esc(message)}</div></div>` : ''}</div>
     <div class="card">
       <h3>Tenha em mãos</h3>

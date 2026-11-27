@@ -25,10 +25,10 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke
 .top::after{content:"";position:absolute;left:50%;bottom:-260px;width:560px;height:360px;transform:translateX(-50%);border-radius:50%;background:var(--red);filter:blur(110px);opacity:.38;pointer-events:none}
 .top-in{position:relative;z-index:1;max-width:560px;margin:0 auto;display:flex;align-items:center;gap:14px}
 .top img{height:30px;width:auto;display:block}
-.top-title{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.top-title{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;text-align:right;line-height:1.15;min-width:0;margin-left:auto}
 .top-title b{font:700 19px/1.1 var(--display);letter-spacing:.01em}
 .top-title small{color:#c3c6d9;font-size:12.5px;letter-spacing:.04em}
-.top-exit{margin-left:auto;background:#ffffff14;border:1px solid #ffffff2b;color:#fff;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600}
+.top-exit{background:#ffffff14;border:1px solid #ffffff2b;color:#fff;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600}
 .top-exit:hover{background:#ffffff26}
 .progress{position:relative;z-index:1;max-width:560px;margin:16px auto 0}
 .progress-row{display:flex;justify-content:space-between;font-size:12.5px;color:#c3c6d9;margin-bottom:7px;gap:10px}

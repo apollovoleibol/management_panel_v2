@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## v2.12.3 · Cabeçalho da rematrícula mais limpo — 2026-11-27
+
+- Formulário de rematrícula: o cabeçalho mostra só o logo à esquerda e "Rematrícula 2027" à direita (sem o subtítulo "Grupo Apollo de Voleibol"), e a tela inicial perde o texto de abertura, indo direto para "Tenha em mãos".
+
 ## v2.12.2 · Contrato: revisão por custo de quadra e Anexo I sem preços — 2026-11-26
 
 - Nova cláusula 4.10: se o aluguel do ginásio ou da quadra aumentar, a mensalidade da turma pode ser revisada, somando no máximo 10% na temporada, limitada ao impacto proporcional do aumento, com aviso de 30 dias, comprovante disponível e direito de cancelar sem custo. Fora isso, não há reajuste na temporada.
