@@ -44,6 +44,7 @@ await db.exec(readFileSync('supabase/migrations/050_rematricula_sem_atestado.sql
 await db.exec(`insert into public.teams(id, name, category) values ('11111111-1111-4111-8111-111111111111', 'Equipe Collins', 'Adulto'), ('22222222-2222-4222-8222-222222222222', 'Escolinha B', 'Escolinha');`);
 await db.exec(readFileSync('supabase/migrations/051_rematricula_contrato_pix.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/052_rematricula_turma_armstrong.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/053_rematricula_armstrong_frequencias.sql', 'utf8'));
 
 const T1 = '11111111-1111-4111-8111-111111111111', T2 = '22222222-2222-4222-8222-222222222222';
 const ADULT = 'aaaaaaaa-0000-4000-8000-000000000001', KID = 'aaaaaaaa-0000-4000-8000-000000000002', SIB = 'aaaaaaaa-0000-4000-8000-000000000003', OLD = 'aaaaaaaa-0000-4000-8000-000000000004';
@@ -86,7 +87,11 @@ assert.equal(JSON.stringify(adult).includes('170'), false, 'height is never retu
 assert.ok(data.teams.length === 2, 'active teams are listed');
 assert.equal(data.contract, CONTRATO_VERSION, 'server and contract text agree on the version');
 // Turmas do banco = Anexo I do contrato
-assert.deepEqual(data.offers.map(o => [o.key, o.fee_cents, o.label, o.days, o.time]), TURMAS_2027.map(t => [t.key, t.fee_cents, t.label, t.days, t.time]), 'offers match contract annex I');
+assert.deepEqual(data.offers.map(o => [o.key, o.label, o.days, o.time, o.freq]), TURMAS_2027.map(t => [t.key, t.label, t.days, t.time, t.freq]), 'offers match contract annex I');
+// Valores só no banco (o arquivo público do contrato não traz preços)
+const FEES = { 'escolinha-b': 11090, 'escolinha-c': 17990, 'pre-equipe': 11090, 'sub-17-18-m': 15990, 'sub-16-17-f': 19490, johnson: 10390, 'escolinha-d': 17990, 'pre-equipe-b': 17990, 'sub-15-16-f': 10000, aldrin: 10390, borman: 10390, collins: 10390, hopper: 10390, 'armstrong-1x': 10990, 'armstrong-2x': 15990, armstrong: 19000 };
+assert.deepEqual(Object.fromEntries(data.offers.map(o => [o.key, o.fee_cents])), FEES, 'class fees come from the database');
+assert.ok(TURMAS_2027.every(t => !('fee_cents' in t)), 'public contract file has no prices');
 assert.equal(data.offers.find(o => o.key === 'escolinha-b').team_id, T2, 'offer linked to existing team by name');
 assert.equal(data.offers.find(o => o.key === 'collins').team_id, T1);
 await fails(call('reenroll_get', 'token-invalido'), /sessão expirou/, 'invalid token is rejected');
