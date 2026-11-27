@@ -20,25 +20,30 @@ const TEMPORADA = {
   // Encargos: multa no teto do CDC, juros no teto do Código Civil/Lei de Usura, correção pelo IPCA, sem congelamento.
   // pontualidade: a mensalidade cheia é o valor da tabela (fee_cents) + 5%; quem paga até o vencimento paga fee_cents.
   multa: 2, juros: 1, pontualidade: 5, avisoNegativacao: 10, rescisao: 60, retencao: 3,
+  revisao: 10, // teto da revisão excepcional por aumento do custo de quadra (item 4.10), somado na temporada
   pacotes: [['3 mensalidades', 'Pix', 7], ['3 mensalidades', 'cartão de crédito', 5], ['5 mensalidades', 'Pix', 10], ['5 mensalidades', 'cartão de crédito', 7]],
 };
 
-// Anexo I. Precisa bater com public.reenroll_offers (migração 051): o teste confere chave e valor.
+// Anexo I (sem preços: este arquivo é público). Precisa bater com public.reenroll_offers (migrações 051/052);
+// o valor de cada turma vem só do banco (fee_cents) e aparece apenas para a turma escolhida.
 const TURMAS_2027 = [
-  { key: 'escolinha-b', label: 'Escolinha B', location: 'Núcleo Apollo – Uberaba', days: 'Sábado', time: '13h30–14h30', freq: '1x por semana', fee_cents: 11090 },
-  { key: 'escolinha-c', label: 'Escolinha C', location: 'Núcleo Apollo – Uberaba', days: 'Terça e sexta', time: '18h–19h', freq: '2x por semana', fee_cents: 17990 },
-  { key: 'pre-equipe', label: 'Pré-equipe', location: 'Núcleo Apollo – Uberaba', days: 'Sábado', time: '12h30–13h30', freq: '1x por semana', fee_cents: 11090 },
-  { key: 'sub-17-18-m', label: 'Sub-17/18 masculino', location: 'Núcleo Apollo – Uberaba', days: 'Terça e quinta', time: '16h30–18h', freq: '2x por semana', fee_cents: 15990 },
-  { key: 'sub-16-17-f', label: 'Sub-16/17 feminino', location: 'Núcleo Apollo – Uberaba', days: 'Terça e quinta', time: '15h–16h30', freq: '2x por semana', fee_cents: 19490 },
-  { key: 'johnson', label: 'Johnson – adulto feminino', location: 'Núcleo Apollo – Uberaba', days: 'Sábado', time: '10h30–12h30', freq: '1x por semana', fee_cents: 10390 },
-  { key: 'escolinha-d', label: 'Escolinha D', location: 'Núcleo Funcel – São Francisco / Bom Retiro', days: 'Terça e sexta', time: '17h–18h', freq: '2x por semana', fee_cents: 17990 },
-  { key: 'pre-equipe-b', label: 'Pré-equipe B', location: 'Núcleo Funcel – São Francisco / Bom Retiro', days: 'Terça e sexta', time: '16h–17h', freq: '2x por semana', fee_cents: 17990 },
-  { key: 'sub-15-16-f', label: 'Sub-15/16 feminino', location: 'Núcleo Funcel – São Francisco / Bom Retiro', days: 'Segunda e quarta', time: '14h–15h30', freq: '2x por semana', fee_cents: 10000 },
-  { key: 'aldrin', label: 'Aldrin – adulto masculino', location: 'Núcleo PUC – Prado Velho', days: 'Sábado', time: '10h–12h', freq: '1x por semana', fee_cents: 10390 },
-  { key: 'borman', label: 'Borman – adulto masculino', location: 'Núcleo PUC – Prado Velho', days: 'Sábado', time: '12h–14h', freq: '1x por semana', fee_cents: 10390 },
-  { key: 'collins', label: 'Collins – adulto masculino', location: 'Núcleo PUC – Prado Velho', days: 'Sexta', time: '20h–22h', freq: '1x por semana', fee_cents: 10390 },
-  { key: 'hopper', label: 'Hopper – adulto feminino', location: 'Núcleo PUC – Prado Velho', days: 'Quarta', time: '20h–22h', freq: '1x por semana', fee_cents: 10390 },
-  { key: 'armstrong', label: 'Armstrong – adulto iniciante', location: 'Núcleo PUC – Prado Velho', days: 'Segunda, quarta e sábado', time: '19h–20h (seg. e qua.); 9h–10h15 (sáb.)', freq: '3x por semana', fee_cents: 19000 },
+  { key: 'escolinha-b', label: 'Escolinha B', location: 'Núcleo Apollo – Uberaba', days: 'Sábado', time: '13h30–14h30', freq: '1x por semana' },
+  { key: 'escolinha-c', label: 'Escolinha C', location: 'Núcleo Apollo – Uberaba', days: 'Terça e sexta', time: '18h–19h', freq: '2x por semana' },
+  { key: 'pre-equipe', label: 'Pré-equipe', location: 'Núcleo Apollo – Uberaba', days: 'Sábado', time: '12h30–13h30', freq: '1x por semana' },
+  { key: 'sub-17-18-m', label: 'Sub-17/18 masculino', location: 'Núcleo Apollo – Uberaba', days: 'Terça e quinta', time: '16h30–18h', freq: '2x por semana' },
+  { key: 'sub-16-17-f', label: 'Sub-16/17 feminino', location: 'Núcleo Apollo – Uberaba', days: 'Terça e quinta', time: '15h–16h30', freq: '2x por semana' },
+  { key: 'johnson', label: 'Johnson – adulto feminino', location: 'Núcleo Apollo – Uberaba', days: 'Sábado', time: '10h30–12h30', freq: '1x por semana' },
+  { key: 'escolinha-d', label: 'Escolinha D', location: 'Núcleo Funcel – São Francisco / Bom Retiro', days: 'Terça e sexta', time: '17h–18h', freq: '2x por semana' },
+  { key: 'pre-equipe-b', label: 'Pré-equipe B', location: 'Núcleo Funcel – São Francisco / Bom Retiro', days: 'Terça e sexta', time: '16h–17h', freq: '2x por semana' },
+  { key: 'sub-15-16-f', label: 'Sub-15/16 feminino', location: 'Núcleo Funcel – São Francisco / Bom Retiro', days: 'Segunda e quarta', time: '14h–15h30', freq: '2x por semana' },
+  { key: 'aldrin', label: 'Aldrin – adulto masculino', location: 'Núcleo PUC – Prado Velho', days: 'Sábado', time: '10h–12h', freq: '1x por semana' },
+  { key: 'borman', label: 'Borman – adulto masculino', location: 'Núcleo PUC – Prado Velho', days: 'Sábado', time: '12h–14h', freq: '1x por semana' },
+  { key: 'collins', label: 'Collins – adulto masculino', location: 'Núcleo PUC – Prado Velho', days: 'Sexta', time: '20h–22h', freq: '1x por semana' },
+  { key: 'hopper', label: 'Hopper – adulto feminino', location: 'Núcleo PUC – Prado Velho', days: 'Quarta', time: '20h–22h', freq: '1x por semana' },
+  // Adulto iniciante: a mesma turma com 1, 2 ou 3 treinos por semana, cada opção com seu valor
+  { key: 'armstrong-1x', label: 'Armstrong – adulto iniciante (1x por semana)', location: 'Núcleo PUC – Prado Velho', days: '1 dia à escolha: segunda, quarta ou sábado', time: '19h–20h (seg. e qua.); 9h–10h15 (sáb.)', freq: '1x por semana' },
+  { key: 'armstrong-2x', label: 'Armstrong – adulto iniciante (2x por semana)', location: 'Núcleo PUC – Prado Velho', days: '2 dias à escolha: segunda, quarta ou sábado', time: '19h–20h (seg. e qua.); 9h–10h15 (sáb.)', freq: '2x por semana' },
+  { key: 'armstrong', label: 'Armstrong – adulto iniciante (3x por semana)', location: 'Núcleo PUC – Prado Velho', days: 'Segunda, quarta e sábado', time: '19h–20h (seg. e qua.); 9h–10h15 (sáb.)', freq: '3x por semana' },
 ];
 
 const ctEsc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -71,7 +76,7 @@ function contratoQuadro(d = {}) {
     ${row('Núcleo e local', ctBlank(t.location))}
     ${row('Dias e horários', t.days ? `<b>${ctEsc(t.days)}, ${ctEsc(t.time)}</b>` : ctBlank(''))}
     ${row('Frequência semanal', t.freq ? `<b>${ctEsc(t.freq)}</b>` : ctBlank('', 'short'))}
-    ${row('Mensalidade', t.fee_cents ? `<b>${ctMoney(ctCheia(t.fee_cents))}</b>, com vencimento todo dia ${TEMPORADA.vencimento}` : `${ctBlank('', 'short')}, com vencimento todo dia ${TEMPORADA.vencimento}`)}
+    ${row('Mensalidade', t.fee_cents ? `<b>${ctMoney(ctCheia(t.fee_cents))}</b>, com vencimento todo dia ${TEMPORADA.vencimento} (revisão excepcional limitada a ${TEMPORADA.revisao}% na temporada, item 4.10)` : `${ctBlank('', 'short')}, com vencimento todo dia ${TEMPORADA.vencimento} (revisão excepcional limitada a ${TEMPORADA.revisao}% na temporada, item 4.10)`)}
     ${row('Pagamento até o vencimento', t.fee_cents ? `<b>${ctMoney(t.fee_cents)}</b>, com desconto de pontualidade de ${ctMoney(ctCheia(t.fee_cents) - t.fee_cents)} (Cláusula 4.2)` : `${ctBlank('', 'short')}, com desconto de pontualidade (Cláusula 4.2)`)}
     ${row('Taxa de rematrícula', `<b>${ctMoney(TEMPORADA.taxa)}</b>, por Pix (chave ${CONTRATADA.pix}), antecipação de parte da mensalidade de janeiro de 2027, descontada dela (Cláusula 2.2)`)}
     ${row('Vigência', `da confirmação da rematrícula até <b>${TEMPORADA.fim}</b>, sem renovação automática para 2028`)}
@@ -81,6 +86,7 @@ function contratoQuadro(d = {}) {
 
 function contratoHtml(d = {}) {
   const T = TEMPORADA;
+  const EX = 10000; // valor hipotético dos exemplos do Anexo II (não expõe preço de nenhuma turma)
   const pacotes = T.pacotes.map(([n, m, p]) => `<tr><td>${n}</td><td>${m}</td><td class="num">${p}%</td></tr>`).join('');
   const sign = d.assinatura;
   return `<div class="ct">
@@ -92,7 +98,7 @@ ${contratoQuadro(d)}
 <h3>1. Objeto</h3>
 <p>1.1. A CONTRATADA presta ao(à) ATLETA serviços de treinamento desportivo na modalidade voleibol, na turma, nos dias e nos horários do Quadro-Resumo, com orientação de profissionais de Educação Física habilitados.</p>
 <p>1.2. A CONTRATADA se obriga a empregar os meios adequados ao treinamento (obrigação de meio). <b>Não há garantia de resultado esportivo, de convocação para competições, de posição em quadra ou de tempo de jogo</b>, que dependem de critérios técnicos da comissão técnica.</p>
-<p>1.3. Integram este contrato, como se nele estivessem transcritos: o Quadro-Resumo; o Anexo I (turmas, horários e mensalidades de 2027); o Anexo II (política de cobrança); e o Regulamento do Atleta 2027, disponível em apollovoleibol.github.io/management_panel_v2/regulamento-2027.html. Havendo divergência, prevalece este contrato.</p>
+<p>1.3. Integram este contrato, como se nele estivessem transcritos: o Quadro-Resumo; o Anexo I (turmas e horários de 2027); o Anexo II (política de cobrança); e o Regulamento do Atleta 2027, disponível em apollovoleibol.github.io/management_panel_v2/regulamento-2027.html. Havendo divergência, prevalece este contrato.</p>
 
 <h3>2. Rematrícula, taxa e confirmação</h3>
 <p>2.1. A rematrícula é feita de ${T.rematricula} pelo formulário oficial, com revisão do cadastro, preenchimento da anamnese, escolha da turma, aceite deste contrato e pagamento da taxa de rematrícula.</p>
@@ -111,14 +117,22 @@ ${contratoQuadro(d)}
 
 <h3>4. Mensalidades e pagamento</h3>
 <p>4.1. O CONTRATANTE paga a mensalidade do Quadro-Resumo, com vencimento todo dia ${T.vencimento}, pelos meios oficiais da CONTRATADA (Pix recorrente, QR Code ou cartão de crédito, conforme a plataforma de cobrança em uso). Ao usar Pix recorrente, o CONTRATANTE deve autorizar a recorrência no aplicativo indicado; sem a autorização, o pagamento é feito por QR Code avulso.</p>
-<p>4.2. <b>Desconto de pontualidade:</b> a mensalidade paga integralmente até a data do vencimento tem desconto de pontualidade, no valor indicado no Quadro-Resumo e no Anexo I. O desconto é um benefício concedido a quem paga em dia; <b>a mensalidade paga após o vencimento é devida pelo valor integral, sem o desconto</b>, acrescida dos encargos da Cláusula 5, calculados sobre o valor integral. A perda do desconto vale só para a mensalidade paga em atraso. Se o vencimento cair em sábado, domingo ou feriado, o pagamento no primeiro dia útil seguinte conserva o desconto. O desconto de pontualidade não pode ser reduzido nem suprimido durante a vigência deste contrato.</p>
+<p>4.2. <b>Desconto de pontualidade:</b> a mensalidade paga integralmente até a data do vencimento tem desconto de pontualidade, no valor indicado no Quadro-Resumo. O desconto é um benefício concedido a quem paga em dia; <b>a mensalidade paga após o vencimento é devida pelo valor integral, sem o desconto</b>, acrescida dos encargos da Cláusula 5, calculados sobre o valor integral. A perda do desconto vale só para a mensalidade paga em atraso. Se o vencimento cair em sábado, domingo ou feriado, o pagamento no primeiro dia útil seguinte conserva o desconto. O desconto de pontualidade não pode ser reduzido nem suprimido durante a vigência deste contrato.</p>
 <p>4.3. Enquanto a plataforma de cobrança não permitir aplicar o desconto automaticamente, a cobrança pode ser emitida já pelo valor com desconto; se o pagamento ocorrer depois do vencimento, a diferença até o valor integral e os encargos da Cláusula 5 são cobrados à parte ou somados à mensalidade seguinte, com o cálculo informado ao CONTRATANTE.</p>
 <p>4.4. <b>A mensalidade é um valor fixo mensal, que não depende da quantidade de treinos do mês, e já considera feriados e os recessos do calendário. Faltas do(a) ATLETA, justificadas ou não, não reduzem nem dispensam a mensalidade.</b></p>
 <p>4.5. Treino cancelado por iniciativa da CONTRATADA (indisponibilidade de quadra ou de professor, por exemplo) é reposto em data comunicada com antecedência. Se não houver reposição em até 60 (sessenta) dias, o valor proporcional do treino, calculado sobre o valor com desconto de pontualidade, é abatido da mensalidade seguinte. Suspensões determinadas por autoridade pública ou por caso fortuito e força maior seguem a Cláusula 15.</p>
-<p>4.6. Os valores do Anexo I valem para toda a temporada 2027, sem reajuste durante a vigência.</p>
+<p>4.6. Os valores do Quadro-Resumo valem para toda a temporada 2027. Não há reajuste periódico nem por índice durante a vigência; a única alteração de preço admitida é a revisão excepcional do item 4.10.</p>
 <p>4.7. A CONTRATADA pode oferecer pacotes de mensalidades pagas antecipadamente, com desconto, conforme o Anexo II, enquanto estiverem disponíveis na plataforma de cobrança. O desconto do pacote incide sobre o valor com desconto de pontualidade, já que o pagamento é antecipado. Os descontos de pacote não se acumulam com outras promoções, salvo aviso em contrário. Despesas com competições, viagens, uniformes e eventos não estão incluídas na mensalidade (Cláusulas 7 e 8).</p>
 <p>4.8. A CONTRATADA pode trocar a plataforma de cobrança (hoje, Tecnofit), inclusive por sistema próprio, e os meios de pagamento disponíveis, mediante aviso com pelo menos 30 (trinta) dias de antecedência, com as instruções para a nova forma de pagamento. A troca não altera o valor da mensalidade, não cria custo adicional para o CONTRATANTE e dispensa novo contrato. Se a nova forma de pagamento impedir o CONTRATANTE de pagar, ele pode cancelar sem a antecedência do item 3.3.</p>
 <p>4.9. A Política de Cobrança (Anexo II) pode ser atualizada pela CONTRATADA, com aviso pelos canais oficiais, para criar, alterar ou encerrar pacotes e condições de pagamento antecipado, sempre dentro dos limites da Cláusula 5 e sem reduzir o desconto de pontualidade do item 4.2. Pacotes já contratados mantêm as condições da data da compra.</p>
+<p>4.10. <b>Revisão excepcional por aumento do custo de quadra: se o locador do ginásio ou da quadra usada pela turma aumentar o valor da locação durante a vigência, a CONTRATADA pode revisar a mensalidade dessa turma para recompor o equilíbrio do contrato (art. 317 do Código Civil), observados os limites abaixo. A soma das revisões na temporada não pode passar de ${T.revisao}% (dez por cento) do valor do Quadro-Resumo.</b></p>
+<ul>
+<li>a revisão nunca é maior que o impacto proporcional do aumento da locação no custo da turma;</li>
+<li>é comunicada por escrito, pelos canais oficiais, com pelo menos 30 (trinta) dias de antecedência do vencimento em que passa a valer, informando o local, o percentual de aumento da locação e os novos valores (mensalidade e valor com desconto de pontualidade, que é mantido);</li>
+<li>o CONTRATANTE pode pedir o documento do reajuste da locação, que a CONTRATADA apresenta em até 5 (cinco) dias úteis;</li>
+<li>vale só para as mensalidades que vencerem depois do prazo do aviso, não alcança mensalidades vencidas nem pacotes já pagos;</li>
+<li>o CONTRATANTE que não concordar pode cancelar o contrato sem custo e sem a antecedência do item 3.3, até a data em que a revisão passa a valer, pagando apenas as mensalidades pelo valor anterior até lá.</li>
+</ul>
 
 <h3>5. Atraso e inadimplência</h3>
 <p>5.1. <b>A mensalidade não paga até o vencimento fica sujeita, sobre o valor integral (sem o desconto de pontualidade), a:</b></p>
@@ -186,7 +200,7 @@ ${contratoQuadro(d)}
 <p>15.1. Eventos alheios ao controle das partes (determinação de autoridade, calamidade, epidemia, interdição do local, eventos climáticos graves) podem suspender as atividades. A CONTRATADA repõe os treinos quando possível ou oferece atividade alternativa. Se a suspensão passar de 30 (trinta) dias, o CONTRATANTE pode suspender os pagamentos do período sem atividade ou cancelar sem custo.</p>
 
 <h3>16. Alterações</h3>
-<p>16.1. Alterações deste contrato e dos anexos são comunicadas com pelo menos 30 (trinta) dias de antecedência e não alteram valores durante a temporada. O CONTRATANTE que não concordar pode cancelar sem custo antes de a alteração entrar em vigor.</p>
+<p>16.1. Alterações deste contrato e dos anexos são comunicadas com pelo menos 30 (trinta) dias de antecedência e não alteram valores durante a temporada, ressalvada a revisão excepcional do item 4.10. O CONTRATANTE que não concordar pode cancelar sem custo antes de a alteração entrar em vigor.</p>
 
 <h3>17. Aceite e assinatura eletrônica</h3>
 <p>17.1. O contrato é aceito eletronicamente no formulário de rematrícula, depois da identificação do CONTRATANTE por CPF ou WhatsApp e data de nascimento do(a) ATLETA. O aceite registra data e hora, endereço IP, dispositivo, a versão do contrato e um código de integridade (SHA-256) do texto aceito.</p>
@@ -196,15 +210,16 @@ ${contratoQuadro(d)}
 <p>18.1. As partes buscarão resolver divergências primeiro pelos canais oficiais e, se necessário, por mediação, sem prejuízo do direito do CONTRATANTE de recorrer ao Procon, à plataforma consumidor.gov.br ou ao Judiciário.</p>
 <p>18.2. Fica eleito o foro do domicílio do CONTRATANTE (art. 101, I, do Código de Defesa do Consumidor).</p>
 
-<h3>Anexo I – Turmas, horários e mensalidades 2027</h3>
+<h3>Anexo I – Turmas e horários 2027</h3>
+<p>A mensalidade de cada turma é informada no formulário de rematrícula e consta do Quadro-Resumo deste contrato, para a turma contratada.</p>
 <div class="ct-turmas">${contratoTurmas(d.turmas || TURMAS_2027)}</div>
 
 <h3>Anexo II – Política de cobrança (vigente no início da temporada)</h3>
 <p>Esta política pode ser atualizada na forma do item 4.9, dentro dos limites da Cláusula 5. A versão em vigor fica disponível pelos canais oficiais.</p>
-<p><b>Pagamento até o vencimento (dia ${T.vencimento}):</b> valor com desconto de pontualidade (Anexo I).</p>
-<p><b>Janeiro de 2027:</b> os ${ctMoney(T.taxa)} pagos na rematrícula são descontados da mensalidade de janeiro (item 2.2). Exemplo: mensalidade de ${ctMoney(ctCheia(17990))} (${ctMoney(17990)} até o vencimento); em janeiro, o saldo é de ${ctMoney(17990 - T.taxa)} pago até o dia ${T.vencimento}, ou ${ctMoney(ctCheia(17990) - T.taxa)} mais os encargos sobre esse saldo depois dele.</p>
+<p><b>Pagamento até o vencimento (dia ${T.vencimento}):</b> valor com desconto de pontualidade (Quadro-Resumo).</p>
+<p><b>Janeiro de 2027:</b> os ${ctMoney(T.taxa)} pagos na rematrícula são descontados da mensalidade de janeiro (item 2.2). Exemplo hipotético: mensalidade de ${ctMoney(ctCheia(EX))} (${ctMoney(EX)} até o vencimento); em janeiro, o saldo é de ${ctMoney(EX - T.taxa)} pago até o dia ${T.vencimento}, ou ${ctMoney(ctCheia(EX) - T.taxa)} mais os encargos sobre esse saldo depois dele.</p>
 <p><b>Pagamento após o vencimento:</b> valor integral da mensalidade, com multa única de ${T.multa}%, juros simples de ${T.juros}% ao mês calculados dia a dia e correção pelo IPCA, até o pagamento; suspensão das atividades e das convocações com ${T.suspensao} dias de atraso; aviso escrito e possível registro em cadastros de proteção ao crédito ou protesto; encerramento do contrato com mais de ${T.rescisao} dias de atraso.</p>
-<p>Exemplo (mensalidade de ${ctMoney(ctCheia(17990))}, com desconto de pontualidade ${ctMoney(17990)}), paga com 30 dias de atraso: ${ctMoney(ctCheia(17990))} + multa de ${ctMoney(Math.round(ctCheia(17990) * T.multa / 100))} + juros de ${ctMoney(Math.round(ctCheia(17990) * T.juros / 100))} = ${ctMoney(ctCheia(17990) + Math.round(ctCheia(17990) * T.multa / 100) + Math.round(ctCheia(17990) * T.juros / 100))}, mais a correção do período.</p>
+<p>Exemplo hipotético (mensalidade de ${ctMoney(ctCheia(EX))}, com desconto de pontualidade ${ctMoney(EX)}), paga com 30 dias de atraso: ${ctMoney(ctCheia(EX))} + multa de ${ctMoney(Math.round(ctCheia(EX) * T.multa / 100))} + juros de ${ctMoney(Math.round(ctCheia(EX) * T.juros / 100))} = ${ctMoney(ctCheia(EX) + Math.round(ctCheia(EX) * T.multa / 100) + Math.round(ctCheia(EX) * T.juros / 100))}, mais a correção do período.</p>
 <p><b>Pacotes com pagamento antecipado</b> (quando disponíveis na plataforma de cobrança):</p>
 <table class="ct-grid"><thead><tr><th>Pacote</th><th>Forma de pagamento</th><th class="num">Desconto</th></tr></thead><tbody>${pacotes}</tbody></table>
 <p>O desconto incide sobre a soma das mensalidades do pacote. No cancelamento, aplica-se o item 3.4.</p>
@@ -220,8 +235,8 @@ function contratoTurmas(turmas) {
   const groups = {};
   turmas.forEach(t => { (groups[t.location] = groups[t.location] || []).push(t); });
   return Object.entries(groups).map(([loc, list]) => `<p class="ct-loc"><b>${ctEsc(loc)}</b></p>
-    <table class="ct-grid"><thead><tr><th>Turma ou equipe</th><th>Dias e horário</th><th class="num">Mensalidade</th><th class="num">Até o vencimento</th></tr></thead><tbody>
-    ${list.map(t => `<tr><td>${ctEsc(t.label)}</td><td>${ctEsc(t.days)}, ${ctEsc(t.time)}</td><td class="num">${ctMoney(ctCheia(t.fee_cents))}</td><td class="num">${ctMoney(t.fee_cents)}${t.note ? ` <small>(${ctEsc(t.note)})</small>` : ''}</td></tr>`).join('')}
+    <table class="ct-grid"><thead><tr><th>Turma ou equipe</th><th>Dias e horário</th><th>Frequência</th></tr></thead><tbody>
+    ${list.map(t => `<tr><td>${ctEsc(t.label)}</td><td>${ctEsc(t.days)}, ${ctEsc(t.time)}</td><td>${ctEsc(t.freq)}</td></tr>`).join('')}
     </tbody></table>`).join('');
 }
 

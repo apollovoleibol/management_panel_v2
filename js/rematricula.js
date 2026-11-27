@@ -662,22 +662,36 @@ function collectSaude() {
 
 /* Turma 2027 */
 const offerOf = key => ST.data?.offers?.find(o => o.key === key);
-const defaultOffer = a => reen(a).offer_key || ST.data?.offers?.find(o => o.team_id && o.team_id === a.team?.id)?.key || '';
+// Opções de 2027 da turma atual. Pode haver mais de uma (ex.: adulto iniciante com 1x, 2x ou 3x por semana)
+const currentOffers = a => (ST.data?.offers || []).filter(o => o.team_id && o.team_id === a.team?.id);
+// Só pré-seleciona quando a turma atual tem uma única opção; com várias, a pessoa escolhe a frequência
+const defaultOffer = a => { const cur = currentOffers(a); return reen(a).offer_key || (cur.length === 1 ? cur[0].key : ''); };
 function offerCard(o, checked, current) {
   return `<label class="team"><input type="radio" name="offer" value="${esc(o.key)}" ${checked ? 'checked' : ''}><span class="radio" aria-hidden="true"></span>
     <span><b>${esc(o.label)}${current ? '<span class="tag ok">Turma atual</span>' : ''}</b>
-    <small>${esc(o.days)} · ${esc(o.time)}</small><small>${esc(o.freq)} · mensalidade ${ctMoney(ctCheia(o.fee_cents))}, <b>${ctMoney(o.fee_cents)}</b> pagando até o dia ${TEMPORADA.vencimento}${o.note ? ` · ${esc(o.note)}` : ''}</small></span></label>`;
+    <small>${esc(o.days)} · ${esc(o.time)}</small><small>${esc(o.freq)}</small></span></label>`;
+}
+// O valor aparece só para a turma escolhida (a lista não expõe o preço das demais)
+function offerPrice(key) {
+  const o = offerOf(key);
+  if (!o) return '';
+  return `<div class="pix-amount" style="margin-top:14px"><span>Mensalidade de ${esc(o.label)}</span><b>${ctMoney(o.fee_cents)}</b>
+    <small>pagando até o dia ${TEMPORADA.vencimento} (desconto de pontualidade). Após o vencimento: ${ctMoney(ctCheia(o.fee_cents))}.${o.note ? ` ${esc(o.note)}.` : ''}</small></div>`;
 }
 function stepEquipe(a) {
   const r = reen(a), offers = ST.data.offers || [];
-  const cur = offers.find(o => o.team_id && o.team_id === a.team?.id);
+  const cur = currentOffers(a), curKeys = cur.map(o => o.key);
   const chosen = defaultOffer(a);
   const groups = [...new Set(offers.map(o => o.location))];
-  const showAll = !cur || (chosen && chosen !== cur.key);
-  return `<p class="lead">${cur ? `Por padrão, ${a.minor ? 'o(a) atleta segue' : 'você segue'} na mesma turma. Confira dias, horário e valor de 2027.` : 'Escolha a turma de 2027.'}</p>
-    ${cur ? offerCard(cur, chosen === cur.key, true) : `<div class="section-note warn">${icon('info')}<div>A turma atual (${esc(a.team?.name || 'sem turma')}) não terá continuidade em 2027 com esse nome. Escolha a turma para 2027.</div></div>`}
-    <button class="disclose" type="button" id="otherTeams" aria-expanded="${showAll}" ${cur ? '' : 'hidden'}><span>Quero mudar de turma</span>${icon('arrow')}</button>
-    <div id="otherList" ${showAll ? '' : 'hidden'} style="margin-top:10px">${groups.map(g => `<p class="group-title">${esc(g)}</p>${offers.filter(o => o.location === g && o.key !== cur?.key).map(o => offerCard(o, o.key === chosen, false)).join('')}`).join('')}</div>
+  const showAll = !cur.length || (chosen && !curKeys.includes(chosen));
+  const lead = !cur.length ? 'Escolha a turma de 2027.'
+    : cur.length > 1 ? `${a.minor ? 'O(a) atleta pode seguir' : 'Você pode seguir'} na mesma turma. Em 2027 ela tem opções de frequência, cada uma com seu valor: escolha quantas vezes por semana ${a.minor ? 'o(a) atleta vai' : 'você vai'} treinar.`
+    : `Por padrão, ${a.minor ? 'o(a) atleta segue' : 'você segue'} na mesma turma. Confira dias e horário de 2027; o valor aparece abaixo da turma escolhida.`;
+  return `<p class="lead">${lead}</p>
+    ${cur.length ? cur.map(o => offerCard(o, chosen === o.key, true)).join('') : `<div class="section-note warn">${icon('info')}<div>A turma atual (${esc(a.team?.name || 'sem turma')}) não terá continuidade em 2027 com esse nome. Escolha a turma para 2027.</div></div>`}
+    <button class="disclose" type="button" id="otherTeams" aria-expanded="${showAll}" ${cur.length ? '' : 'hidden'}><span>Quero mudar de turma</span>${icon('arrow')}</button>
+    <div id="otherList" ${showAll ? '' : 'hidden'} style="margin-top:10px">${groups.map(g => `<p class="group-title">${esc(g)}</p>${offers.filter(o => o.location === g && !curKeys.includes(o.key)).map(o => offerCard(o, o.key === chosen, false)).join('')}`).join('')}</div>
+    <div id="offerPrice" aria-live="polite">${offerPrice(chosen)}</div>
     <div class="fld" style="margin-top:16px"><label for="teamNote">Observação para a coordenação <span class="opt">(opcional)</span></label>
       <textarea class="in" id="teamNote" name="note" maxlength="500" placeholder="Ex.: prefiro treinar à noite">${esc(r.team_note || '')}</textarea></div>
     <div class="section-note">${icon('info')}<div>A mudança de turma depende de vaga e da avaliação da comissão técnica. A coordenação confirma com vocês. O valor da turma escolhida vai para o contrato.</div></div>`;
@@ -685,6 +699,7 @@ function stepEquipe(a) {
 function bindEquipe() {
   const btn = $('#otherTeams');
   if (btn) btn.onclick = () => { const list = $('#otherList'); list.hidden = !list.hidden; btn.setAttribute('aria-expanded', String(!list.hidden)); };
+  $$('input[name=offer]').forEach(i => { i.onchange = () => { $('#offerPrice').innerHTML = offerPrice(i.value); }; });
 }
 function collectEquipe() {
   const t = $('input[name=offer]:checked');

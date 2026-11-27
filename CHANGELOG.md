@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## v2.12.2 · Contrato: revisão por custo de quadra e Anexo I sem preços — 2026-11-26
+
+- Nova cláusula 4.10: se o aluguel do ginásio ou da quadra aumentar, a mensalidade da turma pode ser revisada, somando no máximo 10% na temporada, limitada ao impacto proporcional do aumento, com aviso de 30 dias, comprovante disponível e direito de cancelar sem custo. Fora isso, não há reajuste na temporada.
+- Anexo I passa a listar só turmas, dias, horários e frequência; a mensalidade aparece apenas no Quadro-Resumo, para a turma contratada. Os exemplos do Anexo II usam um valor hipotético.
+- Formulário de rematrícula: a lista de turmas não mostra mais preços; o valor aparece só abaixo da lista, para a turma escolhida, e muda conforme a escolha. O arquivo público do contrato (`js/contrato-2027.js`) deixa de conter os preços; eles vêm só do banco.
+- Adulto iniciante (Armstrong) com três opções de frequência e valor: 1x por semana (R$ 109,90), 2x (R$ 159,90) ou 3x (R$ 190,00), valores com desconto de pontualidade. Quem já é da turma vê as três como "Turma atual" e escolhe uma, sem opção pré-marcada (migração 053).
+
 ## v2.12.1 · Turma Armstrong renomeada — 2026-11-26
 
 - A turma "Armstrong – Adulto Start" passa a se chamar **Armstrong – adulto iniciante** no formulário, no contrato (Anexo I) e no Huddle (migração 052).
